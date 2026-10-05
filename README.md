@@ -67,7 +67,8 @@ Free games to start with, all from their official sources:
 - `games/fetch-homebrew` installs the best-ranked finished homebrew from [Homebrew Hub](https://hh.gbdev.io):
   100 Game Boy, 100 Game Boy Color, 100 GBA and 18 NES games, with cover art and author credits.
 - `games/fetch-freeware` installs 12 ScummVM freeware adventures (Beneath a Steel Sky, Flight of the Amazon
-  Queen, Broken Sword 2.5 and more) and the 20 arcade ROMs MAME distributes with their owners' permission.
+  Queen, Broken Sword 2.5 and more), the 20 arcade ROMs MAME distributes with their owners' permission, and
+  open-source GameCube homebrew (Retro League GX, Super Methane Brothers) with credits.
 
 Games you own: dump them yourself and run `kit-games ingest`. [docs/DUMPING-GUIDE.md](docs/DUMPING-GUIDE.md) lists the
 right tool per console (GB Operator, OSCR, redumper, CleanRip, DreamShell) with steps.

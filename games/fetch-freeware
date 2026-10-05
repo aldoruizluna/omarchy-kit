@@ -6,6 +6,8 @@
                      <id>.scummvm launcher file RetroArch's ScummVM core opens
   MAME free ROMs     arcade games whose owners allowed free non-commercial distribution
                      (https://www.mamedev.org/roms/), installed to ~/Games/roms/mame/
+  GameCube homebrew  open-source GameCube games with prebuilt .dol files from their authors' releases or
+                     libretro's free content, installed to ~/Games/roms/gc/ (credits in HOMEBREW-CREDITS.md)
 
 Re-running skips what is already installed. Runs `kit-games scan` at the end.
 """
@@ -35,6 +37,17 @@ MAME = {"circus": "Circus", "robotbwl": "Robot Bowl", "carpolo": "Car Polo", "si
         "fireone": "Fire One", "crash": "Crash", "starfire": "Star Fire", "targ": "Targ", "spectar": "Spectar",
         "hardhat": "Hard Hat", "victory": "Victory", "teetert": "Teeter Torture", "fax": "FAX", "topgunnr": "Top Gunner",
         "robby": "Robby Roto", "supertnk": "Super Tank", "looping": "Looping", "gridlee": "Gridlee", "alienar": "Alien Arena"}
+
+# (title, download URL, member inside a zip or None, license, author, project page). Checked 2026-10-05: each
+# boots in standalone Dolphin here. Ports needing an SD card (Neverball, from Swiss's releases) are left out:
+# Dolphin doesn't emulate the GameCube SD adapter.
+GAMECUBE = [
+    ("Retro League GX", "https://github.com/mholtkamp/retro-league/releases/download/0.21/RetroLeague_GCN.dol", None,
+     "MIT", "Martin Holtkamp", "https://github.com/mholtkamp/retro-league"),
+    ("Super Methane Brothers",
+     "https://buildbot.libretro.com/assets/cores/Nintendo%20-%20GameCube%20-%20Wii/Super%20Methane%20Brothers.zip",
+     "Super Methane Brothers.dol", "GPL-2.0", "rombust (game), Infact (GameCube port)", "http://methane.sourceforge.net/"),
+]
 
 
 def get(url):
@@ -79,6 +92,22 @@ def main():
             print(f"MAME     {name}")
         except Exception as e:
             print(f"MAME     {name}: failed ({e})")
+    gc = ROMS / "gc"
+    for title, url, member, lic, author, page in GAMECUBE:
+        out = gc / f"{title}.dol"
+        if out.exists(): continue
+        try:
+            data = get(url)
+            if member:
+                with zipfile.ZipFile(io.BytesIO(data)) as zf: data = zf.read(member)
+            gc.mkdir(parents=True, exist_ok=True); out.write_bytes(data)
+            manifest[f"gc:{title}"] = {"title": title, "source": url, "license": lic, "author": author}
+            print(f"GameCube {title}")
+        except Exception as e:
+            print(f"GameCube {title}: failed ({e})")
+    if gc.exists():
+        (gc / "HOMEBREW-CREDITS.md").write_text("# GameCube homebrew\n\n" + "".join(
+            f"- **{t}** by {a}. License: {l}. {p}\n" for t, _, _, l, a, p in GAMECUBE))
     (ROMS / "mame" / "labels.json").write_text(json.dumps(MAME, indent=1))  # kit-games uses these as playlist titles
     MANIFEST.write_text(json.dumps(manifest, indent=1))
     (ROMS / "mame" / "FREE-ROMS.md").write_text("# Free MAME ROMs\n\nDistributed with the rights holders' permission for non-commercial use: "
