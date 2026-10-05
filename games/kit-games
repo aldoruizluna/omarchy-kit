@@ -9,6 +9,8 @@
   kit-games status    budget + BIOS as JSON (used by the Omarchy Kit Setup log)
   kit-games ingest    identify your own dumps in ~/Games/inbox against libretro's No-Intro/Redump databases,
                       rename them to the canonical title, compress discs (CHD) and GameCube (RVZ), file them
+  kit-games cabinet   generate a RetroFE "cabinet mode" in ~/Games/retrofe over this library (collections,
+                      RetroArch launchers, box art, PS4 controls) and a "Retro Cabinet" launcher entry
   kit-games export-telesia [--upload]
                       write ~/Games/telesia/library.json for Telesia's import (RetroArch playlist items with
                       clean titles + playtime from RetroArch's runtime logs); --upload sends it when
@@ -418,6 +420,84 @@ def cmd_export_telesia(upload=None):
     return 0
 
 
+# ---------------------------------------------------------------- RetroFE cabinet
+CABINET = GAMES / "retrofe"
+RETROFE_HOME = Path("/opt/retrofe")
+CABINET_SETTINGS = {  # keys read from phulshof/RetroFE@Release-0.10.31 Package/Environment/Common/settings.conf
+    "fullscreen": "yes", "horizontal": "stretch", "vertical": "stretch", "layout": "Aeon Nox", "hideMouse": "yes",
+    "showParenthesis": "no", "showSquareBrackets": "no", "videoEnable": "yes", "firstCollection": "Main",
+    "lastplayedSize": "20", "rememberMenu": "yes", "backOnEmpty": "yes", "attractModeTime": "120",
+}
+# SDL joystick buttons of a DualShock 4 on hid-playstation: 0 ✕, 1 ○, 2 △, 3 □, 4 L1, 5 R1, 8 Share, 9 Options
+CABINET_CONTROLS = {
+    "up": "Up,joyHat0Up", "down": "Down,joyHat0Down", "left": "Left,joyHat0Left", "right": "Right,joyHat0Right",
+    "pageUp": "A,joyButton4", "pageDown": "B,joyButton5", "letterUp": "M", "letterDown": "N",
+    "collectionUp": "K", "collectionDown": "L", "favPlaylist": "F,joyButton2", "nextPlaylist": "F2",
+    "prevPlaylist": "F1", "addPlaylist": "I,joyButton3", "removePlaylist": "O", "random": "R",
+    "select": "Return,joyButton0", "back": "Escape,joyButton1", "quit": "Q", "deadZone": "20",
+}
+
+
+def collection_name(sysdef):
+    return re.sub(r"[/\\:]+", "-", sysdef["name"]).replace("  ", " ").strip()
+
+
+def cmd_cabinet():
+    if not (RETROFE_HOME / "layouts").exists():
+        print("RetroFE is not installed yet: run `yay -S retrofe`, then `kit-games cabinet` again.")
+    CABINET.mkdir(parents=True, exist_ok=True)
+    if (CABINET / "meta").is_symlink(): (CABINET / "meta").unlink()
+    for d in ("collections", "launchers", "meta/hyperlist"): (CABINET / d).mkdir(parents=True, exist_ok=True)
+    layouts = CABINET / "layouts"
+    if (RETROFE_HOME / "layouts").exists() and not layouts.exists(): layouts.symlink_to(RETROFE_HOME / "layouts")
+    from xml.sax.saxutils import escape, quoteattr
+    (CABINET / "settings.conf").write_text("".join(f"{k} = {v}\n" for k, v in CABINET_SETTINGS.items()))
+    (CABINET / "controls.conf").write_text("".join(f"{k} = {v}\n" for k, v in CABINET_CONTROLS.items()))
+    menu = []
+    for sysdef in SYSTEMS:
+        games = games_in(sysdef)
+        if not games: continue
+        name = collection_name(sysdef)
+        col = CABINET / "collections" / name
+        if col.exists(): shutil.rmtree(col)
+        col.mkdir(parents=True)
+        (CABINET / "launchers" / f"{sysdef['core']}.conf").write_text(
+            f"executable = /usr/bin/retroarch\narguments = -L {CORES}/{sysdef['core']}_libretro.so \"%ITEM_FILEPATH%\"\n")
+        # artwork per collection, named the way RetroFE looks it up (the item name = the file name without extension)
+        lpl = PLAYLISTS / f"{sysdef['db']}.lpl"
+        labels = {Path(i["path"]).stem: i["label"] for i in json.loads(lpl.read_text())["items"]} if lpl.exists() else {}
+        media = {"artwork_front": "Named_Boxarts", "screenshot": "Named_Snaps", "screentitle": "Named_Titles"}
+        for kind, folder in media.items():
+            out = col / "medium_artwork" / kind; out.mkdir(parents=True)
+            for g in games:
+                src = THUMBS / sysdef["db"] / folder / f"{thumb_name(labels.get(g.stem, g.stem))}.png"
+                if src.exists(): (out / f"{g.stem}.png").symlink_to(src)
+        exts = sorted({g.suffix.lstrip(".").lower() for g in games})
+        (col / "settings.conf").write_text(
+            f"list.path = {ROMS / sysdef['folder']}\nlist.includeMissingItems = false\nlist.extensions = {','.join(exts)}\n"
+            f"list.menuSort = true\nlauncher = {sysdef['core']}\n"
+            + "".join(f"media.{k} = {col / 'medium_artwork' / k}\n" for k in media))
+        if sysdef["folder"] == "scummvm":  # games are folders; romHierarchy makes RetroFE descend into them
+            with (col / "settings.conf").open("a") as f: f.write("list.romHierarchy = true\n")
+        # titles: RetroFE reads meta/hyperlist/<collection>.xml (HyperSpin format) into its meta.db; without one it
+        # would show file names ("circus", "sky"). name = file name without extension, description = playlist title.
+        rows = "".join(f"  <game name={quoteattr(g.stem)}><description>{escape(labels.get(g.stem, g.stem))}</description></game>\n" for g in games)
+        (CABINET / "meta" / "hyperlist" / f"{name}.xml").write_text(f"<?xml version=\"1.0\"?>\n<menu>\n{rows}</menu>\n")
+        (CABINET / "meta.db").unlink(missing_ok=True)  # rebuilt by RetroFE on its next start
+        menu.append(name)
+    main = CABINET / "collections" / "Main"; main.mkdir(exist_ok=True)
+    (main / "settings.conf").write_text("list.extensions = sh\nlist.menuSort = no\nlauncher = Main\n")
+    (main / "menu.txt").write_text("\n".join(menu) + "\n")
+    (CABINET / "launchers" / "Main.conf").write_text("executable = /bin/true\n")
+    desktop = Path.home() / ".local/share/applications/retro-cabinet.desktop"
+    desktop.parent.mkdir(parents=True, exist_ok=True)
+    desktop.write_text("[Desktop Entry]\nType=Application\nName=Retro Cabinet\nComment=Arcade-cabinet frontend (RetroFE) over your game library\n"
+                       f"Exec=env RETROFE_PATH={CABINET} retrofe\nIcon=retro-gaming\nCategories=Game;Emulator;\nTerminal=false\n")
+    print(f"Cabinet: {len(menu)} collections in {CABINET}. Start it from the launcher as 'Retro Cabinet' "
+          f"(or: RETROFE_PATH={CABINET} retrofe).")
+    return 0
+
+
 # ---------------------------------------------------------------- BIOS
 def bios_report():
     """One row per console from systems.toml [[bios]]; a row is satisfied when any of its files exists."""
@@ -443,7 +523,7 @@ def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "budget"
     if cmd == "status": print(json.dumps(status())); return 0
     fn = {"init": cmd_init, "scan": cmd_scan, "art": cmd_art, "budget": cmd_budget, "bios": cmd_bios,
-          "ingest": cmd_ingest, "export-telesia": cmd_export_telesia}.get(cmd)
+          "ingest": cmd_ingest, "export-telesia": cmd_export_telesia, "cabinet": cmd_cabinet}.get(cmd)
     if not fn: print(__doc__); return 2
     return fn() or 0
 

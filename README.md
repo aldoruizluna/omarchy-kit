@@ -72,6 +72,9 @@ games/kit-games scan     # playlists
 games/kit-games art      # box art, screenshots, title screens
 games/kit-games budget   # space per console vs. the plan
 games/kit-games bios     # which BIOS files are present
+games/kit-games ingest   # identify your own dumps in ~/Games/inbox, rename, compress (CHD/RVZ), file them
+games/kit-games cabinet  # RetroFE "cabinet mode" over the library (needs the AUR package retrofe)
+games/kit-games export-telesia [--upload]   # library + playtime for Telesia's RetroArch import
 ```
 
 ## Run it
