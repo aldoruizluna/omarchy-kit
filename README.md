@@ -17,6 +17,7 @@ machine's real shortcuts, gestures, menus and hardware, and checks live that you
 | **From macOS** | "How do I…?" for 41 Mac habits, translated to the shortcuts on *this* system |
 | **Your MacBook** | What works on 2014 MacBook hardware, with live readings and fixes |
 | **System** | Live graphs (2 s samples, 30 min history) of CPU temperature, fans, load, memory, network and battery, plus the busiest apps |
+| **Games** | Retro library status per console, disk budget, BIOS checklist, PS4 controller battery and hotkeys |
 | **Keyboard / Trackpad** | Interactive 3D models of the MacBook keyboard and trackpad, showing every binding and gesture |
 | **Reference / Cheat sheet** | All Omarchy commands, the full menu tree, and a glossary, read from the installed Omarchy |
 | **Apps** | One-click installer for the apps in `apps.toml` |
@@ -38,6 +39,33 @@ Across every page:
 - The Setup log documents each change with its undo command.
 
 These scripts are written for MacBookPro11,3. `gpu/nvidia-off` and `gpu/switch-to-intel` refuse to run on any other model; read the rest before running them on another machine.
+
+## Retro gaming
+
+RetroArch (installed with Omarchy's own installer), tuned from benchmarks on this machine at 2880×1800:
+
+- **OpenGL instead of Vulkan:** Mesa reports Haswell Vulkan as incomplete.
+- **CRT filters chosen by measured fps:** Omarchy's default crt-royale ran at 45 fps (games need 60). The global
+  filter is zfast-crt (558 fps), 2D consoles use crt-hyllian-fast (272 fps), and handhelds get LCD filters.
+- **Low latency:** 2D consoles use one frame of run-ahead plus rewind. Cave Story (Mega Drive) still runs at
+  202 fps with everything on.
+- **3D consoles:** PlayStation at 2× with PGXP, N64 with GLideN64 at 960×720, Dreamcast at 1280×960.
+- **PS4 controller:** PS opens the menu; hold Share with R1/L1 to save/load a state, R2 to fast-forward,
+  L2 to rewind, and Options to quit.
+
+`games/kit-games` manages the library in `~/Games/roms/<console>`. Your own dumps go there, named the
+No-Intro/Redump way. It builds one playlist per console pinned to the right core, downloads box art from
+libretro's thumbnail server, fetches Dolphin's open-source `Sys` folder for GameCube, checks BIOS files, and
+keeps the library within a budget of half the free disk. Consoles, cores and the space plan are in
+`games/systems.toml`.
+
+```bash
+games/kit-games init     # folders, budget, Dolphin Sys data
+games/kit-games scan     # playlists
+games/kit-games art      # box art, screenshots, title screens
+games/kit-games budget   # space per console vs. the plan
+games/kit-games bios     # which BIOS files are present
+```
 
 ## Run it
 

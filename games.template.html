@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Retro games · Omarchy Kit</title>
+<link rel="stylesheet" href="portal.css">
+<style>
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-top:16px}
+.big{font:700 2.6rem/1 system-ui,sans-serif;letter-spacing:-.02em;margin:6px 0 2px}
+.big small{font-size:.42em;font-weight:600;color:var(--mut);margin-left:4px}
+.meter{height:10px;border-radius:99px;background:var(--kbd);overflow:hidden;margin:8px 0 4px}
+.meter>i{display:block;height:100%;border-radius:99px;background:var(--acc-fill,var(--acc));min-width:2px}
+.meter.warn>i{background:var(--warn)}.meter.bad>i{background:var(--bad)}
+.state{display:inline-flex;gap:6px;align-items:center;font-weight:700}
+.state svg{width:16px;height:16px}
+.sys{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.sys .card{padding:12px 14px}
+.sys h3{margin:0;font-size:.95rem;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.tier{font:600 .72rem var(--mono,ui-monospace,monospace);color:var(--mut);white-space:nowrap}
+.sys .nums{display:flex;justify-content:space-between;font-size:.8rem;color:var(--mut);font-variant-numeric:tabular-nums}
+.sys .meter{height:6px;margin:6px 0 4px}
+.pad{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-width:2em;height:1.9em;padding:0 8px;border-radius:99px;border:1px solid var(--line);
+  border-bottom-width:3px;background:var(--kbd);font:700 .8rem var(--mono,ui-monospace,monospace);white-space:nowrap}
+.btn+.btn{margin-left:4px}
+.bios td,.bios th{padding:6px 8px;font-size:.88rem}
+.bios code{font-size:.8rem}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:.82rem;color:var(--mut);margin:6px 0 10px}
+ol.steps{padding-left:20px;margin:6px 0}ol.steps li{margin:6px 0}
+</style>
+<meta name="kit-token" content=""><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="kit.css"><script src="kit.js" defer></script></head>
+<body><div class="wrap">
+<header class="top"><span class="brand">Omarchy Kit</span><button id="bLang"></button></header>
+<div id="top"></div>
+<h1 data-en="Retro games" data-es="Juegos retro"></h1>
+<p class="lead" data-en="RetroArch tuned for this MacBook: every console from the NES to the GameCube, a PS4 controller, box art, and a library that stays within half of the free disk." data-es="RetroArch ajustado para esta MacBook: cada consola desde el NES hasta el GameCube, un control de PS4, carátulas y una biblioteca que no pasa de la mitad del disco libre."></p>
+<div class="callout warn hidden" id="offline"></div>
+
+<div class="strip">
+  <div class="card">
+    <div class="small mut" data-en="Controller" data-es="Control"></div>
+    <div id="pad"></div>
+  </div>
+  <div class="card">
+    <div class="small mut" data-en="Library" data-es="Biblioteca"></div>
+    <div id="lib"></div>
+  </div>
+  <div class="card">
+    <div class="small mut" data-en="Play" data-es="Jugar"></div>
+    <p style="margin:8px 0 6px" data-en="Open <b>RetroArch</b> from the app launcher (<kbd>Super</kbd>+<kbd>Space</kbd>). Each console has its own playlist with box art; press <span class='btn'>✕</span> to start a game." data-es="Abre <b>RetroArch</b> desde el lanzador (<kbd>Super</kbd>+<kbd>Space</kbd>). Cada consola tiene su lista con carátulas; presiona <span class='btn'>✕</span> para empezar."></p>
+    <p class="small mut" data-en="The PS button opens RetroArch's menu during a game." data-es="El botón PS abre el menú de RetroArch durante un juego."></p>
+  </div>
+</div>
+
+<h2 data-en="PS4 controller shortcuts" data-es="Atajos del control de PS4"></h2>
+<div class="card"><div class="pad" id="hotkeys"></div></div>
+
+<h2 data-en="Consoles" data-es="Consolas"></h2>
+<div class="legend" id="legend"></div>
+<div class="sys" id="sys"></div>
+
+<h2 data-en="Adding your games" data-es="Agregar tus juegos"></h2>
+<div class="card">
+  <ol class="steps">
+    <li data-en="Copy your own dumps into <code>~/Games/roms/&lt;console&gt;</code> (folders: nes, snes, n64, gb, gbc, gba, gc, mastersystem, megadrive, gamegear, sega32x, segacd, saturn, dreamcast, pcengine, pcenginecd, psx, arcade)." data-es="Copia tus propios respaldos en <code>~/Games/roms/&lt;consola&gt;</code> (carpetas: nes, snes, n64, gb, gbc, gba, gc, mastersystem, megadrive, gamegear, sega32x, segacd, saturn, dreamcast, pcengine, pcenginecd, psx, arcade)."></li>
+    <li data-en="Name files the No-Intro / Redump way, like <code>Super Metroid (USA).sfc</code>, so box art matches. Keep discs as <b>CHD</b> and GameCube games as <b>RVZ</b>: about half the size of raw images." data-es="Nombra los archivos al estilo No-Intro / Redump, como <code>Super Metroid (USA).sfc</code>, para que coincidan las carátulas. Guarda los discos como <b>CHD</b> y los juegos de GameCube como <b>RVZ</b>: ocupan cerca de la mitad."></li>
+    <li data-en="Press <b>Update library</b>: it rebuilds the playlists, fetches box art and re-checks the budget." data-es="Presiona <b>Actualizar biblioteca</b>: rehace las listas, descarga carátulas y revisa el presupuesto."></li>
+  </ol>
+  <div class="row" style="margin-top:10px"><button class="primary" id="scanBtn"></button><span class="small mut" id="scanMsg"></span></div>
+  <p class="small mut" style="margin-top:10px" data-en="From a terminal: <code>~/labspace/omarchy-kit/games/kit-games scan</code>, then <code>kit-games art</code> and <code>kit-games budget</code>." data-es="Desde una terminal: <code>~/labspace/omarchy-kit/games/kit-games scan</code>, luego <code>kit-games art</code> y <code>kit-games budget</code>."></p>
+</div>
+
+<h2 data-en="BIOS files" data-es="Archivos BIOS"></h2>
+<p class="small mut" data-en="Some consoles need the startup firmware of the real console, dumped from one you own, in <code>~/Games/bios</code>." data-es="Algunas consolas necesitan el firmware de arranque de la consola real, copiado de una que tengas, en <code>~/Games/bios</code>."></p>
+<div class="card"><table class="bios" id="bios"></table></div>
+</div>
+<script>window.PORTAL=/*__PORTAL__*/{};window.TOKEN=/*__TOKEN__*/null;</script>
+<script src="portal.js"></script><script src="portal-nav.js"></script>
+<script>
+const t = Portal.t, esc = Portal.esc;
+let G = null;
+const GB = 1e9, human = (b) => (b >= GB ? (b / GB).toFixed(1) + " GB" : b >= 1e6 ? Math.round(b / 1e6) + " MB" : Math.round(b / 1e3) + " KB");
+const ICON = { ok: "M5 12l4 4 10-10", warn: "M12 4 2 20h20zM12 10v4M12 17h.01", off: "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM8 12h8" };
+const state = (cls, label) => `<span class="state ${cls === "off" ? "mut" : cls}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICON[cls]}"/></svg>${esc(label)}</span>`;
+const TIERS = { perfect: { en: "runs perfectly", es: "corre perfecto" }, great: { en: "runs great", es: "corre muy bien" }, good: { en: "most games full speed", es: "casi todo a velocidad completa" }, mixed: { en: "curated: varies by game", es: "selección: depende del juego" } };
+const HOT = [
+  [["PS"], { en: "RetroArch menu (pause, settings, quit to library)", es: "Menú de RetroArch (pausa, ajustes, volver a la biblioteca)" }],
+  [["Share", "R1"], { en: "Save state", es: "Guardar estado" }],
+  [["Share", "L1"], { en: "Load state", es: "Cargar estado" }],
+  [["Share", "R2"], { en: "Hold to fast-forward", es: "Mantén para avanzar rápido" }],
+  [["Share", "L2"], { en: "Hold to rewind (2D consoles)", es: "Mantén para rebobinar (consolas 2D)" }],
+  [["Share", "Options"], { en: "Quit RetroArch (press twice)", es: "Salir de RetroArch (presiona dos veces)" }],
+  [["✕"], { en: "Confirm in menus", es: "Aceptar en menús" }],
+  [["○"], { en: "Back in menus", es: "Atrás en menús" }],
+];
+function draw() {
+  document.getElementById("hotkeys").innerHTML = HOT.map(([b, d]) => `<div>${b.map((x) => `<span class="btn">${esc(x)}</span>`).join("")}</div><div>${esc(t(d))}</div>`).join("");
+  document.getElementById("legend").innerHTML = Object.entries(TIERS).map(([k, v]) => `<span><b>${k}</b>: ${esc(t(v))}</span>`).join("");
+  document.getElementById("scanBtn").textContent = t({ en: "Update library", es: "Actualizar biblioteca" });
+  if (!G) return;
+  const c = G.controller;
+  document.getElementById("pad").innerHTML = c.name
+    ? `<div class="big" style="font-size:1.4rem;margin-top:8px">${esc(c.name)}</div>${state("ok", t({ en: "Connected", es: "Conectado" }))}` +
+      (c.battery ? `<div class="meter ${c.battery.pct < 25 ? "bad" : ""}"><i style="width:${c.battery.pct}%"></i></div><div class="small mut">${t({ en: "Battery", es: "Batería" })} ${c.battery.pct}% · ${esc(c.battery.status)}</div>` : "")
+    : `<p style="margin:8px 0">${state("off", t({ en: "Not connected", es: "No conectado" }))}</p><p class="small">${t({ en: "Pair once: hold <span class='btn'>Share</span>+<span class='btn'>PS</span> until the light bar double-flashes, then pick “Wireless Controller” in the Bluetooth menu (<kbd>Super</kbd>+<kbd>Ctrl</kbd>+<kbd>B</kbd>). After that, just press PS.", es: "Emparéjalo una vez: mantén <span class='btn'>Share</span>+<span class='btn'>PS</span> hasta que la barra de luz parpadee dos veces y elige “Wireless Controller” en el menú Bluetooth (<kbd>Super</kbd>+<kbd>Ctrl</kbd>+<kbd>B</kbd>). Después, solo presiona PS." })}</p>`;
+  const L = G.library;
+  if (!L) { document.getElementById("lib").innerHTML = `<p class="mut">${t({ en: "Library tool not available.", es: "Herramienta de biblioteca no disponible." })}</p>`; return; }
+  const pct = L.cap ? (100 * L.used) / L.cap : 0;
+  document.getElementById("lib").innerHTML = `<div class="big">${L.games}<small>${t({ en: "games", es: "juegos" })}</small></div>
+    <div class="meter ${pct > 100 ? "bad" : pct > 90 ? "warn" : ""}"><i style="width:${Math.min(100, pct)}%"></i></div>
+    <div class="small mut">${human(L.used)} ${t({ en: "of", es: "de" })} ${human(L.cap)} ${t({ en: "budget", es: "de presupuesto" })} (${pct < 0.1 ? "<0.1" : pct.toFixed(1)}%) · ${t({ en: "plan", es: "plan" })} ${human(L.plan)}</div>
+    <div class="small mut">${t({ en: "Box art", es: "Carátulas" })}: ${human(L.art)}</div>`;
+  document.getElementById("sys").innerHTML = L.rows.map((r) => {
+    const p = r.alloc ? (100 * r.used) / r.alloc : 0;
+    return `<div class="card"><h3>${esc(r.name)}<span class="tier">${esc(r.tier)}</span></h3>
+      <div class="meter ${p > 115 ? "warn" : ""}"><i style="width:${Math.min(100, p)}%"></i></div>
+      <div class="nums"><span>${r.games} / ${r.target} ${t({ en: "games", es: "juegos" })}</span><span>${human(r.used)} / ${human(r.alloc)}</span></div></div>`;
+  }).join("");
+  const NEED = { required: { en: "required", es: "obligatorio" }, recommended: { en: "recommended", es: "recomendado" }, optional: { en: "optional", es: "opcional" } };
+  const B = [...L.bios].sort((a, b) => a.present - b.present || a.optional - b.optional);
+  document.getElementById("bios").innerHTML = `<tr><th></th><th>${t({ en: "Console", es: "Consola" })}</th><th>${t({ en: "File in ~/Games/bios", es: "Archivo en ~/Games/bios" })}</th><th>${t({ en: "Needed?", es: "¿Necesario?" })}</th></tr>` +
+    B.map((b) => `<tr><td>${b.present ? state("ok", "") : b.optional ? state("off", "") : state("warn", "")}</td><td>${esc(b.system)}</td><td>${(b.present ? [b.file] : b.alternatives).map((f) => `<code>${esc(f)}</code>`).join(` <span class="mut small">${t({ en: "or", es: "o" })}</span> `)}<div class="small mut">${esc(b.desc)}</div></td><td>${b.need === "required" ? `<b>${t(NEED.required)}</b>` : t(NEED[b.need])}</td></tr>`).join("");
+}
+async function load() {
+  if (!Portal.live) { const o = document.getElementById("offline"); o.classList.remove("hidden"); o.textContent = t({ en: "Open this page with Super+Shift+H to see your library and controller.", es: "Abre esta página con Super+Shift+H para ver tu biblioteca y control." }); return; }
+  try { G = await (await fetch("/api/games", { cache: "no-store" })).json(); } catch (e) { G = null; }
+  draw();
+}
+document.getElementById("scanBtn").addEventListener("click", async () => {
+  const msg = document.getElementById("scanMsg"), tk = document.querySelector('meta[name="kit-token"]')?.content;
+  msg.textContent = t({ en: "Updating…", es: "Actualizando…" });
+  try {
+    const r = await fetch("/api/games/scan", { method: "POST", headers: { "X-Token": tk, "Content-Type": "application/json" }, body: "{}" });
+    const j = await r.json(); msg.textContent = j.message; load();
+  } catch (e) { msg.textContent = t({ en: "Couldn't update: open the kit with Super+Shift+H.", es: "No se pudo actualizar: abre el kit con Super+Shift+H." }); }
+});
+Portal.start(draw);
+load(); setInterval(() => { if (!document.hidden) load(); }, 5000);
+</script></body></html>

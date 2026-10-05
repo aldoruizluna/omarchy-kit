@@ -1,0 +1,274 @@
+#!/usr/bin/env python3
+"""kit-games: keep a retro library organised, playable and inside its disk budget.
+
+  kit-games init      create ~/Games/roms/<system> folders and fix the budget (half the free disk, once)
+  kit-games scan      build one RetroArch playlist per system, each pinned to the best core for this machine
+  kit-games art       download box art, screenshots and title screens for every playlist entry
+  kit-games budget    show space used per system against the plan; exits 1 when over the cap
+  kit-games bios      show which BIOS files each system's core needs and whether ~/Games/bios has them
+  kit-games status    budget + BIOS as JSON (used by the Omarchy Kit Setup log)
+
+Systems, cores and allocations live in systems.toml next to this script. ROMs are never downloaded by
+this tool: put your own dumps in ~/Games/roms/<folder>, named the No-Intro/Redump way
+("Title (Region).ext") so playlists and box art match.
+"""
+import json, os, re, shutil, subprocess, sys, tomllib, urllib.parse, urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+PLAN = tomllib.loads((HERE / "systems.toml").read_text())
+SYSTEMS = PLAN["system"]
+GAMES = Path.home() / "Games"
+ROMS, BIOS = GAMES / "roms", GAMES / "bios"
+BUDGET_FILE = GAMES / ".kit-budget.json"
+MISSING_ART = GAMES / ".kit-art-missing.json"
+RA = Path.home() / ".config/retroarch"
+CORES, INFO = Path("/usr/lib/libretro"), Path("/usr/share/libretro/info")
+GB = 1e9
+
+
+def ra_setting(key, default):
+    try:
+        for line in (RA / "retroarch.cfg").read_text().splitlines():
+            m = re.match(rf'{key}\s*=\s*"(.*)"', line)
+            if m and m[1] and m[1] != "default": return Path(os.path.expanduser(m[1].replace(":", str(RA), 1) if m[1].startswith(":") else m[1]))
+    except FileNotFoundError:
+        pass
+    return default
+
+
+PLAYLISTS = ra_setting("playlist_directory", RA / "playlists")
+THUMBS = ra_setting("thumbnails_directory", RA / "thumbnails")
+
+
+def du(path):
+    total = 0
+    for root, _, files in os.walk(path):
+        for f in files:
+            try: total += os.lstat(os.path.join(root, f)).st_size
+            except OSError: pass
+    return total
+
+
+def info(core):
+    out = {}
+    try:
+        for line in (INFO / f"{core}_libretro.info").read_text().splitlines():
+            m = re.match(r'\s*(\w+)\s*=\s*"?(.*?)"?\s*$', line)
+            if m: out[m[1]] = m[2]
+    except FileNotFoundError:
+        pass
+    return out
+
+
+def games_in(sysdef):
+    """Playable files for a system; disc images referenced by an .m3u are hidden behind the .m3u."""
+    folder = ROMS / sysdef["folder"]
+    if not folder.is_dir(): return []
+    exts = {"." + e for e in sysdef["exts"]}
+    files = sorted(p for p in folder.rglob("*") if p.is_file() and p.suffix.lower() in exts)
+    hidden = set()
+    for m3u in (p for p in files if p.suffix.lower() == ".m3u"):
+        for line in m3u.read_text(errors="ignore").splitlines():
+            if line.strip() and not line.startswith("#"): hidden.add((m3u.parent / line.strip()).resolve())
+    if any(p.suffix.lower() in (".cue", ".gdi") for p in files):  # .bin tracks belong to their .cue/.gdi
+        files = [p for p in files if p.suffix.lower() != ".bin" or sysdef["folder"] == "megadrive"]
+    return [p for p in files if p.resolve() not in hidden]
+
+
+# ---------------------------------------------------------------- budget
+def budget_cap():
+    if BUDGET_FILE.exists(): return json.loads(BUDGET_FILE.read_text())
+    return None
+
+
+def library_bytes():
+    return du(ROMS) + sum(du(THUMBS / s["db"]) for s in SYSTEMS)
+
+
+def dolphin_sys():
+    """The libretro Dolphin core needs Dolphin's own Sys data folder (game settings, open-source code handler) in
+    bios/dolphin-emu/Sys; Arch's package doesn't ship it. Fetch it from the core's exact git commit."""
+    dest = BIOS / "dolphin-emu" / "Sys"
+    if (dest / "codehandler.bin").exists() or not (CORES / "dolphin_libretro.so").exists(): return
+    ver = subprocess.run(["pacman", "-Q", "libretro-dolphin"], capture_output=True, text=True).stdout.split()
+    commit = re.search(r"\.g([0-9a-f]{7,40})", ver[1]).group(1) if len(ver) > 1 and re.search(r"\.g([0-9a-f]{7,40})", ver[1]) else "master"
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        git = lambda *a: subprocess.run(["git", "-C", tmp, *a], check=True, capture_output=True)
+        subprocess.run(["git", "clone", "-q", "--filter=blob:none", "--no-checkout", "https://github.com/libretro/dolphin", tmp], check=True, capture_output=True)
+        git("sparse-checkout", "set", "--no-cone", "/Data/Sys"); git("checkout", "-q", commit)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(Path(tmp) / "Data" / "Sys", dest, dirs_exist_ok=True)
+    print(f"Installed Dolphin's Sys folder (libretro/dolphin {commit[:10]}) for GameCube.")
+
+
+def cmd_init():
+    for s in SYSTEMS: (ROMS / s["folder"]).mkdir(parents=True, exist_ok=True)
+    BIOS.mkdir(parents=True, exist_ok=True)
+    try: dolphin_sys()
+    except Exception as e: print(f"Could not fetch Dolphin's Sys folder ({e}); GameCube games won't start until it's in {BIOS}/dolphin-emu/Sys.")
+    if not budget_cap():
+        free = shutil.disk_usage(GAMES).free
+        cap = (free + library_bytes()) // 2
+        BUDGET_FILE.write_text(json.dumps({"cap_bytes": cap, "rule": "half of the free disk when the library was set up",
+                                           "set_on": subprocess.run(["date", "+%F"], capture_output=True, text=True).stdout.strip()}))
+    c = budget_cap()
+    print(f"Folders ready in {ROMS}. Budget: {c['cap_bytes'] / GB:.0f} GB ({c['rule']}, {c['set_on']}).")
+
+
+def plan_rows():
+    rows = []
+    for s in SYSTEMS:
+        g = games_in(s)
+        used = du(ROMS / s["folder"])
+        rows.append({"folder": s["folder"], "name": s["name"], "tier": s["tier"], "games": len(g), "target": s["target"],
+                     "used": used, "alloc": s["target"] * s["gb_each"] * GB})
+    return rows
+
+
+def status():
+    rows, cap = plan_rows(), budget_cap()
+    art = sum(du(THUMBS / s["db"]) for s in SYSTEMS)
+    used = sum(r["used"] for r in rows) + art
+    plan = sum(r["alloc"] for r in rows) + PLAN["art"]["gb_reserved"] * GB
+    return {"cap": cap["cap_bytes"] if cap else None, "used": used, "art": art, "plan": plan, "rows": rows,
+            "games": sum(r["games"] for r in rows), "bios": bios_report()}
+
+
+def human(b):
+    return f"{b / GB:.1f} GB" if b >= GB else f"{b / 1e6:.0f} MB" if b >= 1e6 else f"{b / 1e3:.0f} KB"
+
+
+def cmd_budget():
+    st = status()
+    print(f"{'System':30} {'tier':8} {'games':>11} {'used':>9} {'planned':>9}")
+    for r in st["rows"]:
+        flag = "  ← over plan" if r["used"] > r["alloc"] * 1.15 and r["used"] > 50e6 else ""
+        print(f"{r['name']:30} {r['tier']:8} {r['games']:>5}/{r['target']:<5} {human(r['used']):>9} {human(r['alloc']):>9}{flag}")
+    print(f"{'Art (box, snaps, titles)':30} {'':8} {'':>11} {human(st['art']):>9} {human(PLAN['art']['gb_reserved'] * GB):>9}")
+    if st["cap"] is None:
+        print("\nNo budget yet: run `kit-games init`."); return 0
+    pct = 100 * st["used"] / st["cap"]
+    print(f"\nLibrary: {human(st['used'])} of {human(st['cap'])} budget ({pct:.1f}%). Plan totals {human(st['plan'])}.")
+    if st["used"] > st["cap"]:
+        print("OVER BUDGET: remove games (or art) until the library fits."); return 1
+    return 0
+
+
+# ---------------------------------------------------------------- playlists
+def cmd_scan():
+    PLAYLISTS.mkdir(parents=True, exist_ok=True)
+    made = 0
+    for s in SYSTEMS:
+        core_path = CORES / f"{s['core']}_libretro.so"
+        core_name = info(s["core"]).get("corename", s["core"])
+        lpl = PLAYLISTS / f"{s['db']}.lpl"
+        files = games_in(s)
+        if not files:
+            continue
+        if s.get("arcade"):  # arcade sets have short names (sf2.zip): let RetroArch's scanner find the real titles
+            subprocess.run(["retroarch", f"--scan={ROMS / s['folder']}"], capture_output=True, timeout=600)
+            data = json.loads(lpl.read_text()) if lpl.exists() else {"version": "1.5", "items": []}
+            known = {i["path"] for i in data["items"]}
+            for f in files:  # anything the database didn't recognise still gets an entry
+                if str(f) not in known:
+                    data["items"].append({"path": str(f), "label": f.stem, "core_path": "DETECT", "core_name": "DETECT", "crc32": "DETECT", "db_name": lpl.name})
+        else:
+            data = {"version": "1.5", "items": [{"path": str(f), "label": f.stem, "core_path": "DETECT", "core_name": "DETECT",
+                                                  "crc32": "DETECT", "db_name": lpl.name} for f in files]}
+        data.update({"default_core_path": str(core_path), "default_core_name": core_name, "label_display_mode": 0,
+                     "right_thumbnail_mode": 0, "left_thumbnail_mode": 0, "sort_mode": 0,
+                     "scan_content_dir": str(ROMS / s["folder"]), "scan_file_exts": "|".join(s["exts"]),
+                     "scan_search_recursively": True, "scan_search_archives": False, "scan_filter_dat_content": False})
+        data["items"].sort(key=lambda i: i["label"].lower())
+        lpl.write_text(json.dumps(data, indent=2, ensure_ascii=False))
+        made += 1
+        print(f"{s['name']:30} {len(data['items']):>4} games → {core_name}")
+    print(f"{made} playlists in {PLAYLISTS}")
+    return cmd_budget_quiet()
+
+
+def cmd_budget_quiet():
+    st = status()
+    if st["cap"] and st["used"] > st["cap"]:
+        print(f"WARNING: library is {human(st['used'])}, over the {human(st['cap'])} budget. Run `kit-games budget`.")
+        return 1
+    return 0
+
+
+# ---------------------------------------------------------------- art
+def thumb_name(label):
+    return re.sub(r'[&*/:`<>?\\|"]', "_", label)
+
+
+def cmd_art():
+    cap = budget_cap()
+    reserve = PLAN["art"]["gb_reserved"] * GB
+    missing = set(json.loads(MISSING_ART.read_text())) if MISSING_ART.exists() else set()
+    jobs = []
+    for s in SYSTEMS:
+        lpl = PLAYLISTS / f"{s['db']}.lpl"
+        if not lpl.exists(): continue
+        for item in json.loads(lpl.read_text())["items"]:
+            for kind in PLAN["art"]["types"]:
+                name = thumb_name(item["label"]) + ".png"
+                dest = THUMBS / s["db"] / kind / name
+                url = "https://thumbnails.libretro.com/" + "/".join(urllib.parse.quote(x) for x in (s["db"], kind, name))
+                if not dest.exists() and url not in missing: jobs.append((url, dest))
+
+    def fetch(job):
+        url, dest = job
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "omarchy-kit"}), timeout=20) as r:
+                data = r.read()
+            dest.parent.mkdir(parents=True, exist_ok=True); dest.write_bytes(data)
+            return url, len(data)
+        except Exception:
+            return url, None
+
+    got = miss = 0
+    art_now = sum(du(THUMBS / s["db"]) for s in SYSTEMS)
+    with ThreadPoolExecutor(8) as ex:
+        for url, size in ex.map(fetch, jobs):
+            if size is None: missing.add(url); miss += 1
+            else: got += 1; art_now += size
+            if art_now > reserve:
+                print("Art reached its reserved space; stopping."); break
+    MISSING_ART.write_text(json.dumps(sorted(missing)))
+    print(f"Art: {got} downloaded, {miss} not on the libretro server (name the file the No-Intro/Redump way to match).")
+    return cmd_budget_quiet()
+
+
+# ---------------------------------------------------------------- BIOS
+def bios_report():
+    """One row per console from systems.toml [[bios]]; a row is satisfied when any of its files exists."""
+    out = []
+    for b in PLAN.get("bios", []):
+        found = next((f for f in b["any"] if (BIOS / f).exists()), None)
+        out.append({"system": b["system"], "file": found or b["any"][0], "alternatives": [f for f in b["any"] if not f.startswith("..")],
+                    "desc": b["note"], "need": b["need"], "optional": b["need"] == "optional", "present": bool(found)})
+    return out
+
+
+def cmd_bios():
+    have = 0
+    for b in bios_report():
+        mark = "✓" if b["present"] else ("·" if b["optional"] else "✗")
+        have += b["present"]
+        files = b["file"] if b["present"] else " or ".join(b["alternatives"])
+        print(f"{mark} {b['system']:30} {b['need']:11} {files}\n  {'':30} {b['desc']}")
+    print(f"\n✓ present  ✗ needed, missing  · optional, missing. Put BIOS files in {BIOS}.")
+
+
+def main():
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "budget"
+    if cmd == "status": print(json.dumps(status())); return 0
+    fn = {"init": cmd_init, "scan": cmd_scan, "art": cmd_art, "budget": cmd_budget, "bios": cmd_bios}.get(cmd)
+    if not fn: print(__doc__); return 2
+    return fn() or 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

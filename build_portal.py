@@ -112,7 +112,7 @@ def build():
     data = {"keys": keys, "missing": missing, "levels": LS.LEVELS, "mac": C.MAC, "glossary": C.GLOSSARY, "hw": C.HW,
             "commands": cmds, "groups": groups, "menu": mitems, "themes": themes(), "version": version}
     blob = json.dumps(data, ensure_ascii=False).replace("</", "<\\/")
-    for page in ("index", "learn", "mac", "macbook", "reference", "system"):
+    for page in ("index", "learn", "mac", "macbook", "reference", "system", "games"):
         tpl = HERE / f"{page}.template.html"
         if tpl.exists():
             (HERE / f"{page}.html").write_text(tpl.read_text().replace("/*__PORTAL__*/{}", blob))

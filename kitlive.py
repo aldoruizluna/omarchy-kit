@@ -2,7 +2,7 @@
 keeps ~30 minutes of hardware history for the System page. Everything here is read-only except
 set_theme(), which runs Omarchy's own `omarchy-theme-set` with a name from the installed theme list.
 """
-import colorsys, glob, os, re, shutil, subprocess, threading, time
+import colorsys, glob, json, os, re, shutil, subprocess, threading, time
 from pathlib import Path
 
 STATE = Path.home() / ".local/state/omarchy/current"
@@ -285,3 +285,30 @@ def top(n=6):
         g = agg.setdefault(name, [0, 0]); g[0] += cpu; g[1] += rss
     rows = sorted(agg.items(), key=lambda kv: -kv[1][0])[:n]
     return [{"name": k, "cpu": round(v[0], 1), "mb": round(v[1] / 2**20)} for k, v in rows]
+
+
+# ------------------------------------------------------------------ games
+_games = {"t": 0, "v": None}
+
+
+def controller():
+    """The connected gamepad (PS4/PS5 via hid-playstation) and its battery, if any."""
+    names = re.findall(r'N: Name="([^"]+)"', read("/proc/bus/input/devices"))
+    pad = next((n for n in names if re.search(r"Wireless Controller|DualShock|DualSense|Xbox|8BitDo|Pro Controller", n, re.I)
+                and not re.search(r"Motion Sensors|Touchpad", n)), None)
+    bat = None
+    for b in glob.glob("/sys/class/power_supply/ps-controller-battery-*"):
+        bat = {"pct": int(read(b + "/capacity") or 0), "status": read(b + "/status")}
+    return {"name": pad, "battery": bat}
+
+
+def games():
+    """Library status from games/kit-games (cached 30 s: it walks ~/Games) plus the live controller state."""
+    if time.time() - _games["t"] > 30 or _games["v"] is None:
+        try:
+            out = subprocess.run([str(Path(__file__).resolve().parent / "games" / "kit-games"), "status"],
+                                 capture_output=True, text=True, timeout=30).stdout
+            _games.update(t=time.time(), v=json.loads(out))
+        except Exception:
+            _games.update(t=time.time(), v=None)
+    return {"library": _games["v"], "controller": controller(), "retroarch": shutil.which("retroarch") is not None}

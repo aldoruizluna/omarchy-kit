@@ -8,12 +8,12 @@ const c = checker("portal"); const b = await launch({ width: 1280, height: 1000 
 const go = async (p) => { await b.goto(BASE + p); await b.sleep(700); };
 try {
   console.log("every page: loads, shared nav, no errors");
-  for (const p of ["/", "/learn", "/mac", "/macbook", "/system", "/reference", "/cheatsheet", "/keyboard", "/trackpad", "/apps", "/setup"]) {
+  for (const p of ["/", "/learn", "/mac", "/macbook", "/system", "/games", "/reference", "/cheatsheet", "/keyboard", "/trackpad", "/apps", "/setup"]) {
     const before = b.errors.length; await go(p);
     const n = await b.eval(`document.querySelectorAll('#top a').length`);
     const cur = await b.eval(`document.querySelector('#top a[aria-current=page]')?.getAttribute('href')`);
     const themed = await b.eval(`getComputedStyle(document.documentElement).getPropertyValue('--acc-fill').trim()!=='' && !!document.querySelector('.kit-search')`);
-    c.ok(n === 11 && cur === p && themed && b.errors.length === before, `${p}: 11 nav links, '${p}' marked current, Omarchy theme + search button, no errors`, `links=${n} current=${cur} themed=${themed} errors=${b.errors.slice(before).join(" | ")}`);
+    c.ok(n === 12 && cur === p && themed && b.errors.length === before, `${p}: 12 nav links, '${p}' marked current, Omarchy theme + search button, no errors`, `links=${n} current=${cur} themed=${themed} errors=${b.errors.slice(before).join(" | ")}`);
   }
   console.log("Ctrl+K palette, XP, System page");
   await go("/keyboard");
@@ -32,6 +32,9 @@ try {
   c.ok(await b.eval(`document.querySelectorAll('.chart svg path').length>=6`), "System page draws its graphs", await b.eval(`document.querySelectorAll('.chart svg path').length`));
   c.ok(await b.eval(`/°C/.test(document.getElementById('heroT').textContent) && document.querySelectorAll('.fact').length===10`), "System page hero temperature + 10 facts");
   c.ok(await b.eval(`document.querySelectorAll('#topTbl tr').length>1`), "busiest-apps table filled");
+  await go("/games"); await b.sleep(2500);
+  c.ok(await b.eval(`document.querySelectorAll('#sys .card').length===18`), "Games page lists the 18 planned consoles", await b.eval(`document.querySelectorAll('#sys .card').length`));
+  c.ok(await b.eval(`/budget/.test(document.getElementById('lib').innerText) && document.querySelectorAll('#bios tr').length>3`), "Games page shows the budget and BIOS checklist");
   console.log("language");
   await go("/mac"); await b.eval(`localStorage.setItem('lang','en')`); await go("/mac");
   await b.eval(`document.getElementById('bLang').click()`); await b.sleep(200);

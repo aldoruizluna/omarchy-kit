@@ -23,7 +23,7 @@ HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 
 PAGES = {"/": "index.html", "/index.html": "index.html", "/learn": "learn.html", "/mac": "mac.html",
          "/macbook": "macbook.html", "/reference": "reference.html", "/cheatsheet": "cheatsheet.html",
-         "/keyboard": "keyboard.html", "/trackpad": "trackpad.html", "/system": "system.html"}
+         "/keyboard": "keyboard.html", "/trackpad": "trackpad.html", "/system": "system.html", "/games": "games.html"}
 ASSETS = {"/portal.css": "text/css; charset=utf-8", "/portal.js": "text/javascript; charset=utf-8", "/portal-nav.js": "text/javascript; charset=utf-8",
           "/kit.css": "text/css; charset=utf-8", "/kit.js": "text/javascript; charset=utf-8", "/data/kit-index.json": "application/json"}
 
@@ -149,6 +149,7 @@ class H(BaseHTTPRequestHandler):
             except ValueError: since = 0
             return self._send(200, json.dumps({"samples": kitlive.history(since), "snap": kitlive.snapshot(),
                                                "theme": kitlive.theme_version()}), "application/json")
+        if p == "/api/games": return self._send(200, json.dumps(kitlive.games()), "application/json")
         if p == "/api/top": return self._send(200, json.dumps(kitlive.top()), "application/json")
         if p == "/wallpaper":
             w = kitlive.wallpaper()
@@ -169,6 +170,14 @@ class H(BaseHTTPRequestHandler):
             if route != "root" and route not in menu_ids(): return self._send(400, "unknown menu route")
             subprocess.Popen(["omarchy-menu", "summon", route])
             return self._send(200, "opened")
+        if self.path == "/api/games/scan":  # rebuild playlists now; box art downloads continue in the background
+            tool = str(HERE / "games" / "kit-games")
+            r = subprocess.run([tool, "scan"], capture_output=True, text=True, timeout=600)
+            subprocess.Popen([tool, "art"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            kitlive._games["t"] = 0
+            lines = [l for l in r.stdout.splitlines() if l.strip()]
+            msg = next((l for l in reversed(lines) if "WARNING" in l), lines[-1] if lines else "done")
+            return self._send(200, json.dumps({"message": msg + " · box art downloading…", "ok": r.returncode == 0}), "application/json")
         if self.path == "/api/theme":
             ok = kitlive.set_theme(str(body.get("id", "")))
             return self._send(200 if ok else 400, "switching" if ok else "unknown theme")

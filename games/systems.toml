@@ -1,0 +1,255 @@
+# Retro library plan for the MacBook Pro 2014 (i7-4870HQ, Iris Pro 5200, 2880x1800).
+#
+# folder  ~/Games/roms/<folder>
+# db      libretro database / thumbnail name (playlists and box art use it)
+# core    RetroArch core that runs it best on this machine (benchmarked or chosen for accuracy + thermals)
+# target  how many games the plan reserves room for ("top N")
+# gb_each typical compressed size per game (zip / CHD / RVZ), used for the allocation
+# tier    perfect | great | good | mixed: how well this machine runs it
+#
+# Budget: half the free disk when the library was set up (see `kit-games budget`). Cartridge consoles,
+# PlayStation and Dreamcast get their full top 100; the CD add-ons, Saturn and GameCube get curated sets of
+# the games that run well here, because together they would need ~190 GB on their own.
+
+[[system]]
+folder = "nes"
+name = "NES / Famicom"
+db = "Nintendo - Nintendo Entertainment System"
+core = "mesen"
+exts = ["nes", "fds", "unf", "zip", "7z"]
+target = 100
+gb_each = 0.0002
+tier = "perfect"
+
+[[system]]
+folder = "snes"
+name = "Super Nintendo"
+db = "Nintendo - Super Nintendo Entertainment System"
+core = "snes9x"
+exts = ["sfc", "smc", "zip", "7z"]
+target = 100
+gb_each = 0.0025
+tier = "perfect"
+
+[[system]]
+folder = "n64"
+name = "Nintendo 64"
+db = "Nintendo - Nintendo 64"
+core = "mupen64plus_next"
+exts = ["z64", "n64", "v64", "zip", "7z"]
+target = 100
+gb_each = 0.018
+tier = "good"
+
+[[system]]
+folder = "gb"
+name = "Game Boy"
+db = "Nintendo - Game Boy"
+core = "gambatte"
+exts = ["gb", "zip", "7z"]
+target = 100
+gb_each = 0.0005
+tier = "perfect"
+
+[[system]]
+folder = "gbc"
+name = "Game Boy Color"
+db = "Nintendo - Game Boy Color"
+core = "gambatte"
+exts = ["gbc", "gb", "zip", "7z"]
+target = 100
+gb_each = 0.0015
+tier = "perfect"
+
+[[system]]
+folder = "gba"
+name = "Game Boy Advance"
+db = "Nintendo - Game Boy Advance"
+core = "mgba"
+exts = ["gba", "zip", "7z"]
+target = 100
+gb_each = 0.008
+tier = "perfect"
+
+[[system]]
+folder = "gc"
+name = "GameCube"
+db = "Nintendo - GameCube"
+core = "dolphin"
+exts = ["rvz", "iso", "gcm", "ciso", "gcz"]
+target = 40
+gb_each = 0.9
+tier = "mixed"
+
+[[system]]
+folder = "mastersystem"
+name = "Master System"
+db = "Sega - Master System - Mark III"
+core = "genesis_plus_gx"
+exts = ["sms", "zip", "7z"]
+target = 100
+gb_each = 0.00025
+tier = "perfect"
+
+[[system]]
+folder = "megadrive"
+name = "Mega Drive / Genesis"
+db = "Sega - Mega Drive - Genesis"
+core = "genesis_plus_gx"
+exts = ["md", "gen", "bin", "smd", "zip", "7z"]
+target = 100
+gb_each = 0.0015
+tier = "perfect"
+
+[[system]]
+folder = "gamegear"
+name = "Game Gear"
+db = "Sega - Game Gear"
+core = "genesis_plus_gx"
+exts = ["gg", "zip", "7z"]
+target = 100
+gb_each = 0.00025
+tier = "perfect"
+
+[[system]]
+folder = "sega32x"
+name = "Sega 32X"
+db = "Sega - 32X"
+core = "picodrive"
+exts = ["32x", "zip", "7z"]
+target = 40
+gb_each = 0.003
+tier = "perfect"
+
+[[system]]
+folder = "segacd"
+name = "Sega CD / Mega-CD"
+db = "Sega - Mega-CD - Sega CD"
+core = "genesis_plus_gx"
+exts = ["chd", "cue", "m3u"]
+target = 30
+gb_each = 0.3
+tier = "perfect"
+
+[[system]]
+folder = "saturn"
+name = "Sega Saturn"
+db = "Sega - Saturn"
+core = "kronos"
+exts = ["chd", "cue", "m3u"]
+target = 50
+gb_each = 0.45
+tier = "mixed"
+
+[[system]]
+folder = "dreamcast"
+name = "Dreamcast"
+db = "Sega - Dreamcast"
+core = "flycast"
+exts = ["chd", "gdi", "cdi", "m3u"]
+target = 100
+gb_each = 0.7
+tier = "good"
+
+[[system]]
+folder = "pcengine"
+name = "PC Engine / TurboGrafx-16"
+db = "NEC - PC Engine - TurboGrafx 16"
+core = "mednafen_pce_fast"
+exts = ["pce", "zip", "7z"]
+target = 100
+gb_each = 0.0004
+tier = "perfect"
+
+[[system]]
+folder = "pcenginecd"
+name = "PC Engine CD / TurboGrafx-CD"
+db = "NEC - PC Engine CD - TurboGrafx-CD"
+core = "mednafen_pce_fast"
+exts = ["chd", "cue", "m3u"]
+target = 30
+gb_each = 0.25
+tier = "perfect"
+
+[[system]]
+folder = "psx"
+name = "PlayStation"
+db = "Sony - PlayStation"
+core = "mednafen_psx_hw"
+exts = ["chd", "cue", "pbp", "m3u"]
+target = 100
+gb_each = 0.45
+tier = "great"
+
+[[system]]
+folder = "arcade"
+name = "Arcade + Neo Geo (FBNeo)"
+db = "FBNeo - Arcade Games"
+core = "fbneo"
+exts = ["zip", "7z"]
+target = 150
+gb_each = 0.05
+tier = "perfect"
+arcade = true
+
+# Box art, screenshots and title screens downloaded by `kit-games art` (counted in the budget)
+[art]
+types = ["Named_Boxarts", "Named_Snaps", "Named_Titles"]
+gb_reserved = 4
+
+# BIOS needed per console (paths inside ~/Games/bios). "any" = one of these files is enough (they are regional
+# versions of the same BIOS). Curated, because the core info files mark CD BIOSes as optional even though CD
+# games can't boot without them.
+[[bios]]
+system = "PlayStation"
+any = ["scph5501.bin", "scph5500.bin", "scph5502.bin"]
+need = "required"
+note = "One region is enough: 5501 USA, 5500 Japan, 5502 Europe"
+
+[[bios]]
+system = "Sega CD / Mega-CD"
+any = ["bios_CD_U.bin", "bios_CD_E.bin", "bios_CD_J.bin"]
+need = "required"
+note = "One region is enough: U USA, E Europe, J Japan"
+
+[[bios]]
+system = "PC Engine CD / TurboGrafx-CD"
+any = ["syscard3.pce"]
+need = "required"
+note = "System Card 3.0 runs almost every CD game"
+
+[[bios]]
+system = "Sega Saturn"
+any = ["kronos/saturn_bios.bin"]
+need = "recommended"
+note = "Kronos can emulate the BIOS, but compatibility is better with the real one"
+
+[[bios]]
+system = "GameCube"
+any = ["dolphin-emu/Sys/codehandler.bin"]
+need = "required"
+note = "Dolphin's open-source Sys folder (installed by Omarchy Kit), not a console BIOS"
+
+[[bios]]
+system = "Dreamcast"
+any = ["dc/dc_boot.bin"]
+need = "optional"
+note = "Flycast emulates the BIOS; the real one adds the boot animation and a few fixes"
+
+[[bios]]
+system = "Arcade + Neo Geo (FBNeo)"
+any = ["fbneo/neogeo.zip", "../roms/arcade/neogeo.zip"]
+need = "required"
+note = "Needed for Neo Geo games only; keep it next to them in roms/arcade"
+
+[[bios]]
+system = "Game Boy Advance"
+any = ["gba_bios.bin"]
+need = "optional"
+note = "mGBA has its own; the real one adds the boot logo"
+
+[[bios]]
+system = "NES / Famicom"
+any = ["disksys.rom"]
+need = "optional"
+note = "Only for Famicom Disk System games"

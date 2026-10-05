@@ -82,6 +82,15 @@ def checks():
     else:
         tuned = 'video_driver = "glcore"' in racfg and "zfast-crt" in glob_preset
         c["retro"] = ("ok" if tuned else "action", ("OpenGL · zfast-crt (3D) / crt-hyllian-fast (2D) · saves in ~/Games" if tuned else "Omarchy defaults: Vulkan + crt-royale (45 fps here)"))
+    try:
+        lib = json.loads(sh(str(HERE / "games" / "kit-games"), "status") or "null")
+    except Exception:
+        lib = None
+    if lib and lib.get("cap"):
+        c["library"] = ("ok" if lib["used"] <= lib["cap"] else "action",
+                        f"{lib['games']} games · {lib['used'] / 1e9:.1f} of {lib['cap'] / 1e9:.0f} GB budget (half the free disk)")
+    else:
+        c["library"] = ("pending", "run games/kit-games init")
     pad = any("Wireless Controller" in l or "DualShock" in l for l in read("/proc/bus/input/devices").splitlines() if l.startswith("N: Name"))
     c["ds4"] = ("ok" if pad else "pending", "PS4 controller connected" if pad else "not connected right now")
     c["eq"] = ("ok" if eq and fol else "action", f"tuning {'active' if eq else 'inactive'} · headphone watcher {'active' if fol else 'inactive'}")
@@ -155,6 +164,7 @@ STATUS = [
  ]),
  ("Retro gaming", "Juegos retro", [
   ("retro", "RetroArch tuned for this GPU", "RetroArch ajustado a esta GPU", "Re-apply Omarchy's defaults, then ask Claude to re-tune:", "Volver a los valores de Omarchy y luego pedir a Claude que ajuste:", "omarchy-install-gaming-retroarch"),
+  ("library", "Game library within its budget", "Biblioteca de juegos dentro de su presupuesto", "See what uses the space:", "Ver qué ocupa el espacio:", "~/labspace/omarchy-kit/games/kit-games budget"),
   ("ds4", "PS4 controller (Bluetooth)", "Control de PS4 (Bluetooth)", "Hold Share + PS until the light bar flashes, then pair it in the Bluetooth menu (Super+Ctrl+B).", "Mantén Share + PS hasta que la barra de luz parpadee y emparéjalo en el menú Bluetooth (Super+Ctrl+B).", ""),
  ]),
  ("Access", "Acceso", [
@@ -215,6 +225,10 @@ LOG = [
   "Installed with Omarchy's RetroArch installer, then tuned from benchmarks at 2880×1800 (60 fps needed): crt-royale, Omarchy's default CRT filter, ran at 45 fps, so the global filter is zfast-crt (558 fps); 2D consoles use crt-hyllian-fast (272 fps); Game Boy uses authentic_gbc_fast, GBA agb001, DS/PSP a sharp unfiltered preset. Video driver is OpenGL (glcore): Mesa warns that Haswell Vulkan is incomplete. Integer scaling on. Saves and states moved to ~/Games/saves and ~/Games/states for syncing. Files: ~/.config/retroarch/retroarch.cfg and config/*/*.slangp. Undo: restore retroarch.cfg.bak-2026-10-05 and config/global.slangp.bak-2026-10-05.",
   "Instalado con el instalador de RetroArch de Omarchy y ajustado con mediciones a 2880×1800 (se necesitan 60 fps): crt-royale, el filtro CRT por defecto de Omarchy, daba 45 fps, así que el filtro global es zfast-crt (558 fps); las consolas 2D usan crt-hyllian-fast (272 fps); Game Boy usa authentic_gbc_fast, GBA agb001, DS/PSP un preset nítido sin filtro. El driver de video es OpenGL (glcore): Mesa advierte que Vulkan en Haswell está incompleto. Escalado entero activado. Partidas y estados movidos a ~/Games/saves y ~/Games/states para sincronizar. Archivos: ~/.config/retroarch/retroarch.cfg y config/*/*.slangp. Deshacer: restaurar retroarch.cfg.bak-2026-10-05 y config/global.slangp.bak-2026-10-05.",
   "cp ~/.config/retroarch/retroarch.cfg.bak-2026-10-05 ~/.config/retroarch/retroarch.cfg   # undo"),
+ ("Retro library, controller and latency", "Biblioteca retro, control y latencia",
+  "games/kit-games keeps ~/Games/roms/<console> organised: one RetroArch playlist per console pinned to the best core here, box art from libretro's thumbnail server, and a budget fixed at half the free disk (231 GB) with a plan of ~205 GB: full top 100 for cartridge consoles, PlayStation and Dreamcast; curated sets for Sega CD, PC Engine CD, Saturn and GameCube. PS4 controller hotkeys: PS = menu, Share+R1/L1 save/load state, Share+R2 fast-forward, Share+L2 rewind, Share+Options quit. 2D consoles use 1 frame of run-ahead (removes built-in input lag) and rewind; PS1 at 2x with PGXP, N64 at 960x720 (GLideN64), Dreamcast at 1280x960. Measured: Cave Story (Mega Drive) 202 fps and Mesen 123 fps with everything on. Undo: delete ~/.config/retroarch/config/*/*.cfg and *.opt.",
+  "games/kit-games mantiene ordenado ~/Games/roms/<consola>: una lista de RetroArch por consola con el mejor núcleo para esta máquina, carátulas del servidor de libretro y un presupuesto fijo de la mitad del disco libre (231 GB) con un plan de ~205 GB: top 100 completo para consolas de cartucho, PlayStation y Dreamcast; selecciones para Sega CD, PC Engine CD, Saturn y GameCube. Atajos del control de PS4: PS = menú, Share+R1/L1 guardar/cargar estado, Share+R2 avance rápido, Share+L2 rebobinar, Share+Options salir. Las consolas 2D usan 1 cuadro de run-ahead (quita el retraso de entrada original) y rebobinado; PS1 a 2x con PGXP, N64 a 960x720 (GLideN64), Dreamcast a 1280x960. Medido: Cave Story (Mega Drive) 202 fps y Mesen 123 fps con todo activado. Deshacer: borrar ~/.config/retroarch/config/*/*.cfg y *.opt.",
+  "~/labspace/omarchy-kit/games/kit-games budget"),
  ("Co-admin", "Co-administración",
   f"Plan for {CO_NAME} (username {CO_USER}): a wheel member with a sudo password and a private home; Omarchy finishes their setup on first login; the login screen is shown at boot; {CO_FIRST} gets their own LUKS passphrase. The temporary password was given in chat and is not stored here. {CO_FIRST} should run passwd right after their first login.",
   f"Plan para {CO_NAME} (usuario {CO_USER}): miembro de wheel con contraseña para sudo y carpeta privada; Omarchy termina su configuración al primer inicio; pantalla de inicio al arrancar; frase LUKS propia. La contraseña temporal se dio en el chat y no se guarda aquí. {CO_FIRST_ES} debe ejecutar passwd tras su primer inicio.",
