@@ -14,6 +14,9 @@
   kit-games esde      configure ES-DE (EmulationStation Desktop Edition) over this library: ROM folder, gamelists
                       with titles/developers/descriptions (merged, so favorites and play counts survive), the
                       cores chosen here, box art / screenshots / title screens, and an "ES-DE" launcher entry
+  kit-games dolphin   configure standalone Dolphin for GameCube from this machine's benchmarks (OpenGL, 2x, hybrid
+                      ubershaders, VSync), PS4 controller + keyboard on port 1, hotkeys like RetroArch's, saves in
+                      ~/Games, and make ES-DE launch GameCube games with it
   kit-games export-telesia [--upload]
                       write ~/Games/telesia/library.json for Telesia's import (RetroArch playlist items with
                       clean titles + playtime from RetroArch's runtime logs); --upload sends it when
@@ -516,7 +519,7 @@ ESDE_APPIMAGE = Path.home() / ".local/opt/es-de/ES-DE_x64.AppImage"
 # Where ES-DE's default core for a system differs from the one this library runs (labels exactly as in ES-DE
 # 3.5.0's resources/systems/linux/es_systems.xml). ES-DE stores the choice as <alternativeEmulator> in gamelist.xml.
 ESDE_ALT = {"psx": "Beetle PSX HW", "saturn": "Kronos", "pcengine": "Beetle PCE FAST", "pcenginecd": "Beetle PCE FAST",
-            "arcade": "FinalBurn Neo"}
+            "arcade": "FinalBurn Neo", "gc": "Dolphin (Standalone)"}
 ESDE_MEDIA = {"covers": "Named_Boxarts", "screenshots": "Named_Snaps", "titlescreens": "Named_Titles"}
 
 
@@ -603,6 +606,90 @@ def cmd_esde():
     return 0
 
 
+# ---------------------------------------------------------------- Dolphin (GameCube)
+DOLPHIN_CFG = Path.home() / ".config/dolphin-emu"
+DOLPHIN_DATA = Path.home() / ".local/share/dolphin-emu"
+KB = "XInput2/0/Virtual core pointer"   # Dolphin's keyboard device (it runs under XWayland)
+DS4 = "SDL/0/PS4 Controller"
+def pad(button, key=None):
+    """A PS4 input or-ed with a keyboard key, so port 1 works with either. The keyboard is the default device
+    because Dolphin drops a binding whose default device is absent (a DS4 that isn't paired yet)."""
+    return f"`{DS4}:{button}`" + (f" | `{key}`" if key else "")
+# Measured 2026-10-05 with Retro League GX (MIT GameCube homebrew), 3v3 bots, i7-4870HQ + Iris Pro 5200:
+# uncapped OpenGL 1x 196 fps / 2x 143 / 3x 86 (CPU clocks fall to 1.1 GHz at 3x: the GPU takes the shared power
+# budget); Vulkan 171 and Mesa calls Haswell Vulkan incomplete; hybrid ubershaders beat "skip drawing" on 1% lows
+# (80 vs 57 fps). Capped at 100 %, 1x/2x/3x all hold 60 fps; 2x peaks at 82 °C, 3x at 85 °C.
+DOLPHIN_INI = {
+    "Dolphin.ini": {
+        "General": {"ISOPaths": "1", "ISOPath0": str(ROMS / "gc"), "RecursiveISOPaths": "True"},
+        "Core": {"GFXBackend": "OGL", "CPUThread": "True", "SIDevice0": "6"},
+        "Interface": {"ConfirmStop": "False", "PauseOnFocusLost": "False"},
+        "Display": {"Fullscreen": "True"},
+        "Analytics": {"PermissionAsked": "True", "Enabled": "False"},
+        "AutoUpdate": {"UpdateTrack": ""},
+    },
+    "GFX.ini": {
+        "Settings": {"InternalResolution": "2", "ShaderCompilationMode": "2", "ShowFPS": "False"},
+        "Hardware": {"VSync": "True"},
+    },
+    "GCPadNew.ini": {"GCPad1": {
+        "Device": KB,
+        "Buttons/A": pad("Button S", "X"), "Buttons/B": pad("Button W", "Z"), "Buttons/X": pad("Button E", "C"),
+        "Buttons/Y": pad("Button N", "S"), "Buttons/Z": pad("Shoulder R", "D"), "Buttons/Start": pad("Start", "Return"),
+        "Main Stick/Up": pad("Left Y-", "Up"), "Main Stick/Down": pad("Left Y+", "Down"),
+        "Main Stick/Left": pad("Left X-", "Left"), "Main Stick/Right": pad("Left X+", "Right"),
+        "C-Stick/Up": pad("Right Y-", "I"), "C-Stick/Down": pad("Right Y+", "K"),
+        "C-Stick/Left": pad("Right X-", "J"), "C-Stick/Right": pad("Right X+", "L"),
+        "D-Pad/Up": pad("Pad N", "Up"), "D-Pad/Down": pad("Pad S", "Down"),
+        "D-Pad/Left": pad("Pad W", "Left"), "D-Pad/Right": pad("Pad E", "Right"),
+        "Triggers/L": pad("Trigger L", "Q"), "Triggers/R": pad("Trigger R", "W"),
+        "Triggers/L-Analog": pad("Trigger L", "Q"), "Triggers/R-Analog": pad("Trigger R", "W"),
+        "Rumble/Motor": f"`{DS4}:Motor L` | `{DS4}:Motor R`",
+    }},
+    # Same idea as RetroArch here: Share+Options quits (back to ES-DE), Share+R1/L1 save/load a state,
+    # Share+R2 toggles the speed limit; PS pauses. Keyboard: Escape quits, F1/F2 save/load, F11 fullscreen.
+    "Hotkeys.ini": {"Hotkeys": {
+        "Device": KB,
+        "General/Stop": f"`{DS4}:Back` & `{DS4}:Start` | `Escape`",
+        "General/Toggle Pause": f"`{DS4}:Guide` | `P`",
+        "General/Toggle Fullscreen": "`F11`",
+        "Save State/Save State Slot 1": f"`{DS4}:Back` & `{DS4}:Shoulder R` | `F1`",
+        "Load State/Load State Slot 1": f"`{DS4}:Back` & `{DS4}:Shoulder L` | `F2`",
+        "Emulation Speed/Disable Emulation Speed Limit": f"`{DS4}:Back` & `{DS4}:Trigger R`",
+    }},
+}
+
+
+def cmd_dolphin():
+    import configparser, datetime
+    stamp = datetime.date.today().isoformat()
+    DOLPHIN_CFG.mkdir(parents=True, exist_ok=True)
+    for name, sections in DOLPHIN_INI.items():
+        path = DOLPHIN_CFG / name
+        bak = path.with_name(f"{name}.bak-{stamp}")
+        if path.exists() and not bak.exists(): shutil.copy2(path, bak)
+        ini = configparser.ConfigParser(interpolation=None, strict=False); ini.optionxform = str
+        if path.exists(): ini.read(path)
+        for sec, kv in sections.items():
+            if not ini.has_section(sec): ini.add_section(sec)
+            for k, v in kv.items(): ini.set(sec, k, v)
+        with path.open("w") as f: ini.write(f, space_around_delimiters=True)
+    # memory cards and states live with the rest of the saves (~/Games), so one folder backs up / syncs everything
+    for sub, home in (("GC", GAMES / "saves/dolphin-standalone/GC"), ("StateSaves", GAMES / "states/dolphin-standalone")):
+        link = DOLPHIN_DATA / sub
+        home.mkdir(parents=True, exist_ok=True)
+        if link.is_symlink() or not link.exists():
+            if link.is_symlink(): link.unlink()
+            link.parent.mkdir(parents=True, exist_ok=True); link.symlink_to(home)
+        elif link.resolve() != home.resolve():
+            print(f"Left {link} alone (a real folder); move it into {home} and re-run to keep saves in ~/Games.")
+    cmd_esde()   # its gamelist pins GameCube to "Dolphin (Standalone)" (ESDE_ALT)
+    tool = "" if shutil.which("dolphin-tool") else " dolphin-tool is missing, so ingest keeps GameCube dumps as ISO (install: sudo pacman -S dolphin-emu-tool)."
+    print(f"Dolphin configured in {DOLPHIN_CFG}: OpenGL, 2x (1280x1056), hybrid ubershaders, VSync; "
+          f"PS4 controller + keyboard on port 1; saves in {GAMES}/saves/dolphin-standalone.{tool}")
+    return 0
+
+
 # ---------------------------------------------------------------- BIOS
 def bios_report():
     """One row per console from systems.toml [[bios]]; a row is satisfied when any of its files exists."""
@@ -628,7 +715,8 @@ def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "budget"
     if cmd == "status": print(json.dumps(status())); return 0
     fn = {"init": cmd_init, "scan": cmd_scan, "art": cmd_art, "budget": cmd_budget, "bios": cmd_bios,
-          "ingest": cmd_ingest, "export-telesia": cmd_export_telesia, "cabinet": cmd_cabinet, "esde": cmd_esde}.get(cmd)
+          "ingest": cmd_ingest, "export-telesia": cmd_export_telesia, "cabinet": cmd_cabinet, "esde": cmd_esde,
+          "dolphin": cmd_dolphin}.get(cmd)
     if not fn: print(__doc__); return 2
     return fn() or 0
 

@@ -50,6 +50,9 @@ RetroArch (installed with Omarchy's own installer), tuned from benchmarks on thi
 - **Low latency:** 2D consoles use one frame of run-ahead plus rewind. Cave Story (Mega Drive) still runs at
   202 fps with everything on.
 - **3D consoles:** PlayStation at 2× with PGXP, N64 with GLideN64 at 960×720, Dreamcast at 1280×960.
+- **GameCube:** standalone Dolphin (`kit-games dolphin`): OpenGL, 2× (1280×1056), hybrid ubershaders. It holds
+  60 fps with 0.1% late frames in fullscreen (Retro League GX homebrew). The RetroArch core can't compile shaders
+  in the background here, so ES-DE launches GameCube games with standalone Dolphin.
 - **PS4 controller:** PS opens the menu; hold Share with R1/L1 to save/load a state, R2 to fast-forward,
   L2 to rewind, and Options to quit.
 
