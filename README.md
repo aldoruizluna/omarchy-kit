@@ -69,6 +69,9 @@ Free games to start with, all from their official sources:
 - `games/fetch-freeware` installs 12 ScummVM freeware adventures (Beneath a Steel Sky, Flight of the Amazon
   Queen, Broken Sword 2.5 and more) and the 20 arcade ROMs MAME distributes with their owners' permission.
 
+Planned, not built yet: a store page over these and more free or purchased sources, with provenance for every
+game. See [docs/GAME-STORE-ROADMAP.md](docs/GAME-STORE-ROADMAP.md).
+
 ```bash
 games/kit-games init     # folders, budget, Dolphin Sys data
 games/kit-games scan     # playlists
