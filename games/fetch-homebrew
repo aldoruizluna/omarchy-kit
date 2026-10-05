@@ -1,0 +1,171 @@
+#!/usr/bin/env python3
+"""fetch-homebrew: fill the library with free homebrew from Homebrew Hub (hh.gbdev.io).
+
+Homebrew Hub is the Game Boy / GBA / NES development community's database of freely distributed homebrew. This
+picks the best-documented finished games per platform (it has no ratings, so the rank is a quality score: physical
+cartridge release, video, open source, screenshots, description; a few widely acclaimed titles get a boost),
+installs their ROMs into ~/Games/roms/<folder>, uses their cover and screenshot as RetroArch box art, and writes
+HOMEBREW-CREDITS.md with each author, website and license.
+
+  fetch-homebrew --dry-run        show what would be installed
+  fetch-homebrew --refresh        re-download the hub listing (cached in ~/Games/.cache)
+  fetch-homebrew [--per 100]      install (skips games already installed; respects the kit-games budget)
+"""
+import json, re, subprocess, sys, urllib.parse, urllib.request
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+API = "https://hh3.gbdev.io/api"
+GAMES = Path.home() / "Games"
+THUMBS = Path.home() / ".config/retroarch/thumbnails"
+MANIFEST = GAMES / ".kit-homebrew.json"
+PLATFORMS = {  # Homebrew Hub platform -> (library folder, RetroArch playlist/db name, ROM extensions)
+    "GB": ("gb", "Nintendo - Game Boy", (".gb", ".gbc")),
+    "GBC": ("gbc", "Nintendo - Game Boy Color", (".gbc", ".gb")),
+    "GBA": ("gba", "Nintendo - Game Boy Advance", (".gba",)),
+    "NES": ("nes", "Nintendo - Nintendo Entertainment System", (".nes",)),
+}
+# Widely praised homebrew (reviews, awards, cartridge sell-outs); matched by title when present on the hub.
+ACCLAIMED = ["tobu tobu girl", "ucity", "µcity", "deadeus", "libbet", "dangan", "shock lobster", "black castle", "gelatinous",
+             "super jetpak", "petris", "infinity", "feed it souls", "where's my cake", "auto zone", "sushi nights", "mona and the witch",
+             "goodboy galaxy", "anguna", "celeste classic", "porklike", "varooom", "uchu", "jet pak", "nova the squirrel",
+             "alter ego", "super tilt bro", "lan master", "witch n' wiz", "micro mages", "blade buster", "rocket man", "kudzu",
+             "dino's offline adventure", "cursed castle", "blinky's scary school", "unearthed", "sir ababol", "orange island"]
+
+
+def get(url, binary=False, tries=3):
+    for i in range(tries):
+        try:
+            with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "omarchy-kit"}), timeout=30) as r:
+                data = r.read()
+            return data if binary else json.loads(data)
+        except Exception:
+            if i == tries - 1: return None
+
+
+def listing(platform):
+    first = get(f"{API}/search?platform={platform}&typetag=game&page=1")
+    if not first: return []
+    pages = first["page_total"]
+    with ThreadPoolExecutor(8) as ex:
+        rest = list(ex.map(lambda p: get(f"{API}/search?platform={platform}&typetag=game&page={p}"), range(2, pages + 1)))
+    return [e for page in [first, *rest] if page for e in page["entries"]]
+
+
+def raw_base(e):
+    repo = e["baserepo"].replace("https://github.com/", "https://raw.githubusercontent.com/")
+    return f"{repo}/master/entries/{urllib.parse.quote(e['slug'])}/"
+
+
+def full(e):
+    d = get(raw_base(e) + "game.json") or {}
+    return {**e, **d}
+
+
+def devs(e):
+    d = e.get("developer") or []
+    return [d] if isinstance(d, str) else [x if isinstance(x, str) else x.get("name", "") for x in d]
+
+
+def norm(title):
+    return re.sub(r"[^a-z0-9]+", "", re.sub(r"\((demo|preview)\)|\[(demo|preview)\]", "", title.lower()))
+
+
+def score(e):
+    s = 0
+    t = e["title"].lower()
+    if any(a in t for a in ACCLAIMED): s += 8
+    if e.get("physical-release"): s += 6
+    if e.get("video"): s += 3
+    if e.get("repository"): s += 2
+    s += min(len(e.get("screenshots") or []), 4)
+    if len(e.get("description") or "") > 200: s += 2
+    if e.get("website"): s += 1
+    s += min(len(e.get("tags") or []), 3) * 0.5
+    if re.search(r"\bdemo\b|preview|prototype|\bwip\b", t): s -= 5
+    return s
+
+
+def eligible(e, exts):
+    if not e.get("title") or e.get("wip") or e.get("nsfw") or e.get("typetag") != "game": return None
+    f = next((f for f in e.get("files", []) if f.get("default") and f.get("playable")), None) or \
+        next((f for f in e.get("files", []) if f.get("playable")), None)
+    if not f or not f["filename"].lower().endswith(exts): return None
+    return f
+
+
+def safe(title):
+    return re.sub(r'[&*/:`<>?\\|"]', "_", re.sub(r"\s+", " ", title)).strip(" .")
+
+
+def main():
+    dry = "--dry-run" in sys.argv
+    per = int(sys.argv[sys.argv.index("--per") + 1]) if "--per" in sys.argv else 100
+    manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
+    picked = {}
+    for plat, (folder, db, exts) in PLATFORMS.items():
+        cache = GAMES / ".cache" / f"homebrew-hub-{plat}.json"
+        if cache.exists() and "--refresh" not in sys.argv:
+            entries = json.loads(cache.read_text())
+        else:
+            with ThreadPoolExecutor(12) as ex:
+                entries = list(ex.map(full, listing(plat)))
+            cache.parent.mkdir(parents=True, exist_ok=True); cache.write_text(json.dumps(entries))
+        good = [(e, f) for e in entries if (f := eligible(e, exts))]
+        good.sort(key=lambda ef: (-score(ef[0]), ef[0]["title"].lower()))
+        seen, uniq = set(), []
+        for e, f in good:  # the hub lists some games more than once (re-releases, jam + final builds)
+            if norm(e["title"]) in seen: continue
+            seen.add(norm(e["title"])); uniq.append((e, f))
+        picked[plat] = uniq[:per]
+        print(f"{plat}: {len(entries)} games on the hub, {len(good)} finished and playable, taking {len(picked[plat])}")
+        if dry:
+            for e, f in picked[plat][:15]:
+                print(f"   {score(e):5.1f}  {e['title']}  —  {', '.join(devs(e))}")
+    if dry: return 0
+
+    def install(job):
+        plat, e, f = job
+        folder, db, _ = PLATFORMS[plat]
+        name = f"{safe(e['title'])} (Homebrew)"
+        rom = GAMES / "roms" / folder / (name + Path(f["filename"]).suffix.lower())
+        if e["slug"] in manifest and rom.exists(): return None
+        data = get(raw_base(e) + urllib.parse.quote(f["filename"]), binary=True)
+        if not data: return f"failed: {e['title']}"
+        rom.parent.mkdir(parents=True, exist_ok=True); rom.write_bytes(data)
+        shots = e.get("screenshots") or []
+        cover = next((s for s in shots if "cover" in s.lower()), shots[0] if shots else None)
+        snap = next((s for s in shots if s != cover), None)
+        for kind, src in (("Named_Boxarts", cover), ("Named_Snaps", snap), ("Named_Titles", cover)):
+            if not src: continue
+            img = get(raw_base(e) + urllib.parse.quote(src), binary=True)
+            if img:
+                out = THUMBS / db / kind / f"{name}.png"
+                out.parent.mkdir(parents=True, exist_ok=True)
+                if src.lower().endswith(".png"): out.write_bytes(img)
+                else:  # RetroArch wants PNG
+                    tmp = out.with_suffix(Path(src).suffix); tmp.write_bytes(img)
+                    subprocess.run(["magick", f"{tmp}[0]", str(out)], capture_output=True); tmp.unlink(missing_ok=True)
+        return {"slug": e["slug"], "title": e["title"], "platform": plat, "file": str(rom), "developer": devs(e),
+                "website": e.get("website") or "", "license": e.get("gameLicense") or "", "assets": e.get("assetsLicense") or "",
+                "hub": f"https://hh.gbdev.io/game/{e['slug']}"}
+
+    jobs = [(plat, e, f) for plat, lst in picked.items() for e, f in lst]
+    with ThreadPoolExecutor(8) as ex:
+        for r in ex.map(install, jobs):
+            if isinstance(r, dict): manifest[r["slug"]] = r
+            elif r: print(r)
+    MANIFEST.write_text(json.dumps(manifest, indent=1, ensure_ascii=False))
+    for plat, (folder, _, _) in PLATFORMS.items():
+        rows = sorted((m for m in manifest.values() if m["platform"] == plat), key=lambda m: m["title"].lower())
+        lines = [f"# Homebrew credits ({plat})", "", "Free homebrew from [Homebrew Hub](https://hh.gbdev.io), installed by Omarchy Kit.", ""]
+        lines += [f"- **{m['title']}** by {', '.join(m['developer']) or 'unknown'}" + (f" · {m['website']}" if m["website"] else "")
+                  + (f" · license: {m['license']}" if m["license"] else "") + f" · {m['hub']}" for m in rows]
+        (GAMES / "roms" / folder / "HOMEBREW-CREDITS.md").write_text("\n".join(lines) + "\n")
+    print(f"Installed {len(manifest)} homebrew games. Credits in each folder's HOMEBREW-CREDITS.md.")
+    return subprocess.run([str(HERE / "kit-games"), "scan"]).returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())

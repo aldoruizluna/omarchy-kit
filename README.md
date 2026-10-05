@@ -59,6 +59,13 @@ libretro's thumbnail server, fetches Dolphin's open-source `Sys` folder for Game
 keeps the library within a budget of half the free disk. Consoles, cores and the space plan are in
 `games/systems.toml`.
 
+Free games to start with, all from their official sources:
+
+- `games/fetch-homebrew` installs the best-ranked finished homebrew from [Homebrew Hub](https://hh.gbdev.io):
+  100 Game Boy, 100 Game Boy Color, 100 GBA and 18 NES games, with cover art and author credits.
+- `games/fetch-freeware` installs 12 ScummVM freeware adventures (Beneath a Steel Sky, Flight of the Amazon
+  Queen, Broken Sword 2.5 and more) and the 20 arcade ROMs MAME distributes with their owners' permission.
+
 ```bash
 games/kit-games init     # folders, budget, Dolphin Sys data
 games/kit-games scan     # playlists

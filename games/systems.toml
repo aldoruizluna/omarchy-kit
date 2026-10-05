@@ -46,7 +46,7 @@ folder = "gb"
 name = "Game Boy"
 db = "Nintendo - Game Boy"
 core = "gambatte"
-exts = ["gb", "zip", "7z"]
+exts = ["gb", "gbc", "zip", "7z"]
 target = 100
 gb_each = 0.0005
 tier = "perfect"
@@ -191,6 +191,27 @@ target = 150
 gb_each = 0.05
 tier = "perfect"
 arcade = true
+
+[[system]]
+folder = "mame"
+name = "Arcade classics (MAME free ROMs)"
+db = "MAME"
+core = "mame"
+exts = ["zip"]
+target = 20
+gb_each = 0.0005
+tier = "perfect"
+arcade = true
+
+[[system]]
+folder = "scummvm"
+name = "ScummVM adventures"
+db = "ScummVM"
+core = "scummvm"
+exts = ["scummvm"]
+target = 15
+gb_each = 0.15
+tier = "perfect"
 
 # Box art, screenshots and title screens downloaded by `kit-games art` (counted in the budget)
 [art]

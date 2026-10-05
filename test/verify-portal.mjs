@@ -33,7 +33,7 @@ try {
   c.ok(await b.eval(`/°C/.test(document.getElementById('heroT').textContent) && document.querySelectorAll('.fact').length===10`), "System page hero temperature + 10 facts");
   c.ok(await b.eval(`document.querySelectorAll('#topTbl tr').length>1`), "busiest-apps table filled");
   await go("/games"); await b.sleep(2500);
-  c.ok(await b.eval(`document.querySelectorAll('#sys .card').length===18`), "Games page lists the 18 planned consoles", await b.eval(`document.querySelectorAll('#sys .card').length`));
+  c.ok(await b.eval(`document.querySelectorAll('#sys .card').length===20`), "Games page lists the 20 planned systems", await b.eval(`document.querySelectorAll('#sys .card').length`));
   c.ok(await b.eval(`/budget/.test(document.getElementById('lib').innerText) && document.querySelectorAll('#bios tr').length>3`), "Games page shows the budget and BIOS checklist");
   console.log("language");
   await go("/mac"); await b.eval(`localStorage.setItem('lang','en')`); await go("/mac");

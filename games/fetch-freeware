@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""fetch-freeware: classic games their rights holders made free, from the official sources.
+
+  ScummVM freeware   adventure games released as freeware and hosted by the ScummVM project
+                     (https://www.scummvm.org/games/), installed to ~/Games/roms/scummvm/<game>/ with the
+                     <id>.scummvm launcher file RetroArch's ScummVM core opens
+  MAME free ROMs     arcade games whose owners allowed free non-commercial distribution
+                     (https://www.mamedev.org/roms/), installed to ~/Games/roms/mame/
+
+Re-running skips what is already installed. Runs `kit-games scan` at the end.
+"""
+import io, json, subprocess, sys, urllib.parse, urllib.request, zipfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ROMS = Path.home() / "Games" / "roms"
+MANIFEST = Path.home() / "Games" / ".kit-freeware.json"
+SCUMM = "https://downloads.scummvm.org/frs/extras/"
+# (title, ScummVM game id, [zip files in the extras folder], extras folder)
+SCUMMVM = [
+    ("Beneath a Steel Sky", "sky", ["bass-cd-1.2.zip"], "Beneath a Steel Sky"),
+    ("Flight of the Amazon Queen", "queen", ["FOTAQ_Talkie-1.1.zip"], "Flight of the Amazon Queen"),
+    ("Lure of the Temptress", "lure", ["lure-1.1.zip"], "Lure of the Temptress"),
+    ("Drascula: The Vampire Strikes Back", "drascula", ["drascula-1.0.zip", "drascula-audio-2.0.zip"], "Drascula_ The Vampire Strikes Back"),
+    ("Dreamweb", "dreamweb", ["dreamweb-cd-us-1.1.zip"], "Dreamweb"),
+    ("Broken Sword 2.5: The Return of the Templars", "sword25", ["sword25-v1.0.zip"], "Broken Sword 2.5"),
+    ("Soltys", "soltys", ["soltys-en-v1.0.zip"], "Soltys"),
+    ("Sfinx", "sfinx", ["sfinx-en-v1.1.zip"], "Sfinx"),
+    ("The Griffon Legend", "griffon", ["griffon-1.0.zip"], "Griffon Legend"),
+    ("God of Thunder", "got", ["gotfree.zip"], "God of Thunder"),
+    ("Nippon Safes, Inc.", "nippon", ["nippon-1.0.zip"], "Nippon Safes"),
+    ("Mystery House", "hires1", ["MYSTHOUS.zip"], "Mystery House"),
+]
+MAME = {"circus": "Circus", "robotbwl": "Robot Bowl", "carpolo": "Car Polo", "sidetrac": "Side Trak", "ripcord": "Rip Cord",
+        "fireone": "Fire One", "crash": "Crash", "starfire": "Star Fire", "targ": "Targ", "spectar": "Spectar",
+        "hardhat": "Hard Hat", "victory": "Victory", "teetert": "Teeter Torture", "fax": "FAX", "topgunnr": "Top Gunner",
+        "robby": "Robby Roto", "supertnk": "Super Tank", "looping": "Looping", "gridlee": "Gridlee", "alienar": "Alien Arena"}
+
+
+def get(url):
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "omarchy-kit"}), timeout=120) as r:
+        return r.read()
+
+
+def safe(t):
+    return t.replace(":", " -").replace("/", "-").replace(",", "")
+
+
+def main():
+    manifest = json.loads(MANIFEST.read_text()) if MANIFEST.exists() else {}
+    for title, gid, zips, folder in SCUMMVM:
+        dest = ROMS / "scummvm" / safe(title)
+        launcher = dest / f"{gid}.scummvm"
+        if launcher.exists(): continue
+        try:
+            for z in zips:
+                data = get(SCUMM + urllib.parse.quote(f"{folder}/{z}"))
+                with zipfile.ZipFile(io.BytesIO(data)) as zf:
+                    names = [n for n in zf.namelist() if not n.endswith("/")]
+                    # most archives wrap the game in one top folder; flatten it so the .scummvm file sits beside the data
+                    tops = {n.split("/")[0] for n in names}
+                    strip = tops.pop() + "/" if len(tops) == 1 and all("/" in n for n in names) else ""
+                    for n in names:
+                        out = dest / n[len(strip):]
+                        out.parent.mkdir(parents=True, exist_ok=True)
+                        out.write_bytes(zf.read(n))
+            launcher.write_text(gid)
+            manifest[f"scummvm:{gid}"] = {"title": title, "source": SCUMM + folder}
+            print(f"ScummVM  {title}")
+        except Exception as e:
+            print(f"ScummVM  {title}: failed ({e})")
+    for name in MAME:
+        out = ROMS / "mame" / f"{name}.zip"
+        if out.exists(): continue
+        try:
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(get(f"https://www.mamedev.org/roms/{name}/{name}.zip"))
+            manifest[f"mame:{name}"] = {"title": name, "source": f"https://www.mamedev.org/roms/{name}/"}
+            print(f"MAME     {name}")
+        except Exception as e:
+            print(f"MAME     {name}: failed ({e})")
+    (ROMS / "mame" / "labels.json").write_text(json.dumps(MAME, indent=1))  # kit-games uses these as playlist titles
+    MANIFEST.write_text(json.dumps(manifest, indent=1))
+    (ROMS / "mame" / "FREE-ROMS.md").write_text("# Free MAME ROMs\n\nDistributed with the rights holders' permission for non-commercial use: "
+                                                "https://www.mamedev.org/roms/\n")
+    (ROMS / "scummvm" / "FREEWARE.md").write_text("# ScummVM freeware\n\nReleased as freeware by their rights holders and hosted by the ScummVM "
+                                                  "project: https://www.scummvm.org/games/\n")
+    return subprocess.run([str(HERE / "kit-games"), "scan"]).returncode
+
+
+if __name__ == "__main__":
+    sys.exit(main())

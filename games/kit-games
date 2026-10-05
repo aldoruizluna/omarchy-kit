@@ -171,12 +171,15 @@ def cmd_scan():
         if s.get("arcade"):  # arcade sets have short names (sf2.zip): let RetroArch's scanner find the real titles
             subprocess.run(["retroarch", f"--scan={ROMS / s['folder']}"], capture_output=True, timeout=600)
             data = json.loads(lpl.read_text()) if lpl.exists() else {"version": "1.5", "items": []}
+            labels = json.loads((ROMS / s["folder"] / "labels.json").read_text()) if (ROMS / s["folder"] / "labels.json").exists() else {}
+            for i in data["items"]:  # short set names (circus.zip) get their real title when the folder provides one
+                i["label"] = labels.get(Path(i["path"]).stem, i["label"])
             known = {i["path"] for i in data["items"]}
             for f in files:  # anything the database didn't recognise still gets an entry
                 if str(f) not in known:
-                    data["items"].append({"path": str(f), "label": f.stem, "core_path": "DETECT", "core_name": "DETECT", "crc32": "DETECT", "db_name": lpl.name})
+                    data["items"].append({"path": str(f), "label": labels.get(f.stem, f.stem), "core_path": "DETECT", "core_name": "DETECT", "crc32": "DETECT", "db_name": lpl.name})
         else:
-            data = {"version": "1.5", "items": [{"path": str(f), "label": f.stem, "core_path": "DETECT", "core_name": "DETECT",
+            data = {"version": "1.5", "items": [{"path": str(f), "label": f.parent.name if f.suffix == ".scummvm" else f.stem, "core_path": "DETECT", "core_name": "DETECT",
                                                   "crc32": "DETECT", "db_name": lpl.name} for f in files]}
         data.update({"default_core_path": str(core_path), "default_core_name": core_name, "label_display_mode": 0,
                      "right_thumbnail_mode": 0, "left_thumbnail_mode": 0, "sort_mode": 0,
