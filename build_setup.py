@@ -155,7 +155,7 @@ STATUS = [
  ]),
  ("Retro gaming", "Juegos retro", [
   ("retro", "RetroArch tuned for this GPU", "RetroArch ajustado a esta GPU", "Re-apply Omarchy's defaults, then ask Claude to re-tune:", "Volver a los valores de Omarchy y luego pedir a Claude que ajuste:", "omarchy-install-gaming-retroarch"),
-  ("ds4", "PS4 controller (Bluetooth)", "Control de PS4 (Bluetooth)", "Hold Share + PS until the light bar flashes, then pair it in the Bluetooth menu:", "Mantén Share + PS hasta que la barra de luz parpadee y emparéjalo en el menú Bluetooth:", "omarchy-launch-bluetooth"),
+  ("ds4", "PS4 controller (Bluetooth)", "Control de PS4 (Bluetooth)", "Hold Share + PS until the light bar flashes, then pair it in the Bluetooth menu (Super+Ctrl+B).", "Mantén Share + PS hasta que la barra de luz parpadee y emparéjalo en el menú Bluetooth (Super+Ctrl+B).", ""),
  ]),
  ("Access", "Acceso", [
   ("tailscale", "Tailscale connected", "Tailscale conectado", "Installed but needs a one-time login:", "Instalado pero falta iniciar sesión una vez:", "sudo tailscale up"),
