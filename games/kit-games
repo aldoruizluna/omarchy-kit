@@ -11,6 +11,9 @@
                       rename them to the canonical title, compress discs (CHD) and GameCube (RVZ), file them
   kit-games cabinet   generate a RetroFE "cabinet mode" in ~/Games/retrofe over this library (collections,
                       RetroArch launchers, box art, PS4 controls) and a "Retro Cabinet" launcher entry
+  kit-games esde      configure ES-DE (EmulationStation Desktop Edition) over this library: ROM folder, gamelists
+                      with titles/developers/descriptions (merged, so favorites and play counts survive), the
+                      cores chosen here, box art / screenshots / title screens, and an "ES-DE" launcher entry
   kit-games export-telesia [--upload]
                       write ~/Games/telesia/library.json for Telesia's import (RetroArch playlist items with
                       clean titles + playtime from RetroArch's runtime logs); --upload sends it when
@@ -507,6 +510,99 @@ def cmd_cabinet():
     return 0
 
 
+# ---------------------------------------------------------------- ES-DE
+ESDE = Path.home() / "ES-DE"
+ESDE_APPIMAGE = Path.home() / ".local/opt/es-de/ES-DE_x64.AppImage"
+# Where ES-DE's default core for a system differs from the one this library runs (labels exactly as in ES-DE
+# 3.5.0's resources/systems/linux/es_systems.xml). ES-DE stores the choice as <alternativeEmulator> in gamelist.xml.
+ESDE_ALT = {"psx": "Beetle PSX HW", "saturn": "Kronos", "pcengine": "Beetle PCE FAST", "pcenginecd": "Beetle PCE FAST",
+            "arcade": "FinalBurn Neo"}
+ESDE_MEDIA = {"covers": "Named_Boxarts", "screenshots": "Named_Snaps", "titlescreens": "Named_Titles"}
+
+
+def homebrew_details():
+    """Developer and description per installed homebrew file, from Homebrew Hub's cached entries."""
+    out = {}
+    man = GAMES / ".kit-homebrew.json"
+    if not man.exists(): return out
+    entries = {}
+    for f in (GAMES / ".cache").glob("homebrew-hub-*.json"):
+        for e in json.loads(f.read_text()): entries[e.get("slug")] = e
+    for slug, m in json.loads(man.read_text()).items():
+        e = entries.get(slug, {})
+        out[Path(m["file"]).name] = {"developer": ", ".join(m.get("developer") or []),
+                                     "desc": (e.get("description") or "").strip()}
+    return out
+
+
+def esde_settings(values):
+    import xml.etree.ElementTree as ET
+    path = ESDE / "settings" / "es_settings.xml"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    lines = path.read_text().splitlines() if path.exists() else ['<?xml version="1.0"?>']
+    out, seen = [], set()
+    for line in lines:
+        m = re.search(r'name="([^"]+)"', line)
+        if m and m[1] in values:
+            out.append(re.sub(r'value="[^"]*"', f'value={json.dumps(values[m[1]])}', line)); seen.add(m[1])
+        else:
+            out.append(line)
+    for k, v in values.items():
+        if k not in seen: out.append(f'<string name="{k}" value={json.dumps(v)} />')
+    path.write_text("\n".join(out) + "\n")
+
+
+def cmd_esde():
+    import xml.etree.ElementTree as ET
+    esde_settings({"ROMDirectory": str(ROMS), "MediaDirectory": str(ESDE / "downloaded_media")})
+    details = homebrew_details()
+    systems = 0
+    for sysdef in SYSTEMS:
+        games = games_in(sysdef)
+        if not games: continue
+        systems += 1
+        folder, base = sysdef["folder"], ROMS / sysdef["folder"]
+        lpl = PLAYLISTS / f"{sysdef['db']}.lpl"
+        labels = {Path(i["path"]).resolve(): i["label"] for i in json.loads(lpl.read_text())["items"]} if lpl.exists() else {}
+        gl = ESDE / "gamelists" / folder / "gamelist.xml"
+        gl.parent.mkdir(parents=True, exist_ok=True)
+        root = ET.parse(gl).getroot() if gl.exists() else ET.Element("gameList")
+        alt = root.find("alternativeEmulator")
+        if folder in ESDE_ALT:
+            if alt is None:
+                alt = ET.Element("alternativeEmulator"); root.insert(0, alt)
+            lab = alt.find("label") if alt.find("label") is not None else ET.SubElement(alt, "label")
+            lab.text = ESDE_ALT[folder]
+        by_path = {g.findtext("path"): g for g in root.findall("game")}
+        for g in games:
+            rel = "./" + str(g.relative_to(base))
+            node = by_path.get(rel)
+            if node is None:
+                node = ET.SubElement(root, "game"); ET.SubElement(node, "path").text = rel
+            label = labels.get(g.resolve(), g.parent.name if g.suffix == ".scummvm" else g.stem)
+            (node.find("name") if node.find("name") is not None else ET.SubElement(node, "name")).text = clean_title(label) or label
+            d = details.get(g.name)
+            if d:
+                for key in ("developer", "desc"):
+                    if d[key] and node.find(key) is None: ET.SubElement(node, key).text = d[key]
+            # media: ES-DE looks for <media>/<system>/<type>/<path relative to the system folder, no extension>.png
+            for kind, src_kind in ESDE_MEDIA.items():
+                src = THUMBS / sysdef["db"] / src_kind / f"{thumb_name(label)}.png"
+                dst = ESDE / "downloaded_media" / folder / kind / g.relative_to(base).with_suffix(".png")
+                if src.exists() and not dst.exists():
+                    dst.parent.mkdir(parents=True, exist_ok=True); dst.symlink_to(src)
+        ET.indent(root)
+        gl.write_text('<?xml version="1.0"?>\n' + ET.tostring(root, encoding="unicode") + "\n")
+    desktop = Path.home() / ".local/share/applications/es-de.desktop"
+    if ESDE_APPIMAGE.exists():
+        desktop.write_text("[Desktop Entry]\nType=Application\nName=ES-DE\nGenericName=Game library\n"
+                           "Comment=EmulationStation Desktop Edition over your retro library\n"
+                           f"Exec={ESDE_APPIMAGE}\nIcon=retro-gaming\nCategories=Game;Emulator;\nTerminal=false\n")
+    print(f"ES-DE: {systems} systems configured in {ESDE} (ROMs: {ROMS})." +
+          ("" if ESDE_APPIMAGE.exists() else f" Install the AppImage at {ESDE_APPIMAGE} to get a launcher entry."))
+    return 0
+
+
 # ---------------------------------------------------------------- BIOS
 def bios_report():
     """One row per console from systems.toml [[bios]]; a row is satisfied when any of its files exists."""
@@ -532,7 +628,7 @@ def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "budget"
     if cmd == "status": print(json.dumps(status())); return 0
     fn = {"init": cmd_init, "scan": cmd_scan, "art": cmd_art, "budget": cmd_budget, "bios": cmd_bios,
-          "ingest": cmd_ingest, "export-telesia": cmd_export_telesia, "cabinet": cmd_cabinet}.get(cmd)
+          "ingest": cmd_ingest, "export-telesia": cmd_export_telesia, "cabinet": cmd_cabinet, "esde": cmd_esde}.get(cmd)
     if not fn: print(__doc__); return 2
     return fn() or 0
 
