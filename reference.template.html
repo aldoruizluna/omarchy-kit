@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Omarchy Reference · Referencia</title>
+<link rel="stylesheet" href="portal.css">
+<style>
+.cmdrow{padding:10px 2px;border-top:1px solid var(--line)}
+.cmdrow:first-child{border-top:0}
+.cmdrow .name{font:700 .9rem ui-monospace,monospace}
+.cmdrow .ex{margin-top:4px}
+.tree{list-style:none;margin:0;padding-left:0}
+.tree ul{list-style:none;margin:0;padding-left:20px;border-left:1px dashed var(--line)}
+.tree li{margin:2px 0}
+.tree summary{cursor:pointer;padding:3px 6px;border-radius:7px}
+.tree summary:hover{background:var(--soft)}
+.leaf{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:3px 6px}
+.leaf code{font-size:.75rem;opacity:.75}
+.gl dt{font-weight:700;margin-top:12px}.gl dd{margin:2px 0 0;color:var(--mut)}
+.theme{display:inline-block;margin:3px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);font-size:.85rem}
+.theme.cur{border-color:var(--acc);background:var(--soft);font-weight:700}
+</style>
+<meta name="kit-token" content=""><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="kit.css"><script src="kit.js" defer></script></head>
+<body><div class="wrap">
+<header class="top"><span class="brand">Omarchy Kit</span><button id="bLang"></button></header>
+<div id="top"></div>
+<h1 data-en="Reference" data-es="Referencia"></h1>
+<p class="lead" data-en="Read straight from Omarchy on this machine: every command, the complete menu, every theme, plus a plain-language glossary." data-es="Leído directamente de Omarchy en esta máquina: cada comando, el menú completo, cada tema y un glosario en lenguaje sencillo."></p>
+<div class="tabs" id="tabs"></div>
+<section id="p-menu"></section>
+<section id="p-cmds" class="hidden"></section>
+<section id="p-gloss" class="hidden"></section>
+<section id="p-themes" class="hidden"></section>
+</div>
+<script>window.PORTAL=/*__PORTAL__*/{};window.TOKEN=/*__TOKEN__*/null;</script>
+<script src="portal.js"></script><script src="portal-nav.js"></script>
+<script>
+const D = Portal.data, t = Portal.t, esc = Portal.esc;
+const TABS = [["menu", { en: "Omarchy menu", es: "Menú de Omarchy" }], ["cmds", { en: "Commands", es: "Comandos" }], ["gloss", { en: "Glossary", es: "Glosario" }], ["themes", { en: "Themes", es: "Temas" }]];
+let tab = (location.hash.slice(1) || "menu"), cq = "", cg = "all", openIds = new Set(["root"]);
+// ---- menu tree from Omarchy's own definition (dotted ids imply hierarchy)
+function children(prefix) {
+  const depth = prefix ? prefix.split(".").length + 1 : 1;
+  return D.menu.filter((m) => m.id.split(".").length === depth && (prefix ? m.id.startsWith(prefix + ".") : true));
+}
+function node(m) {
+  const kids = children(m.id);
+  const meta = m.action ? `<code>${esc(m.action.length > 70 ? m.action.slice(0, 70) + "…" : m.action)}</code>` : m.provider ? `<span class="small mut">${t({ en: "list filled in live", es: "lista dinámica" })}</span>` : "";
+  const btn = Portal.menuBtn(m.id);
+  const cond = m.when ? `<span class="badge info">${t({ en: "conditional", es: "condicional" })}</span>` : "";
+  if (!kids.length) return `<li><div class="leaf">${esc(m.label)} ${cond} ${btn} ${meta}</div></li>`;
+  return `<li><details ${openIds.has(m.id) ? "open" : ""} data-id="${esc(m.id)}"><summary>${esc(m.label)} <span class="small mut">(${kids.length})</span> ${btn}</summary><ul>${kids.map(node).join("")}</ul></details></li>`;
+}
+function renderMenu() {
+  document.getElementById("p-menu").innerHTML = `<div class="callout">${t({ en: "This is the menu you get with", es: "Este es el menú que abres con" })} ${Portal.bindHTML("Omarchy menu")}. ${t({ en: "“Show me” opens the real menu right at that item.", es: "“Muéstrame” abre el menú real justo en ese elemento." })}</div>
+   <div class="card"><ul class="tree">${children("").map(node).join("")}</ul></div>`;
+}
+// ---- commands from the headers of Omarchy's scripts
+function renderCmds() {
+  const groups = [...new Set(D.commands.map((c) => c.group))].sort();
+  const list = D.commands.filter((c) => (cg === "all" || c.group === cg) && (!cq || (c.cmd + " " + c.summary + " " + c.args).toLowerCase().includes(cq)));
+  document.getElementById("p-cmds").innerHTML = `<div class="row" style="margin:6px 0 10px"><input type="search" id="cq" value="${esc(cq)}" placeholder="${t({ en: "Search 367 commands: theme, wifi, battery, screenshot…", es: "Busca en 367 comandos: theme, wifi, battery, screenshot…" })}" style="flex:1 1 260px">
+    <select id="cg"><option value="all">${t({ en: "All groups", es: "Todos los grupos" })}</option>${groups.map((g) => `<option value="${g}" ${cg === g ? "selected" : ""}>${g}${D.groups[g] ? " — " + esc(D.groups[g]) : ""}</option>`).join("")}</select></div>
+    <p class="small mut">${list.length} ${t({ en: "commands. Type them in a terminal; most also work as", es: "comandos. Escríbelos en una terminal; casi todos también funcionan como" })} <code>omarchy &lt;group&gt; &lt;name&gt;</code>.</p>
+    <div class="card">${list.slice(0, 200).map((c) => `<div class="cmdrow"><span class="name">${esc(c.cmd)}</span> ${c.args ? `<code>${esc(c.args)}</code>` : ""} ${c.sudo ? `<span class="badge warn">sudo</span>` : ""} ${Portal.copyBtn(c.cmd)}
+      <div class="small">${esc(c.summary)}</div>${c.examples.length ? `<div class="ex small mut">${c.examples.slice(0, 3).map((e) => `<code>${esc(e)}</code>`).join(" ")}</div>` : ""}</div>`).join("")}
+      ${list.length > 200 ? `<p class="small mut">${t({ en: "Showing 200 — refine the search.", es: "Mostrando 200; afina la búsqueda." })}</p>` : ""}</div>`;
+  const i = document.getElementById("cq"); i.addEventListener("input", (e) => { cq = e.target.value.toLowerCase(); renderCmds(); const j = document.getElementById("cq"); j.focus(); j.setSelectionRange(j.value.length, j.value.length); });
+  document.getElementById("cg").addEventListener("change", (e) => { cg = e.target.value; renderCmds(); });
+}
+function renderGloss() {
+  document.getElementById("p-gloss").innerHTML = `<div class="card"><dl class="gl">${D.glossary.map(([en, es, den, des]) => `<dt>${esc(Portal.lang === "es" ? es : en)}</dt><dd>${esc(Portal.lang === "es" ? des : den)}</dd>`).join("")}</dl></div>`;
+}
+function renderThemes() {
+  document.getElementById("p-themes").innerHTML = `<div class="card"><p>${t({ en: "Built-in themes", es: "Temas incluidos" })} (${D.themes.all.length}). ${t({ en: "Current:", es: "Actual:" })} <b>${esc(D.themes.current)}</b>. ${Portal.bindHTML("Theme menu")} ${Portal.menuBtn("style.theme")}</p>
+    <div>${D.themes.all.map((n) => `<span class="theme ${D.themes.current.toLowerCase().replace(/ /g, "-") === n ? "cur" : ""}">${esc(n)}</span>`).join("")}</div></div>`;
+}
+function render() {
+  document.getElementById("tabs").innerHTML = TABS.map(([id, l]) => `<button data-tab="${id}" aria-pressed="${tab === id}">${t(l)}</button>`).join("");
+  TABS.forEach(([id]) => document.getElementById("p-" + id).classList.toggle("hidden", id !== tab));
+  ({ menu: renderMenu, cmds: renderCmds, gloss: renderGloss, themes: renderThemes })[tab]();
+}
+document.addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) { tab = b.dataset.tab; history.replaceState(null, "", "#" + tab); render(); } });
+document.addEventListener("toggle", (e) => { const d = e.target; if (d.dataset && d.dataset.id) d.open ? openIds.add(d.dataset.id) : openIds.delete(d.dataset.id); }, true);
+Portal.start(render);
+</script></body></html>

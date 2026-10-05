@@ -1,0 +1,39 @@
+#!/bin/bash
+# Power off the idle NVIDIA GT 750M (MacBookPro11,3) through vga_switcheroo. Runs as root at boot and after
+# every resume from sleep (nvidia-off.service). nouveau never runtime-suspends it on Macs, so otherwise it
+# sits in D0 at ~70 °C.
+#
+# After resume the PCI power_state in sysfs reads D0 even though the card stays off; only vga_switcheroo (root
+# only) knows. Never write ON here: waking the card behind nouveau's back crashes it. The real state is copied
+# to /run/nvidia-off.status (world-readable) for gpu-status and the Setup log.
+#
+# Skipped when an external display is connected (those ports are wired to the NVIDIA GPU) or when anything
+# still has the NVIDIA card open (Hyprland stays off it via ~/.config/hypr/gpu.lua).
+# Undo now:     echo ON | sudo tee /sys/kernel/debug/vgaswitcheroo/switch
+# Undo for good: sudo systemctl disable --now nvidia-off.service
+set -uo pipefail
+SW=/sys/kernel/debug/vgaswitcheroo/switch
+DEV=/sys/bus/pci/devices/0000:01:00.0
+trap '[[ -r $SW ]] && grep ":DIS:" "$SW" >/run/nvidia-off.status; chmod 644 /run/nvidia-off.status 2>/dev/null' EXIT
+
+[[ $(cat /sys/class/dmi/id/product_name) == MacBookPro11,3 ]] || { echo "Not a MacBookPro11,3; nothing to do."; exit 0; }
+# The panel must be on Intel, or this would turn off the screen.
+[[ $(readlink -f /sys/class/drm/card*-eDP-1 2>/dev/null | head -1) == *0000:00:02.0* ]] || { echo "Screen is on NVIDIA; leaving it on."; exit 0; }
+
+for _ in $(seq 30); do [[ -e $SW ]] && break; sleep 1; done
+[[ -e $SW ]] || { echo "vga_switcheroo not available."; exit 1; }
+grep -q ':DIS:.:Off:' "$SW" && { echo "NVIDIA GPU already off."; exit 0; }
+
+if grep -qlx connected /sys/class/drm/card*-DP-*/status /sys/class/drm/card*-HDMI-*/status 2>/dev/null; then
+  echo "External display connected; leaving the NVIDIA GPU on."; exit 0
+fi
+
+# Wait for anything (boot splash, a compositor) to let go of the NVIDIA card.
+nodes=(/dev/dri/by-path/pci-0000:01:00.0-card /dev/dri/by-path/pci-0000:01:00.0-render)
+for _ in $(seq 30); do fuser -s "${nodes[@]}" 2>/dev/null || break; sleep 2; done
+if fuser -s "${nodes[@]}" 2>/dev/null; then
+  echo "NVIDIA card still in use, not powering off:"; fuser -v "${nodes[@]}" 2>&1; exit 0
+fi
+
+echo OFF >"$SW"
+echo "NVIDIA GPU: $(cat $DEV/power_state)"

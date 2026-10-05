@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Omarchy Apps · Aplicaciones</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1d1d1b;--mut:#6b6b66;--card:#fff;--line:#e3e2dc;--acc:#2b6cb0;--ok:#2f855a;--kbd:#f0efe9}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#14161a;--fg:#e8e8e3;--mut:#9a9a93;--card:#1b1e23;--line:#2c3037;--acc:#7fb2e8;--ok:#68d391;--kbd:#262a31;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;padding-inline:max(16px,4vw)}
+.wrap{max-width:900px;margin:0 auto;padding-block:20px 60px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{font-size:1.6rem;margin:0}
+button{padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;cursor:pointer}
+button.primary{background:var(--acc);color:#fff;border-color:var(--acc)}
+button:disabled{opacity:.5;cursor:default}
+.banner{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:8px;padding:10px 14px;margin:14px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0;display:grid;grid-template-columns:auto 1fr auto;gap:6px 12px;align-items:start}
+.card h3{margin:0;font-size:1.05rem}
+.badge{font-size:.75rem;padding:1px 8px;border-radius:99px;background:var(--kbd);color:var(--mut);margin-left:6px}
+.ok{color:var(--ok);font-weight:600}
+.desc{color:var(--mut);margin:2px 0}
+.cmd{grid-column:2/4;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+code{background:var(--kbd);padding:3px 8px;border-radius:5px;font-size:.85rem;word-break:break-all}
+.note{grid-column:2/4;font-size:.9rem}
+.actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+@media(max-width:560px){.card{grid-template-columns:auto 1fr}.actions{grid-column:1/3;justify-content:flex-start}.cmd,.note{grid-column:1/3}}
+</style>
+<meta name="kit-token" content=""><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="kit.css"><script src="kit.js" defer></script></head>
+<body><div class="wrap">
+<header><h1 data-en="Apps to install" data-es="Apps para instalar"></h1><button id="bLang"></button></header>
+<div id="top"></div>
+<script src="portal-nav.js"></script>
+
+<div class="banner" id="mode"></div>
+<div id="list"></div>
+<p><button class="primary" id="bSel"></button> <button id="bAll"></button></p>
+<p style="color:var(--mut);font-size:.85rem" data-en="Generated from apps.toml. Terminal equivalent: ./install-apps (picker) or ./install-apps brave signal."
+ data-es="Generado desde apps.toml. Equivalente en terminal: ./install-apps (selector) o ./install-apps brave signal."></p>
+</div>
+<script>
+const APPS=/*__DATA__*/[];
+const TOKEN=/*__TOKEN__*/null;
+let lang=(navigator.language||"en").slice(0,2)==="es"?"es":"en";
+try{lang=localStorage.getItem("lang")||lang}catch(e){}
+let status={},sel=new Set(),busy=new Set();
+const T={en:{live:"Connected to the local helper: <b>Install</b> opens a terminal window and asks for your sudo password there.",
+ off:"Opened as a plain file: buttons copy the command. For one-click installs run <code>./apps-helper</code> and open the URL it prints.",
+ copy:"Copy command",copied:"Copied ✔",inst:"Install",done:"Installed",busy:"Installing…",sel:"Install selected",all:"Install all missing",aur:"AUR",repo:"repo",web:"web app"},
+ es:{live:"Conectado al ayudante local: <b>Instalar</b> abre una terminal y ahí pide tu contraseña de sudo.",
+ off:"Abierto como archivo: los botones copian el comando. Para instalar con un clic ejecuta <code>./apps-helper</code> y abre la URL que imprime.",
+ copy:"Copiar comando",copied:"Copiado ✔",inst:"Instalar",done:"Instalado",busy:"Instalando…",sel:"Instalar seleccionadas",all:"Instalar todas las faltantes",aur:"AUR",repo:"repo",web:"webapp"}};
+const esc=s=>s.replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function render(){
+  const t=T[lang];document.documentElement.lang=lang;
+  document.querySelectorAll("[data-en]").forEach(e=>e.textContent=e.dataset[lang]);
+  bLang.textContent=lang==="en"?"EN → ES":"ES → EN";
+  mode.innerHTML=TOKEN?t.live:t.off;
+  bSel.textContent=t.sel;bAll.textContent=t.all;bSel.hidden=bAll.hidden=!TOKEN;
+  list.innerHTML=APPS.map(a=>{
+    const ins=status[a.id],b=busy.has(a.id);
+    return `<div class="card"><input type="checkbox" data-id="${a.id}" ${sel.has(a.id)?"checked":""} ${ins?"disabled":""} ${TOKEN?"":"hidden"}>
+    <div style="${TOKEN?"":"grid-column:1/3"}"><h3>${esc(a.name)}<span class="badge">${a.type==="aur"?t.aur:a.type==="webapp"?t.web:t.repo}</span>${ins?` <span class="ok">✔ ${t.done}</span>`:""}</h3>
+    <div class="desc">${esc(a.desc[lang])}</div></div>
+    <div class="actions">${TOKEN?`<button class="primary" data-run="${a.id}" ${ins||b?"disabled":""}>${b?t.busy:t.inst}</button>`:""}</div>
+    <div class="cmd"><code>${esc(a.cmd)}</code><button data-copy="${a.id}">${t.copy}</button></div>
+    ${a.note?`<div class="note">💡 ${esc(a.note[lang])}</div>`:""}</div>`}).join("");
+}
+async function refresh(){
+  if(!TOKEN)return;
+  try{status=await (await fetch("status")).json();
+    for(const id of [...busy]) if(status[id]) busy.delete(id);}catch(e){}
+  render();
+}
+async function run(ids){
+  ids=ids.filter(i=>!status[i]);if(!ids.length)return;
+  const r=await fetch("install",{method:"POST",headers:{"X-Token":TOKEN,"Content-Type":"application/json"},body:JSON.stringify({ids})});
+  if(r.ok){ids.forEach(i=>busy.add(i));sel.clear();render();}else alert(await r.text());
+}
+document.addEventListener("click",async e=>{
+  const c=e.target.closest("[data-copy]"),r=e.target.closest("[data-run]");
+  if(c){const a=APPS.find(x=>x.id===c.dataset.copy);
+    try{await navigator.clipboard.writeText(a.cmd);c.textContent=T[lang].copied;setTimeout(render,1200)}catch(_){}}
+  if(r)run([r.dataset.run]);
+});
+document.addEventListener("change",e=>{const i=e.target.dataset.id;if(i)e.target.checked?sel.add(i):sel.delete(i)});
+bLang.onclick=()=>{lang=lang==="en"?"es":"en";try{localStorage.setItem("lang",lang)}catch(e){}render()};
+bSel.onclick=()=>run([...sel]);
+bAll.onclick=()=>run(APPS.map(a=>a.id));
+render();refresh();if(TOKEN)setInterval(refresh,3000);
+</script></body></html>

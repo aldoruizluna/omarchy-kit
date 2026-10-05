@@ -1,0 +1,32 @@
+#!/bin/bash
+# Which GPU drives the MacBook's screen, and what the firmware is told to use at boot. No root needed.
+VAR=/sys/firmware/efi/efivars/gpu-power-prefs-fa4ce28d-b62f-4c99-9cc3-6815686e30f9
+panel=$(readlink -f /sys/class/drm/card*-eDP-1 2>/dev/null | head -1)
+case $panel in
+  *0000:01:00.0*) drv="NVIDIA GT 750M (nouveau)";;
+  *0000:00:02.0*) drv="Intel Iris Pro (i915)";;
+  *) drv="unknown";;
+esac
+echo "Screen driven by:   $drv"
+if [[ -e $VAR ]]; then
+  if val=$(od -An -tu1 -j4 -N1 "$VAR" 2>/dev/null | tr -d ' ') && [[ -n $val ]]; then
+    echo "Firmware boot GPU:  gpu-power-prefs = $val ($([[ $val == 1 ]] && echo Intel || echo NVIDIA))"
+  else
+    echo "Firmware boot GPU:  gpu-power-prefs set (value hidden by firmware; written by switch-to-intel = Intel)"
+  fi
+elif [[ $drv == Intel* ]]; then
+  echo "Firmware boot GPU:  Intel (gpu-power-prefs is hidden from Linux after boot; Intel at power-on confirms it)"
+else
+  echo "Firmware boot GPU:  gpu-power-prefs not set (Apple default: NVIDIA)"
+fi
+# After sleep, sysfs power_state can read D0 while the card is off; nvidia-off saves vga_switcheroo's real state.
+sw=$(cat /run/nvidia-off.status 2>/dev/null)
+case $sw in
+  *:Off:*) nv="off (vga_switcheroo)";;
+  *:Pwr:*|*:On:*) nv="on (vga_switcheroo)";;
+  *) nv="$(cat /sys/bus/pci/devices/0000:01:00.0/power_state 2>/dev/null) (PCI power state)";;
+esac
+echo "NVIDIA power:       $nv"
+for hw in /sys/class/hwmon/hwmon*; do [[ $(cat $hw/name 2>/dev/null) == coretemp ]] && echo "CPU temperature:    $(( $(cat $hw/temp1_input) / 1000 )) °C"; done
+echo "Fans:               $(cat /sys/devices/platform/applesmc.768/fan*_input 2>/dev/null | tr '\n' ' ')RPM"
+journalctl -k -b --no-pager -q 2>/dev/null | grep -q 'failed to retrieve link info, disabling eDP' && echo "Intel eDP probe:    FAILED this boot (panel was routed to NVIDIA at power-on)" || echo "Intel eDP probe:    ok"

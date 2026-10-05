@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Omarchy Kit</title>
+<link rel="stylesheet" href="portal.css">
+<style>
+.hero{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;align-items:start}
+@media(max-width:820px){.hero{grid-template-columns:1fr}}
+.now dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:8px 0 0}
+.now dt{color:var(--mut);font-size:.85rem}.now dd{margin:0;font-weight:600}
+.level{display:grid;grid-template-columns:1fr auto;gap:6px 12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.level:first-child{border-top:0}
+.level a{font-weight:600;text-decoration:none}
+.idea h3{margin:4px 0}
+.idea .num{font:800 1.6rem/1 system-ui;color:var(--acc)}
+.go a{display:block;text-decoration:none;color:inherit}
+.go .card:hover{border-color:var(--acc)}
+.banner{position:relative;margin:0 calc(50% - 50vw);padding:28px calc(50vw - 50%) 30px;overflow:hidden;isolation:isolate}
+.banner .bgimg{position:absolute;inset:0;z-index:-1;background-size:cover;background-position:center;opacity:0;transition:opacity .8s}
+.banner .bgimg.on{opacity:.55}
+.banner::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(90deg,var(--bg) 18%,color-mix(in srgb,var(--bg) 70%,transparent) 55%,color-mix(in srgb,var(--bg) 25%,transparent)),
+  linear-gradient(0deg,var(--bg),transparent 40%)}
+.now{background:color-mix(in srgb,var(--card) 82%,transparent);backdrop-filter:blur(14px)}
+.now .spark{display:block;width:100%;height:42px;margin-top:10px}
+.now .more{display:inline-block;margin-top:8px;font-weight:600;font-size:.88rem;text-decoration:none}
+.prog{display:grid;grid-template-columns:auto 1fr;gap:22px;align-items:center}
+@media(max-width:640px){.prog{grid-template-columns:1fr;justify-items:center;text-align:center}}
+.ring{position:relative;width:150px;height:150px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .c{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .c b{font:800 2rem/1 var(--mono,ui-monospace,monospace)}
+.ring .c small{color:var(--mut);font-size:.75rem}
+.ring circle{transition:stroke-dashoffset 1s cubic-bezier(.2,.8,.2,1)}
+.rank{font:800 1.35rem var(--mono,ui-monospace,monospace);margin:0}
+.stats{display:flex;gap:18px;flex-wrap:wrap;margin:10px 0}
+.stats div b{display:block;font-size:1.25rem}
+.stats div span{color:var(--mut);font-size:.8rem}
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
+.th{all:unset;cursor:pointer;border-radius:12px;overflow:hidden;border:2px solid var(--line);background:var(--card);display:block;transition:transform .15s,border-color .15s}
+.th:hover{transform:translateY(-2px)}
+.th:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.th[aria-current=true]{border-color:var(--acc-fill,var(--acc))}
+.th .pv{height:58px;display:flex;align-items:flex-end;gap:5px;padding:8px}
+.th .pv i{height:10px;border-radius:3px;display:block}
+.th .nm{padding:6px 10px 8px;font-size:.8rem;font-weight:600;display:flex;justify-content:space-between;gap:6px}
+.go h3{display:flex;align-items:center;gap:8px}.go h3 svg{width:18px;height:18px;color:var(--acc)}
+</style>
+<meta name="kit-token" content=""><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="kit.css"><script src="kit.js" defer></script></head>
+<body><div class="wrap">
+<header class="top"><span class="brand">Omarchy Kit <small id="ver"></small></span><button id="bLang"></button></header>
+<div id="top"></div>
+
+<div class="banner"><div class="bgimg" id="bgimg"></div><div class="inner">
+<div class="hero">
+  <div>
+    <h1 data-en="Master Omarchy on your MacBook Pro" data-es="Domina Omarchy en tu MacBook Pro"></h1>
+    <p class="lead" data-en="A hands-on course built from your own machine: your real shortcuts, gestures, menus and hardware. Lessons check that you actually did each step." data-es="Un curso práctico hecho con tu propia máquina: tus atajos, gestos, menús y hardware reales. Las lecciones comprueban que de verdad hiciste cada paso."></p>
+    <div class="row" style="margin-top:14px">
+      <a href="learn.html" id="ctaLearn"><button class="primary" id="ctaBtn"></button></a>
+      <a href="mac.html" data-nav="/mac"><button data-en="I'm coming from macOS" data-es="Vengo de macOS"></button></a>
+    </div>
+    <p class="small mut" style="margin-top:10px" data-en="Open this portal from anywhere with <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>. On your MacBook, <kbd>Super</kbd> is the <b>⌘ command</b> key." data-es="Abre este portal desde cualquier lugar con <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>. En tu MacBook, <kbd>Super</kbd> es la tecla <b>⌘ comando</b>."></p>
+  </div>
+  <div class="card now">
+    <div><span class="live-dot" id="dot"></span><b data-en="Your machine, right now" data-es="Tu máquina, ahora mismo"></b></div>
+    <dl id="nowList"></dl>
+    <svg class="spark" id="spark" aria-hidden="true"></svg>
+    <p class="small mut" id="nowNote"></p>
+    <a class="more" id="sysLink" href="system.html" data-nav="/system"></a>
+  </div>
+</div>
+</div></div>
+
+<h2 id="progress" data-en="Your progress" data-es="Tu progreso"></h2>
+<div class="card prog" id="prog"></div>
+<h3 data-en="Badges" data-es="Insignias" style="margin-top:20px"></h3>
+<div class="badges" id="badges"></div>
+
+<h2 data-en="Your learning path" data-es="Tu ruta de aprendizaje"></h2>
+<div class="card" id="levels"></div>
+
+<h2 data-en="Four ideas that make everything click" data-es="Cuatro ideas que lo aclaran todo"></h2>
+<div class="grid">
+  <div class="card idea"><div class="num">1</div><h3 data-en="Keyboard first" data-es="Primero el teclado"></h3><p class="mut" data-en="Everything has a shortcut, and nearly all start with Super (⌘). <kbd>Super</kbd>+<kbd>K</kbd> lists them all." data-es="Todo tiene atajo, y casi todos empiezan con Super (⌘). <kbd>Super</kbd>+<kbd>K</kbd> los muestra todos."></p></div>
+  <div class="card idea"><div class="num">2</div><h3 data-en="Windows tile themselves" data-es="Las ventanas se acomodan solas"></h3><p class="mut" data-en="New windows split the screen automatically: no dragging, no overlaps. Float one with <kbd>Super</kbd>+<kbd>T</kbd> when you want the Mac feel." data-es="Las ventanas nuevas dividen la pantalla solas: sin arrastrar ni solapar. Haz flotar una con <kbd>Super</kbd>+<kbd>T</kbd> cuando quieras el estilo Mac."></p></div>
+  <div class="card idea"><div class="num">3</div><h3 data-en="Ten spaces, always there" data-es="Diez espacios, siempre ahí"></h3><p class="mut" data-en="Spaces 1–9 and 0 replace Mission Control. Jump with <kbd>Super</kbd>+number or swipe with three fingers." data-es="Los espacios 1–9 y 0 reemplazan a Mission Control. Salta con <kbd>Super</kbd>+número o desliza con tres dedos."></p></div>
+  <div class="card idea"><div class="num">4</div><h3 data-en="One menu for everything else" data-es="Un menú para todo lo demás"></h3><p class="mut" data-en="<kbd>Super</kbd>+<kbd>Space</kbd> opens the Omarchy menu: install, style, settings, system. It replaces System Settings and the App Store." data-es="<kbd>Super</kbd>+<kbd>Space</kbd> abre el menú de Omarchy: instalar, estilo, ajustes, sistema. Reemplaza Ajustes del Sistema y la App Store."></p></div>
+</div>
+
+<h2 data-en="Make it yours: pick a theme" data-es="Hazlo tuyo: elige un tema"></h2>
+<p class="mut small" data-en="Click one to restyle your whole desktop (bar, terminal, wallpaper and this kit). Same as the Theme menu, <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>Ctrl</kbd>+<kbd>Space</kbd>." data-es="Haz clic en uno para cambiar el estilo de todo tu escritorio (barra, terminal, fondo y este kit). Igual que el menú de temas, <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>Ctrl</kbd>+<kbd>Space</kbd>." id="thNote"></p>
+<div class="themes" id="themes"></div>
+
+<h2 data-en="Explore" data-es="Explora"></h2>
+<div class="grid go" id="go"></div>
+</div>
+<script>window.PORTAL=/*__PORTAL__*/{};window.TOKEN=/*__TOKEN__*/null;</script>
+<script src="portal.js"></script><script src="portal-nav.js"></script>
+<script>
+const D = Portal.data, t = Portal.t;
+const href = (file, route) => (location.protocol === "file:" ? file : route);
+document.getElementById("ver").textContent = D.version ? "· Omarchy " + D.version : "";
+const lessonsAll = D.levels.flatMap((lv) => lv.lessons);
+const doneLesson = (l) => Portal.progress.get(l.id) === "done";
+function nextLesson() { return lessonsAll.find((l) => !doneLesson(l)); }
+const GO = [
+  ["learn.html", "/learn", { en: "Learn", es: "Aprender" }, { en: "Guided, hands-on lessons that verify each step.", es: "Lecciones guiadas y prácticas que verifican cada paso." }],
+  ["mac.html", "/mac", { en: "From macOS", es: "Desde macOS" }, { en: "“How do I…?” for every Mac habit.", es: "“¿Cómo hago…?” para cada hábito de Mac." }],
+  ["macbook.html", "/macbook", { en: "Your MacBook", es: "Tu MacBook" }, { en: "What works on this 2014 hardware, live readings and fixes.", es: "Qué funciona en este hardware de 2014, lecturas en vivo y soluciones." }],
+  ["system.html", "/system", { en: "System, live", es: "Sistema en vivo" }, { en: "Temperature, fans, CPU and battery graphs, updated every 2 seconds.", es: "Gráficas de temperatura, ventiladores, CPU y batería cada 2 segundos." }],
+  ["keyboard.html", "/keyboard", { en: "3D Keyboard", es: "Teclado 3D" }, { en: "Every shortcut on a model of your keyboard.", es: "Cada atajo sobre un modelo de tu teclado." }],
+  ["trackpad.html", "/trackpad", { en: "3D Trackpad", es: "Trackpad 3D" }, { en: "Watch and try every gesture.", es: "Mira y prueba cada gesto." }],
+  ["reference.html", "/reference", { en: "Reference", es: "Referencia" }, { en: "All 367 commands, the full menu and a glossary.", es: "Los 367 comandos, el menú completo y un glosario." }],
+  ["apps.html", "/apps", { en: "Apps", es: "Apps" }, { en: "Install your app list with one click.", es: "Instala tu lista de apps con un clic." }],
+  ["setup.html", "/setup", { en: "Setup log", es: "Bitácora" }, { en: "Everything changed on this machine, and its live status.", es: "Todo lo cambiado en esta máquina y su estado en vivo." }],
+];
+async function now() {
+  const dot = document.getElementById("dot"), list = document.getElementById("nowList"), note = document.getElementById("nowNote");
+  const [s, h] = await Promise.all([Portal.api.state(), Portal.api.hw()]);
+  if (!s) { dot.classList.add("off"); list.innerHTML = ""; note.textContent = t({ en: "Live readings appear when this page is opened through Omarchy Kit (Super+Shift+H).", es: "Las lecturas en vivo aparecen al abrir esta página desde Omarchy Kit (Super+Shift+H)." }); return; }
+  const rows = [
+    [{ en: "Space", es: "Espacio" }, s.ws + (s.special ? " + scratchpad" : "")],
+    [{ en: "Focused app", es: "App enfocada" }, s.active.class || "—"],
+    [{ en: "Open windows", es: "Ventanas abiertas" }, s.clients.length],
+    [{ en: "Theme", es: "Tema" }, s.theme],
+    [{ en: "Volume", es: "Volumen" }, s.volume],
+  ];
+  if (h) {
+    rows.push([{ en: "Battery", es: "Batería" }, `${h.battery.pct}% · ${t({ en: "health", es: "salud" })} ${h.battery.health}%`]);
+    rows.push([{ en: "CPU temperature", es: "Temperatura CPU" }, `${h.temps.cpu} °C`]);
+    rows.push([{ en: "Screen driven by", es: "Pantalla controlada por" }, h.gpu === "nvidia" ? "NVIDIA ⚠" : h.gpu === "intel" ? "Intel ✓" : "?"]);
+  }
+  list.innerHTML = rows.map(([k, v]) => `<dt>${t(k)}</dt><dd>${Portal.esc(v)}</dd>`).join("");
+  spark();
+  note.innerHTML = h && h.gpu === "nvidia" ? `<a href="${href("macbook.html", "/macbook")}">${t({ en: "Why “NVIDIA ⚠” matters →", es: "Por qué importa “NVIDIA ⚠” →" })}</a>` : "";
+}
+// ---- temperature sparkline (last 10 minutes from the System page's sampler)
+async function spark() {
+  const svg = document.getElementById("spark"); if (!Portal.live) { svg.style.display = "none"; return; }
+  let r; try { r = await (await fetch("/api/live", { cache: "no-store" })).json(); } catch (e) { return; }
+  const pts = r.samples.filter((s) => s.temp != null && s.t > Date.now() / 1000 - 600);
+  const W = svg.clientWidth || 300, H = 42; svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  if (pts.length < 2) { svg.innerHTML = ""; return; }
+  const t0 = pts[0].t, t1 = pts[pts.length - 1].t, lo = 40, hi = 100;
+  const xy = pts.map((s) => [((s.t - t0) / (t1 - t0 || 1)) * (W - 8) + 2, H - 4 - ((Math.min(Math.max(s.temp, lo), hi) - lo) / (hi - lo)) * (H - 8)]);
+  const d = "M" + xy.map((p) => p.map((v) => v.toFixed(1)).join(",")).join("L");
+  const last = xy[xy.length - 1];
+  svg.innerHTML = `<path d="${d}L${last[0]},${H}L2,${H}Z" fill="var(--acc-fill,var(--acc))" fill-opacity=".12"/><path d="${d}" fill="none" stroke="var(--acc-fill,var(--acc))" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/><circle cx="${last[0]}" cy="${last[1]}" r="4" fill="var(--acc-fill,var(--acc))" stroke="var(--card)" stroke-width="2"/>`;
+}
+
+// ---- wallpaper behind the hero (the current Omarchy background)
+function wallpaper() {
+  if (!Portal.live) return;
+  const img = new Image(), el = document.getElementById("bgimg");
+  img.onload = () => { el.style.backgroundImage = `url("${img.src}")`; el.classList.add("on"); };
+  img.src = "/wallpaper?v=" + Date.now();
+}
+
+// ---- progress ring, XP, streak, badges (numbers come from kit.js)
+function drawStats(s) {
+  const ring = 2 * Math.PI * 64, off = ring * (1 - s.pct / 100);
+  const toNext = s.rank.to != null ? s.rank.to - s.xp : 0;
+  document.getElementById("prog").innerHTML = `<div class="ring" role="img" aria-label="${s.pct}%">
+      <svg viewBox="0 0 150 150"><circle cx="75" cy="75" r="64" fill="none" stroke="var(--kbd)" stroke-width="12"/>
+      <circle cx="75" cy="75" r="64" fill="none" stroke="var(--acc-fill,var(--acc))" stroke-width="12" stroke-linecap="round" stroke-dasharray="${ring}" stroke-dashoffset="${ring}" id="ringArc"/></svg>
+      <div class="c"><b>${s.pct}%</b><small>${t({ en: "of the course", es: "del curso" })}</small></div></div>
+    <div><p class="small mut" style="margin:0">${t({ en: "Level", es: "Nivel" })} ${s.rank.n}</p><p class="rank">${Portal.esc(t(s.rank))}</p>
+      <div class="stats"><div><b>${s.xp}</b><span>XP</span></div><div><b>${s.lessons}/${s.totalLessons}</b><span>${t({ en: "lessons", es: "lecciones" })}</span></div>
+      <div><b>${s.streak ? "🔥 " + s.streak : "0"}</b><span>${t({ en: "day streak", es: "días de racha" })}</span></div>
+      <div><b>${s.badges.filter((b) => b.got).length}/${s.badges.length}</b><span>${t({ en: "badges", es: "insignias" })}</span></div></div>
+      ${s.rank.to != null ? `<div class="progress" style="max-width:420px"><i style="width:${(100 * (s.xp - s.rank.from)) / (s.rank.to - s.rank.from)}%"></i></div>
+      <p class="small mut">${t({ en: `${toNext} XP to ${s.rank.nextEn}. Steps are worth 10 XP, lessons 30, badges 25.`, es: `${toNext} XP para ${s.rank.nextEs}. Cada paso vale 10 XP, cada lección 30 y cada insignia 25.` })}</p>` :
+      `<p class="small ok">${t({ en: "Top rank reached. You're an Omarchist!", es: "Rango máximo alcanzado. ¡Eres Omarchista!" })}</p>`}</div>`;
+  requestAnimationFrame(() => requestAnimationFrame(() => { const a = document.getElementById("ringArc"); if (a) a.style.strokeDashoffset = off; }));
+  document.getElementById("badges").innerHTML = s.badges.map((b) => `<div class="bdg ${b.got ? "got" : "locked"}" title="${Portal.esc(t(b.how))}">
+    <span class="em" aria-hidden="true">${b.em}</span><b>${Portal.esc(t(b.name))}</b><small>${b.got ? "✓ " + t({ en: "Unlocked", es: "Desbloqueada" }) : Portal.esc(t(b.how))}</small></div>`).join("");
+}
+document.addEventListener("kit:stats", (e) => drawStats(e.detail));
+
+// ---- theme gallery
+async function themes() {
+  const box = document.getElementById("themes");
+  if (!Portal.live) { box.innerHTML = ""; document.getElementById("thNote").textContent = t({ en: "Open the kit with Super+Shift+H to pick themes here.", es: "Abre el kit con Super+Shift+H para elegir temas aquí." }); return; }
+  let r; try { r = await (await fetch("/api/theme", { cache: "no-store" })).json(); } catch (e) { return; }
+  box.innerHTML = r.themes.map((th) => `<button class="th" data-theme-id="${Portal.esc(th.id)}" aria-current="${th.id === r.name}" title="${Portal.esc(th.name)}">
+    <div class="pv" style="background:${Portal.esc(th.bg)}"><i style="width:38%;background:${Portal.esc(th.acc)}"></i><i style="width:22%;background:${Portal.esc(th.fg)};opacity:.8"></i></div>
+    <div class="nm"><span>${Portal.esc(th.name)}</span><span class="mut">${th.id === r.name ? "✓" : th.mode === "light" ? "☀" : "☾"}</span></div></button>`).join("");
+}
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("[data-theme-id]"); if (!b || !window.Kit) return;
+  document.querySelectorAll("[data-theme-id]").forEach((x) => x.setAttribute("aria-current", x === b));
+  if (!(await Kit.setTheme(b.dataset.themeId))) Kit.toast(t({ en: "Couldn't switch theme", es: "No se pudo cambiar el tema" }), "", "⚠️");
+});
+document.addEventListener("kit:theme", () => { themes(); wallpaper(); });
+
+Portal.start(() => {
+  const nl = nextLesson(), done = lessonsAll.filter(doneLesson).length;
+  document.getElementById("ctaBtn").textContent = done === 0 ? t({ en: "Start the first lesson", es: "Empezar la primera lección" }) : nl ? t({ en: "Continue: ", es: "Continuar: " }) + t(nl) : t({ en: "Review the lessons", es: "Repasar lecciones" });
+  document.getElementById("ctaLearn").href = href("learn.html", "/learn") + (nl ? "#" + nl.id : "");
+  document.getElementById("levels").innerHTML = D.levels.map((lv) => {
+    const n = lv.lessons.length, d = lv.lessons.filter(doneLesson).length;
+    return `<div class="level"><a href="${href("learn.html", "/learn")}#${lv.lessons.find((l) => !doneLesson(l))?.id || lv.lessons[0].id}">${t(lv)}</a><span class="small mut">${d}/${n}</span>
+      <div class="progress" style="grid-column:1/3"><i style="width:${(100 * d) / n}%"></i></div></div>`;
+  }).join("");
+  const navIcon = (r) => (window.KitNav ? KitNav.icon((KitNav.pages.find((p) => p[1] === r) || [])[4] || "home") : "");
+  document.getElementById("go").innerHTML = GO.map(([f, r, title, sub]) => `<a href="${href(f, r)}"><div class="card"><h3>${navIcon(r)}${t(title)}</h3><p class="mut small">${t(sub)}</p></div></a>`).join("");
+  document.querySelectorAll("[data-nav]").forEach((a) => (a.href = href(a.getAttribute("href"), a.dataset.nav)));
+  document.getElementById("sysLink").textContent = t({ en: "Live graphs on the System page →", es: "Gráficas en vivo en la página Sistema →" });
+  now();
+  if (window.Kit) Kit.stats().then((x) => x && drawStats(x));
+});
+wallpaper(); themes();
+setInterval(now, 5000);
+</script></body></html>

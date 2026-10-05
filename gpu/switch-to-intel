@@ -1,0 +1,44 @@
+#!/bin/bash
+# Make the MacBook Pro (MacBookPro11,3) firmware route the internal screen to the Intel GPU at power-on,
+# by setting Apple's gpu-power-prefs firmware variable to 1. Takes effect at the next boot.
+#
+# Why: at power-on the gmux currently gives the panel to the NVIDIA GPU, so the Intel driver logs
+# "failed to retrieve link info, disabling eDP" and the hot NVIDIA GPU drives the screen all session.
+#
+# Revert:   ./switch-to-nvidia   (from a working session)
+# Recovery: if the screen stays black after rebooting, hold the power button to turn off, then power on
+#           holding Option+Command+P+R until the second startup chime (NVRAM reset). That clears this
+#           variable and the Mac boots on NVIDIA as before. If it then doesn't find Omarchy, hold Option at
+#           power-on and choose "EFI Boot".
+set -euo pipefail
+VAR=/sys/firmware/efi/efivars/gpu-power-prefs-fa4ce28d-b62f-4c99-9cc3-6815686e30f9
+HERE=$(cd "$(dirname "$0")" && pwd)
+
+[[ $(cat /sys/class/dmi/id/product_name) == MacBookPro11,3 ]] || { echo "This script is only for the MacBookPro11,3." >&2; exit 1; }
+[[ -d /sys/firmware/efi/efivars ]] || { echo "No EFI variables available." >&2; exit 1; }
+[[ -e /sys/bus/pci/devices/0000:00:02.0 ]] || { echo "The Intel GPU is not visible to Linux; switching would leave no working screen." >&2; exit 1; }
+
+# Back up the current state (the variable is normally absent on this Mac = NVIDIA default).
+backup="$HERE/gpu-power-prefs.backup-$(date +%Y%m%d-%H%M%S)"
+# Apple's firmware rejects runtime reads of this variable (EINVAL), so a present one may be unreadable.
+if [[ ! -e $VAR ]]; then echo "absent" >"$backup"
+elif ! od -An -tx1 "$VAR" >"$backup" 2>/dev/null; then echo "present, unreadable ($(stat -c %s "$VAR") bytes)" >"$backup"; fi
+echo "Backed up current setting to $backup ($(cat "$backup" | tr -s ' '))"
+
+# efivarfs needs the whole variable in ONE write: 4 attribute bytes (non-volatile, boot + runtime access)
+# followed by the 4-byte value 1 (= integrated GPU). An existing variable is immutable until unlocked.
+[[ -e $VAR ]] && sudo chattr -i "$VAR"
+printf '\x07\x00\x00\x00\x01\x00\x00\x00' | sudo dd of="$VAR" bs=8 count=1 status=none
+
+if got=$(od -An -tx1 "$VAR" 2>/dev/null | tr -s ' ') && [[ -n $got ]]; then
+  [[ $got == " 07 00 00 00 01 00 00 00" ]] || { echo "Verification FAILED: read back '$got'" >&2; exit 1; }
+  echo "Set gpu-power-prefs = 1 (Intel). Verified: $got"
+else
+  # The firmware won't let it be read back; the write succeeded and the 4-byte variable exists.
+  [[ -e $VAR && $(stat -c %s "$VAR") == 4 ]] || { echo "Verification FAILED: variable missing or wrong size" >&2; exit 1; }
+  echo "Set gpu-power-prefs = 1 (Intel). The firmware hides its value at runtime; the next boot confirms it."
+fi
+echo
+echo "Next: save your work and reboot. After logging in, run $HERE/gpu-status."
+echo "If the screen is black after the reboot: hold power to turn off, then power on holding"
+echo "Option+Command+P+R until the second chime (NVRAM reset) — you are back on NVIDIA."

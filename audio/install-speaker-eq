@@ -1,0 +1,35 @@
+#!/bin/bash
+# Install the MacBook speaker EQ in Omarchy's speaker-tuning layout (no root needed), plus the
+# headphone watcher. Re-run after editing design_eq.py. Remove with: ./install-speaker-eq --remove
+set -euo pipefail
+cd "$(dirname "$0")"
+OM=/usr/share/omarchy/default
+CFG=${XDG_CONFIG_HOME:-$HOME/.config}
+
+if [[ ${1:-} == --remove ]]; then
+  systemctl --user disable --now speaker-eq-follow.service 2>/dev/null || true
+  rm -f "$CFG/systemd/user/speaker-eq-follow.service" "$HOME/.local/bin/speaker-eq-follow"
+  systemctl --user daemon-reload
+  omarchy-audio-tuning off   # removes the tuning files and puts apps back on the speakers
+  exit 0
+fi
+
+python3 design_eq.py >/dev/null
+# Omarchy's host config with one change: talk to RTKit directly (rtportal.enabled = false), as
+# pipewire-pulse.conf does. By default the realtime module asks the desktop portal's Realtime service,
+# which reported a 0 us realtime budget here; the kernel then SIGKILLed this process whenever its
+# realtime audio thread spanned a scheduler tick, i.e. whenever music actually played through the EQ.
+# Direct RTKit gives the same 200 ms budget and priority 20 the main PipeWire daemon gets.
+sed 's|args = { }|args = { rtportal.enabled = false }|' "$OM/audio/filter-chain-host.conf" |
+  install -Dm644 /dev/stdin "$CFG/pipewire/omarchy-speaker-tuning.conf"
+grep -q 'rtportal.enabled = false' "$CFG/pipewire/omarchy-speaker-tuning.conf" || { echo "realtime fix did not apply" >&2; exit 1; }
+install -Dm644 macbookpro11-speakers.conf "$CFG/pipewire/omarchy-speaker-tuning.conf.d/90-tuning.conf"
+install -Dm644 "$OM/systemd/user/omarchy-speaker-tuning.service" "$CFG/systemd/user/omarchy-speaker-tuning.service"
+install -Dm755 speaker-eq-follow "$HOME/.local/bin/speaker-eq-follow"
+install -Dm644 speaker-eq-follow.service "$CFG/systemd/user/speaker-eq-follow.service"
+systemctl --user daemon-reload
+systemctl --user enable omarchy-speaker-tuning.service speaker-eq-follow.service >/dev/null 2>&1
+systemctl --user restart omarchy-speaker-tuning.service
+for _ in {1..40}; do pactl list sinks short | awk '{print $2}' | grep -qx omarchy_speaker_tuning && break; sleep .25; done
+systemctl --user restart speaker-eq-follow.service
+echo "installed; omarchy audio tuning status:"; omarchy-audio-tuning status

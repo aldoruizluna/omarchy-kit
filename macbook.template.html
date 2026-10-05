@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Your MacBook Pro 2014 · Tu MacBook</title>
+<link rel="stylesheet" href="portal.css">
+<style>
+.hw{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;padding:14px 0;border-top:1px solid var(--line)}
+.hw:first-child{border-top:0}
+.hw h3{margin:0}
+.dot{width:12px;height:12px;border-radius:50%;margin-top:6px}
+.dot.ok{background:var(--ok)}.dot.warn{background:var(--warn)}.dot.bad{background:var(--bad)}
+.livebox{display:inline-flex;flex-wrap:wrap;gap:6px 14px;background:var(--soft);border-radius:10px;padding:6px 12px;margin-top:6px;font-size:.88rem}
+.livebox b{font-weight:700}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.85rem}
+.legend span{display:inline-flex;gap:6px;align-items:center}
+</style>
+<meta name="kit-token" content=""><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="kit.css"><script src="kit.js" defer></script></head>
+<body><div class="wrap">
+<header class="top"><span class="brand">Omarchy Kit</span><button id="bLang"></button></header>
+<div id="top"></div>
+<h1 data-en="Your MacBook Pro 15″ (Mid 2014) on Omarchy" data-es="Tu MacBook Pro 15″ (mediados de 2014) en Omarchy"></h1>
+<p class="lead" data-en="What works on this exact machine (MacBookPro11,3), what doesn't yet, and how to fix it. Checked on the hardware itself, not copied from the internet." data-es="Qué funciona en esta máquina exacta (MacBookPro11,3), qué aún no y cómo arreglarlo. Comprobado en el propio hardware, no copiado de internet."></p>
+<div class="legend"><span><i class="dot ok"></i><span data-en="works" data-es="funciona"></span></span><span><i class="dot warn"></i><span data-en="works, with caveats or untested" data-es="funciona con matices o sin probar"></span></span><span><i class="dot bad"></i><span data-en="needs a fix" data-es="requiere solución"></span></span></div>
+<div class="card" style="margin-top:14px" id="list"></div>
+</div>
+<script>window.PORTAL=/*__PORTAL__*/{};window.TOKEN=/*__TOKEN__*/null;</script>
+<script src="portal.js"></script><script src="portal-nav.js"></script>
+<script>
+const D = Portal.data, t = Portal.t, esc = Portal.esc;
+let hw = null;
+const order = { bad: 0, warn: 1, ok: 2 };
+function live(kind) {
+  if (!hw) return "";
+  const L = (en, es) => (Portal.lang === "es" ? es : en);
+  if (kind === "gpu") return `<div class="livebox"><span>${L("Screen driven by", "Pantalla controlada por")}: <b>${hw.gpu === "nvidia" ? "NVIDIA GT 750M ⚠" : hw.gpu === "intel" ? "Intel Iris Pro ✓" : "?"}</b></span><span>CPU <b>${hw.temps.cpu ?? "?"} °C</b></span>${hw.temps.gpu ? `<span>GPU <b>${hw.temps.gpu} °C</b></span>` : ""}<span>${L("Fans", "Ventiladores")} <b>${hw.fans.join(" / ")} RPM</b></span></div>`;
+  if (kind === "battery") return `<div class="livebox"><span>${L("Charge", "Carga")} <b>${hw.battery.pct}%</b> (${esc(hw.battery.status)})</span><span>${L("Health", "Salud")} <b>${hw.battery.health}%</b></span><span>${L("Cycles", "Ciclos")} <b>${esc(hw.battery.cycles)}</b></span><span>${L("Profile", "Perfil")} <b>${esc(hw.profile)}</b></span></div>`;
+  if (kind === "thermal") return `<div class="livebox"><span>CPU <b>${hw.temps.cpu ?? "?"} °C</b></span><span>${L("Fans", "Ventiladores")} <b>${hw.fans.join(" / ")} RPM</b></span></div>`;
+  return "";
+}
+function render() {
+  const items = [...D.hw].sort((a, b) => order[a.status] - order[b.status]);
+  document.getElementById("list").innerHTML = items.map((h) => `<div class="hw"><i class="dot ${h.status}"></i><div>
+    <h3>${esc(t(h))}</h3><p>${esc(t(h.body)).replace(/`([^`]+)`/g, "<code>$1</code>")}</p>
+    ${h.k ? `<div class="row small">${Portal.bindHTML(h.k)} <span class="mut">${esc(h.k)}</span></div>` : ""}
+    ${h.cmd ? `<div class="cmd"><code>${esc(h.cmd)}</code>${Portal.copyBtn(h.cmd)}</div>` : ""}
+    ${h.live ? live(h.live) : ""}</div></div>`).join("");
+}
+async function refresh() { hw = await Portal.api.hw(); render(); }
+Portal.start(render); refresh(); setInterval(refresh, 5000);
+</script></body></html>

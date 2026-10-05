@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Omarchy Cheat Sheet · Guía rápida</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1d1d1b;--mut:#6b6b66;--card:#fff;--line:#e3e2dc;--acc:#2b6cb0;--kbd:#f0efe9;--kbdl:#cfcdc4}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#14161a;--fg:#e8e8e3;--mut:#9a9a93;--card:#1b1e23;--line:#2c3037;--acc:#7fb2e8;--kbd:#262a31;--kbdl:#3a3f48;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#14161a;--fg:#e8e8e3;--mut:#9a9a93;--card:#1b1e23;--line:#2c3037;--acc:#7fb2e8;--kbd:#262a31;--kbdl:#3a3f48;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;padding-inline:max(16px,4vw)}
+.wrap{max-width:1000px;margin:0 auto;padding-block:20px 60px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{font-size:1.6rem;margin:0}
+h2{font-size:1.15rem;margin:32px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0;position:sticky;top:0;background:var(--bg);padding-block:8px;z-index:2}
+input[type=search]{flex:1 1 220px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit}
+button{padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg);font:inherit;cursor:pointer}
+button[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+nav{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.9rem;margin-bottom:8px}
+a{color:var(--acc)}
+table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+td{padding:7px 12px;border-top:1px solid var(--line);vertical-align:middle}
+tr:first-child td{border-top:0}
+td.k{white-space:nowrap;width:1%}
+kbd{display:inline-block;min-width:1.6em;text-align:center;padding:1px 7px;margin:1px 1px;border:1px solid var(--kbdl);border-bottom-width:2px;border-radius:5px;background:var(--kbd);font:600 .82rem ui-monospace,monospace}
+.plus{color:var(--mut);margin:0 1px}
+.scroll{overflow-x:auto}
+.note{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--acc);border-radius:8px;padding:10px 14px;margin:10px 0}
+code{background:var(--kbd);padding:1px 6px;border-radius:4px;font-size:.88em}
+ul{padding-left:20px}
+.hide{display:none}
+@media(max-width:560px){td.k{white-space:normal}}
+</style>
+<meta name="kit-token" content=""><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="kit.css"><script src="kit.js" defer></script></head>
+<body><div class="wrap">
+<header>
+  <h1 data-en="Omarchy Cheat Sheet" data-es="Guía rápida de Omarchy"></h1>
+  <div>
+    <button id="bLang" aria-pressed="false">EN / ES</button>
+    <button id="bMac" aria-pressed="false" title="Show Mac key symbols">⌘ ⌥ ⌃ ⇧</button>
+  </div>
+</header>
+<div id="top"></div>
+<script src="portal-nav.js"></script>
+
+<p data-en="Your MacBook Pro 2014 running Omarchy (Hyprland). Press Super+K any time to see these on screen."
+   data-es="Tu MacBook Pro 2014 con Omarchy (Hyprland). Presiona Super+K en cualquier momento para verlos en pantalla."></p>
+
+<div class="note" data-en="<b>Mac keyboard:</b> Super is normally the <b>⌘ Command</b> key, Alt is <b>⌥ Option</b>. A Mac keyboard has no <kbd>Print</kbd> key, so screenshot bindings need a remap (see Customize). If a key does nothing, verify with <code>wev</code>."
+     data-es="<b>Teclado Mac:</b> Super normalmente es la tecla <b>⌘ Comando</b>, Alt es <b>⌥ Opción</b>. Un teclado Mac no tiene tecla <kbd>Print</kbd>, así que los atajos de captura requieren reasignarse (ver Personalizar). Si una tecla no responde, verifica con <code>wev</code>."></div>
+
+<h2 id="start" data-en="First steps" data-es="Primeros pasos"></h2>
+<ul>
+  <li data-en="<kbd>Super</kbd>+<kbd>Space</kbd> opens the Omarchy menu (everything: install, style, setup, system); <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> opens the apps menu to launch programs."
+      data-es="<kbd>Super</kbd>+<kbd>Space</kbd> abre el menú de Omarchy (todo: instalar, estilo, configuración, sistema); <kbd>Super</kbd>+<kbd>Alt</kbd>+<kbd>Space</kbd> abre el menú de aplicaciones para lanzar programas."></li>
+  <li data-en="Windows tile automatically. Each <i>workspace</i> (1–9, 0) is a separate desktop; move windows between them with Super+Shift+number."
+      data-es="Las ventanas se acomodan solas en mosaico. Cada <i>espacio de trabajo</i> (1–9, 0) es un escritorio aparte; mueve ventanas con Super+Shift+número."></li>
+  <li data-en="Web apps (WhatsApp, Signal, YouTube…) are shortcuts to sites in their own window; install new ones from the Install menu."
+      data-es="Las webapps (WhatsApp, Signal, YouTube…) son accesos directos a sitios en su propia ventana; instala nuevas desde el menú Instalar."></li>
+</ul>
+
+<h2 id="path" data-en="First-week practice path" data-es="Plan de práctica de la primera semana"></h2>
+<p data-en="Tick items as you use them. Progress is saved in this browser." data-es="Marca cada atajo al usarlo. El progreso se guarda en este navegador."></p>
+<h3 data-en="Day 1 · Move around" data-es="Día 1 · Moverte" style="margin:18px 0 6px;font-size:1rem"></h3><div class="scroll"><table>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 1Super+K"></td><td class="k"><code>Super+K</code></td><td data-en="Open this keybinding list any time" data-es="Abrir la lista de atajos en cualquier momento"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 1Super+Return"></td><td class="k"><code>Super+Return</code></td><td data-en="Open a terminal" data-es="Abrir una terminal"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 1Super+W"></td><td class="k"><code>Super+W</code></td><td data-en="Close the focused window" data-es="Cerrar la ventana enfocada"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 1Super+←/→/↑/↓"></td><td class="k"><code>Super+←/→/↑/↓</code></td><td data-en="Move focus between windows" data-es="Mover el foco entre ventanas"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 1Super+Alt+Space"></td><td class="k"><code>Super+Alt+Space</code></td><td data-en="Launch an app from the apps menu" data-es="Lanzar una app desde el menú de apps"></td></tr>
+</table></div>
+<h3 data-en="Day 2 · Workspaces" data-es="Día 2 · Espacios de trabajo" style="margin:18px 0 6px;font-size:1rem"></h3><div class="scroll"><table>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 2Super+1…9"></td><td class="k"><code>Super+1…9</code></td><td data-en="Jump to a workspace" data-es="Ir a un espacio de trabajo"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 2Super+Shift+1…9"></td><td class="k"><code>Super+Shift+1…9</code></td><td data-en="Send the window to a workspace" data-es="Enviar la ventana a un espacio"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 2Super+Tab"></td><td class="k"><code>Super+Tab</code></td><td data-en="Next workspace" data-es="Siguiente espacio"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 2Super+Shift+G"></td><td class="k"><code>Super+Shift+G</code></td><td data-en="Open Signal (webapp/app shortcut)" data-es="Abrir Signal"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 2Habit"></td><td class="k"><code>Habit</code></td><td data-en="Chat apps on 8–9, browser on 2, terminal on 1" data-es="Hábito: chats en 8–9, navegador en 2, terminal en 1"></td></tr>
+</table></div>
+<h3 data-en="Day 3 · Shape your windows" data-es="Día 3 · Dar forma a ventanas" style="margin:18px 0 6px;font-size:1rem"></h3><div class="scroll"><table>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 3Super+F"></td><td class="k"><code>Super+F</code></td><td data-en="Full screen" data-es="Pantalla completa"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 3Super+T"></td><td class="k"><code>Super+T</code></td><td data-en="Toggle floating/tiling" data-es="Alternar flotante/mosaico"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 3Super+J"></td><td class="k"><code>Super+J</code></td><td data-en="Toggle split direction" data-es="Alternar dirección de la división"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 3Super+Shift+←/→"></td><td class="k"><code>Super+Shift+←/→</code></td><td data-en="Swap window positions" data-es="Intercambiar posiciones"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 3Super+−/="></td><td class="k"><code>Super+−/=</code></td><td data-en="Resize the window" data-es="Redimensionar la ventana"></td></tr>
+</table></div>
+<h3 data-en="Day 4 · Menus & style" data-es="Día 4 · Menús y estilo" style="margin:18px 0 6px;font-size:1rem"></h3><div class="scroll"><table>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 4Super+Space"></td><td class="k"><code>Super+Space</code></td><td data-en="Browse the Omarchy menu top to bottom" data-es="Recorrer el menú de Omarchy completo"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 4Super+Esc"></td><td class="k"><code>Super+Esc</code></td><td data-en="System menu (lock, suspend, restart)" data-es="Menú del sistema (bloquear, suspender, reiniciar)"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 4Super+Shift+Ctrl+Space"></td><td class="k"><code>Super+Shift+Ctrl+Space</code></td><td data-en="Try a theme" data-es="Probar un tema"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 4Super+Ctrl+Space"></td><td class="k"><code>Super+Ctrl+Space</code></td><td data-en="Change the background" data-es="Cambiar el fondo"></td></tr>
+</table></div>
+<h3 data-en="Day 5 · Productivity" data-es="Día 5 · Productividad" style="margin:18px 0 6px;font-size:1rem"></h3><div class="scroll"><table>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 5Super+Ctrl+V"></td><td class="k"><code>Super+Ctrl+V</code></td><td data-en="Clipboard history" data-es="Historial del portapapeles"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 5Super+C / V / X"></td><td class="k"><code>Super+C / V / X</code></td><td data-en="Universal copy / paste / cut (works in terminal too)" data-es="Copiar / pegar / cortar universal (también en terminal)"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 5Super+Ctrl+E"></td><td class="k"><code>Super+Ctrl+E</code></td><td data-en="Emoji picker" data-es="Selector de emojis"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 5Super+S"></td><td class="k"><code>Super+S</code></td><td data-en="Scratchpad (hide/show a window)" data-es="Scratchpad (ocultar/mostrar una ventana)"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 5Super+Ctrl+N"></td><td class="k"><code>Super+Ctrl+N</code></td><td data-en="Night light" data-es="Luz nocturna"></td></tr>
+</table></div>
+<h3 data-en="Day 6 · Notifications & focus" data-es="Día 6 · Notificaciones y enfoque" style="margin:18px 0 6px;font-size:1rem"></h3><div class="scroll"><table>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 6Super+,"></td><td class="k"><code>Super+,</code></td><td data-en="Dismiss last notification" data-es="Descartar la última notificación"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 6Super+Ctrl+,"></td><td class="k"><code>Super+Ctrl+,</code></td><td data-en="Do not disturb" data-es="No molestar"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 6Super+Shift+Alt+,"></td><td class="k"><code>Super+Shift+Alt+,</code></td><td data-en="Notification history" data-es="Historial de notificaciones"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 6Super+Ctrl+I"></td><td class="k"><code>Super+Ctrl+I</code></td><td data-en="Toggle lock-on-idle" data-es="Alternar bloqueo por inactividad"></td></tr>
+</table></div>
+<h3 data-en="Day 7 · Keep it healthy" data-es="Día 7 · Mantenerlo sano" style="margin:18px 0 6px;font-size:1rem"></h3><div class="scroll"><table>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 7omarchy-update"></td><td class="k"><code>omarchy-update</code></td><td data-en="Update the system (run weekly)" data-es="Actualizar el sistema (semanal)"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 7Super+Space → Update"></td><td class="k"><code>Super+Space → Update</code></td><td data-en="Same, from the menu" data-es="Lo mismo, desde el menú"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 7omarchy-snapshot"></td><td class="k"><code>omarchy-snapshot</code></td><td data-en="Make a restore point before big changes" data-es="Crear un punto de restauración antes de cambios grandes"></td></tr>
+<tr><td style="width:1%"><input type="checkbox" class="done" data-k="Day 7Super+Ctrl+T"></td><td class="k"><code>Super+Ctrl+T</code></td><td data-en="Activity monitor" data-es="Monitor de actividad"></td></tr>
+</table></div>
+<script>
+try{const d=JSON.parse(localStorage.getItem("done")||"{}");
+document.querySelectorAll(".done").forEach(c=>{c.checked=!!d[c.dataset.k];
+c.onchange=()=>{d[c.dataset.k]=c.checked;try{localStorage.setItem("done",JSON.stringify(d))}catch(e){}}})}catch(e){}
+</script>
+<h2 id="cli" data-en="Useful commands" data-es="Comandos útiles"></h2>
+<div class="scroll"><table>
+<tr><td class="k"><code>omarchy menu keybindings --print</code></td><td data-en="List all keybindings" data-es="Listar todos los atajos"></td></tr>
+<tr><td class="k"><code>omarchy-pkg-install</code></td><td data-en="Fuzzy-pick repo packages to install (tab = multi-select). By name: <code>yay -S pkg</code>" data-es="Elegir paquetes del repo con buscador (tab = selección múltiple). Por nombre: <code>yay -S pkg</code>"></td></tr>
+<tr><td class="k"><code>omarchy-webapp-install</code></td><td data-en="Create a web app (name, URL, icon)" data-es="Crear una webapp (nombre, URL, ícono)"></td></tr>
+<tr><td class="k"><code>yay -Syu</code></td><td data-en="Update the whole system (repo + AUR)" data-es="Actualizar todo el sistema (repos + AUR)"></td></tr>
+<tr><td class="k"><code>yay -Ss &lt;term&gt;</code></td><td data-en="Search packages" data-es="Buscar paquetes"></td></tr>
+<tr><td class="k"><code>wev</code></td><td data-en="Show which key the system receives" data-es="Mostrar qué tecla recibe el sistema"></td></tr>
+</table></div>
+
+<h2 id="custom" data-en="Customize" data-es="Personalizar"></h2>
+<p data-en="Your own bindings live in <code>~/.config/hypr/bindings.lua</code> (defaults are never edited):" data-es="Tus atajos propios viven en <code>~/.config/hypr/bindings.lua</code> (los predeterminados nunca se editan):"></p>
+<pre><code>o.bind("SUPER + SHIFT + R", "SSH", "alacritty -e ssh your-server")   -- add
+hl.unbind("SUPER + SHIFT + B")                                        -- disable
+o.bind("SUPER + SHIFT + S", nil, "omarchy-capture-screenshot")        -- Mac: no Print key</code></pre>
+
+<div class="tools">
+  <input type="search" id="q" placeholder="Search / Buscar…" aria-label="search">
+</div>
+<nav id="nav"></nav>
+<div id="out"></div>
+<p style="color:var(--mut);font-size:.85rem" data-en="Generated from your live config by build_cheatsheet.py — re-run it after changing bindings."
+   data-es="Generado desde tu configuración real con build_cheatsheet.py — vuelve a ejecutarlo si cambias atajos."></p>
+</div>
+<script>
+const CATS=/*__DATA__*/[];
+const MAC={Super:"⌘",SUPER:"⌘",ALT:"⌥",CTRL:"⌃",SHIFT:"⇧"};
+const NICE={SPACE:"Space",RETURN:"Return",ESCAPE:"Esc",BACKSPACE:"⌫",TAB:"Tab",MINUS:"−",EQUAL:"=",COMMA:",",PERIOD:".",SLASH:"/",
+ BRACKETLEFT:"[",BRACKETRIGHT:"]",DELETE:"Del",PRINT:"Print",LEFT:"←",RIGHT:"→",UP:"↑",DOWN:"↓"};
+let lang=(navigator.language||"en").slice(0,2)==="es"?"es":"en";
+try{lang=localStorage.getItem("lang")||lang}catch(e){}
+let mac=false;
+const cap=s=>s.length>1&&s===s.toUpperCase()?s[0]+s.slice(1).toLowerCase():s;
+function keys(r){
+  const parts=r.mods.map(m=>mac?(MAC[m]||m):cap(m));
+  let k=NICE[r.key]||(r.key.length>1&&!/^[0-9]/.test(r.key)?cap(r.key.replace(/MOUSE BUTTON/,"mouse")):r.key);
+  if(/^F\d+$|XF86/.test(r.key)) k=r.key.replace("XF86","").replace(/([a-z])([A-Z])/g,"$1 $2");
+  parts.push(k);
+  return parts.map(p=>`<kbd>${p}</kbd>`).join('<span class="plus">+</span>');
+}
+function render(){
+  document.documentElement.lang=lang;
+  document.querySelectorAll("[data-en]").forEach(e=>e.innerHTML=e.dataset[lang]);
+  document.getElementById("bLang").textContent=lang==="en"?"EN → ES":"ES → EN";
+  const q=document.getElementById("q").value.trim().toLowerCase();
+  let nav="",out="";
+  for(const c of CATS){
+    const rows=c.rows.filter(r=>!q||(r.en+" "+r.es+" "+r.mods.join(" ")+" "+r.key).toLowerCase().includes(q));
+    if(!rows.length)continue;
+    nav+=`<a href="#c-${c.id}">${c[lang]}</a>`;
+    out+=`<h2 id="c-${c.id}">${c[lang]}</h2><div class="scroll"><table>`+
+      rows.map(r=>`<tr><td class="k">${keys(r)}</td><td>${r[lang]}</td></tr>`).join("")+`</table></div>`;
+  }
+  document.getElementById("nav").innerHTML=nav;
+  document.getElementById("out").innerHTML=out||`<p>${lang==="en"?"No matches.":"Sin resultados."}</p>`;
+}
+bLang.onclick=()=>{lang=lang==="en"?"es":"en";try{localStorage.setItem("lang",lang)}catch(e){}render()};
+bMac.onclick=()=>{mac=!mac;bMac.setAttribute("aria-pressed",mac);render()};
+q.oninput=render;
+render();
+</script>
+</body></html>

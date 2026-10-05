@@ -1,0 +1,12 @@
+[Unit]
+Description=Omarchy Kit local web app (cheat sheet, keyboard, trackpad, apps, setup log) on 127.0.0.1:8787
+After=graphical-session.target
+
+[Service]
+WorkingDirectory=%h/labspace/omarchy-kit
+ExecStart=/usr/bin/python3 %h/labspace/omarchy-kit/apps-helper --no-open
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

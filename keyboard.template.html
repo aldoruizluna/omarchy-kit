@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Omarchy Keyboard · Teclado</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1d1d1b;--mut:#6b6b66;--card:#fff;--line:#e3e2dc;--acc:#2b6cb0;--kbd:#f0efe9;--stage1:#eef1f6;--stage2:#cfd6e2}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#14161a;--fg:#e8e8e3;--mut:#9a9a93;--card:#1b1e23;--line:#2c3037;--acc:#7fb2e8;--kbd:#262a31;--stage1:#222a38;--stage2:#0e1117;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#14161a;--fg:#e8e8e3;--mut:#9a9a93;--card:#1b1e23;--line:#2c3037;--acc:#7fb2e8;--kbd:#262a31;--stage1:#222a38;--stage2:#0e1117;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;padding-inline:max(16px,3vw)}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 60px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{font-size:1.6rem;margin:0}
+a{color:var(--acc)}
+button,input[type=search]{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 11px}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;align-items:center}
+.lbl{color:var(--mut);font-size:.8rem;margin-right:4px}
+.chip small{opacity:.7;margin-left:4px}
+.legend button{border-left:6px solid var(--c);padding-left:8px}
+.legend button[aria-pressed=false]{opacity:.45}
+.legend button[aria-pressed=true]{background:var(--card);color:var(--fg);border-color:var(--line);border-left-color:var(--c)}
+
+/* ================= 3D stage ================= */
+.stage{position:relative;background:radial-gradient(ellipse at 50% 20%,var(--stage1),var(--stage2) 75%);border:1px solid var(--line);border-radius:14px;overflow:hidden;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.stage.grab{cursor:grabbing}
+.scene{perspective:1700px;perspective-origin:50% 320px; /* fixed px: a % origin would move as the scene resizes to fit */display:flex;justify-content:center;align-items:flex-start;position:relative}
+.rig{transform-style:preserve-3d;position:relative}
+.board{position:relative;transform-style:preserve-3d}
+.box{position:absolute;transform-style:preserve-3d}
+.box>i{position:absolute;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.f-top{inset:0}
+.f-s{left:0;width:100%;top:100%;transform-origin:top;transform:rotateX(-90deg)}
+.f-n{left:0;width:100%;bottom:100%;transform-origin:bottom;transform:rotateX(90deg)}
+.f-e{top:0;height:100%;left:100%;transform-origin:left;transform:rotateY(90deg)}
+.f-w{top:0;height:100%;right:100%;transform-origin:right;transform:rotateY(-90deg)}
+.f-b{inset:0}
+
+/* aluminium chassis, lit by the same light as the keys */
+.case>.f-top{border-radius:calc(var(--u)*.35);background:linear-gradient(115deg,#bfc3ca 0%,#e6e8ec 38%,#c4c8cf 62%,#d9dce1 100%);background-size:260% 100%;background-position:var(--spec,50%) 0;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.5),inset 0 0 calc(var(--u)*.6) rgba(0,0,0,.18)}
+.case>.f-s{background:hsl(215 7% calc(34% + var(--lS)*34%))}
+.case>.f-n{background:hsl(215 7% calc(34% + var(--lN)*34%))}
+.case>.f-e{background:hsl(215 7% calc(34% + var(--lE)*34%))}
+.case>.f-w{background:hsl(215 7% calc(34% + var(--lW)*34%))}
+.grille{position:absolute;border-radius:99px;background:radial-gradient(circle,#5d626b 24%,transparent 27%) 0 0/calc(var(--u)*.11) calc(var(--u)*.11);opacity:.75}
+.trackpad{background:linear-gradient(160deg,rgba(255,255,255,.7),rgba(255,255,255,.1) 40%,rgba(0,0,0,.06)),linear-gradient(135deg,#d8dbe0,#c0c4cb);border-radius:calc(var(--u)*.14);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.7),inset 0 0 calc(var(--u)*.25) rgba(0,0,0,.14);cursor:pointer;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;padding:calc(var(--u)*.2);
+  font:600 calc(var(--u)*.2)/1.2 system-ui;color:#555b64;text-align:center}
+.trackpad.sel,.trackpad.hover{box-shadow:inset 0 0 0 3px var(--acc),inset 0 0 calc(var(--u)*.25) rgba(0,0,0,.14)}
+.tp-dots{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+.tp-dots b{position:absolute;width:calc(var(--u)*.55);height:calc(var(--u)*.55);border-radius:50%;background:rgba(43,108,176,.55);box-shadow:0 0 18px rgba(43,108,176,.8);opacity:0;top:36%}
+.trackpad.hover .tp-dots b,.trackpad.sel .tp-dots b{animation:swipe 1.8s ease-in-out infinite}
+.tp-dots b:nth-child(1){left:30%}.tp-dots b:nth-child(2){left:42%;animation-delay:.05s!important}.tp-dots b:nth-child(3){left:54%;animation-delay:.1s!important}
+@keyframes swipe{0%{opacity:0;transform:translateX(-30%)}15%{opacity:1}70%{opacity:1;transform:translateX(120%)}100%{opacity:0;transform:translateX(150%)}}
+
+/* ---------- keys ----------
+   Keys are 2D elements painted onto the deck surface (grouped per row), not 3D boxes. On the real GPU
+   (Brave on this MacBook — headless Chromium hides it) the compositor mis-culls small or separate tilted
+   layers at oblique angles: per-key boxes lose wedge-shaped chunks, and even per-row planes smear their far
+   ends into spikes. The deck is one large plane that renders whole at every angle (test/sweep.mjs sweeps
+   42 angles). Key depth is painted (--ext), which matches the real thing: MacBook keys stand ~1–2 mm proud.
+   Only Explode lifts the rows into real 3D planes (a novelty view; minor artifacts there are acceptable). */
+.rowplane{position:absolute;transform:translateZ(calc(var(--zr) + var(--zx,0px)))}
+.board.exploded .rowplane{--zx:calc(var(--ex)*var(--u)*.38 + var(--u)*.3)}
+.key{position:absolute;--lift:0px;--extc:#0b0c0e;transform:translateY(calc(-1*var(--lift)));transition:transform .14s ease-out;
+  --ext:0 calc(var(--u)*.07 + var(--lift)) 0 var(--extc),0 calc(var(--u)*.1 + var(--lift)*1.6) calc(var(--u)*.14) rgba(0,0,0,.42)}
+.key>.f-top{position:absolute;inset:0;display:block;background:linear-gradient(160deg,#34363b,#202226 55%,#1a1b1e);border-radius:calc(var(--u)*.12);cursor:pointer;
+  box-shadow:var(--ext),inset 0 0 0 1px rgba(255,255,255,.09),inset 0 1px 0 rgba(255,255,255,.18),inset 0 -3px 5px rgba(0,0,0,.5)}
+.key .cap{position:absolute;inset:calc(var(--u)*.055);border-radius:calc(var(--u)*.09);display:flex;flex-direction:column;justify-content:space-between;padding:calc(var(--u)*.05) calc(var(--u)*.07);overflow:hidden;pointer-events:none}
+.key .lg{font-size:calc(var(--u)*.2);line-height:1.05;font-weight:600;white-space:pre;color:#dcdcd8;display:block}
+.key .bd{font-size:calc(var(--u)*.14);line-height:1.05;font-weight:700;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;color:#0d0e10}
+.key.has{--lift:calc(var(--u)*.03);--extc:color-mix(in srgb,var(--face) 45%,#000)}
+.key.has>.f-top{background:linear-gradient(160deg,color-mix(in srgb,var(--face) 82%,#fff),var(--face) 60%,color-mix(in srgb,var(--face) 80%,#000));
+  box-shadow:var(--ext),inset 0 0 0 1px rgba(255,255,255,.35),inset 0 1px 0 rgba(255,255,255,.6),0 0 calc(var(--u)*.5) color-mix(in srgb,var(--face) 70%,transparent)}
+.key.has .lg{color:#0d0e10}
+.key>.f-top::after{content:"";position:absolute;inset:0;border-radius:inherit;background:transparent;pointer-events:none}
+.key.dim>.f-top::after{background:rgba(0,0,0,.24)}
+.key.mod-on{--lift:calc(var(--u)*.045);--extc:#8a96ad}
+.key.mod-on>.f-top{background:linear-gradient(160deg,#ffffff,#d9e6ff);box-shadow:var(--ext),0 0 calc(var(--u)*.7) rgba(255,255,255,.9),inset 0 0 0 2px #fff}
+.key.mod-on .lg{color:#0d0e10}
+.key.sel>.f-top{box-shadow:var(--ext),inset 0 0 0 3px var(--acc),0 0 calc(var(--u)*.6) var(--acc)}
+.key.chord{--lift:calc(var(--u)*.07)}
+.key.chord>.f-top{box-shadow:var(--ext),0 0 calc(var(--u)*.7) #fff,inset 0 0 0 3px #fff}
+.key.chord>.f-top::after{animation:chord .9s ease-in-out infinite}
+@keyframes chord{50%{background:rgba(255,255,255,.5)}}
+.key.hover{--lift:calc(var(--u)*.06)}
+.key.hover>.f-top::after{background:rgba(255,255,255,.16)}
+.key.hit{--lift:calc(var(--u)*-.03)}
+.key.hit>.f-top::after{background:rgba(255,255,255,.42)}
+.key.nopress>.f-top{cursor:default}
+.badge{position:absolute;right:3px;top:2px;font-size:calc(var(--u)*.14);background:#0d0e10;color:#fff;border-radius:99px;padding:0 4px;line-height:1.3}
+
+/* ---------- lid + screen ---------- */
+.lid>.f-top{background:#050608;border-radius:calc(var(--u)*.3) calc(var(--u)*.3) calc(var(--u)*.12) calc(var(--u)*.12);padding:calc(var(--u)*.42) calc(var(--u)*.4) calc(var(--u)*.55);box-shadow:0 0 calc(var(--u)*.5) rgba(0,0,0,.01),inset 0 0 0 2px #2a2c30}
+.lid>.f-b{background:linear-gradient(135deg,#d6d9de,#b4b8bf);border-radius:calc(var(--u)*.3);box-shadow:0 0 calc(var(--u)*.5) rgba(0,0,0,.01)}
+.lid>.f-s,.lid>.f-n,.lid>.f-e,.lid>.f-w{background:hsl(215 7% calc(30% + var(--lN)*30%))}
+.screen{width:100%;height:100%;border-radius:calc(var(--u)*.08);overflow:hidden;position:relative;background:radial-gradient(ellipse at 30% 20%,#2c3e63,#10141f 70%);color:#e8e8e3;font-size:calc(var(--u)*.3);display:flex;flex-direction:column}
+.sbar{display:flex;gap:calc(var(--u)*.25);align-items:center;padding:calc(var(--u)*.12) calc(var(--u)*.3);background:rgba(0,0,0,.45);font-size:calc(var(--u)*.24)}
+.sbar .ws{opacity:.5}.sbar .ws.on{opacity:1;color:#7fb2e8;font-weight:700}
+.sbody{flex:1;display:flex;gap:calc(var(--u)*.25);padding:calc(var(--u)*.3);min-height:0}
+.swin{flex:1;border:1px solid rgba(255,255,255,.18);border-radius:calc(var(--u)*.12);background:rgba(255,255,255,.05);padding:calc(var(--u)*.25);font-size:calc(var(--u)*.22);color:#aab}
+.hud{position:absolute;inset:calc(var(--u)*.9) calc(var(--u)*.5) calc(var(--u)*.4);background:rgba(8,10,16,.88);border:1px solid rgba(255,255,255,.2);border-radius:calc(var(--u)*.2);padding:calc(var(--u)*.35);display:flex;flex-direction:column;gap:calc(var(--u)*.15);overflow:hidden}
+.hud .cb{border-left:calc(var(--u)*.1) solid var(--c);padding-left:calc(var(--u)*.25);margin-top:calc(var(--u)*.05)}
+.hud kbd{background:#2b2f37;border-color:#50555f;color:#fff;font-size:calc(var(--u)*.3);padding:0 calc(var(--u)*.14)}
+.hud .d{font-size:calc(var(--u)*.3);font-weight:600}
+.hud .s{font-size:calc(var(--u)*.2);opacity:.6}
+.ground{position:absolute;left:5%;right:5%;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.55),transparent 68%);filter:blur(8px);pointer-events:none}
+
+/* ---------- tooltip & chrome ---------- */
+.tip{position:absolute;z-index:5;pointer-events:none;background:var(--card);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:8px 11px;font-size:.82rem;box-shadow:0 8px 24px rgba(0,0,0,.35);max-width:260px;opacity:0;transition:opacity .12s}
+.tip.on{opacity:1}
+.tip b{display:block;margin-bottom:3px}
+.tip div{display:flex;gap:6px;align-items:baseline}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--c);flex:none}
+.stagebtns{position:absolute;right:10px;top:10px;z-index:4;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.stagebtns button{background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(4px);padding:4px 9px;font-size:.8rem}
+.hint{color:var(--mut);font-size:.82rem;margin:6px 2px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:14px}
+.panel h3{margin:0 0 6px;font-size:1.05rem}
+.panel ul{list-style:none;padding:0;margin:6px 0}
+.panel li{display:flex;gap:10px;align-items:baseline;padding:4px 6px;border-top:1px solid var(--line);border-radius:6px}
+.panel li:first-child{border-top:0}
+.panel li[data-chord]:hover{background:color-mix(in srgb,var(--acc) 14%,transparent)}
+kbd{display:inline-block;padding:0 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:var(--kbd);font:600 .8rem ui-monospace,monospace;margin-right:2px}
+.tag{font-size:.7rem;background:var(--kbd);color:var(--mut);padding:0 6px;border-radius:99px;margin-left:4px}
+.link{color:var(--acc);cursor:pointer;background:none;border:0;padding:0;text-decoration:underline}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:760px){.grid2{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.key{transition:none!important}.key.chord>.f-top::after,.tp-dots b{animation:none!important}}
+</style>
+<meta name="kit-token" content=""><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="kit.css"><script src="kit.js" defer></script></head>
+<body><div class="wrap">
+<header><h1 data-en="Keyboard · MacBook Pro 15″ (Mid 2014)" data-es="Teclado · MacBook Pro 15″ (mediados de 2014)"></h1>
+<div><button id="bLang"></button> <button id="bMac" aria-pressed="false">⌘ ⌥ ⌃ ⇧</button></div></header>
+<div id="top"></div>
+<script src="portal-nav.js"></script>
+
+<p class="hint" data-en="Hover a key to read its bindings on the laptop screen. Click ⌘ ⌃ ⌥ ⇧ (or a chip) to pick a layer — keys rise and light up where that combo does something. Drag to rotate, scroll to zoom, double-click to reset."
+ data-es="Pasa el cursor sobre una tecla para leer sus atajos en la pantalla del portátil. Haz clic en ⌘ ⌃ ⌥ ⇧ (o en un chip) para elegir una capa: las teclas se elevan e iluminan donde esa combinación hace algo. Arrastra para girar, rueda para acercar, doble clic para restablecer."></p>
+
+<div class="row"><span class="lbl" data-en="Layer" data-es="Capa"></span><span id="layers" class="row" style="margin:0"></span></div>
+<div class="row legend"><span class="lbl" data-en="Categories" data-es="Categorías"></span><span id="cats" class="row" style="margin:0"></span></div>
+<div class="row">
+  <input type="search" id="q" placeholder="Search / Buscar…" style="flex:1 1 200px" aria-label="search">
+  <span class="lbl" data-en="View" data-es="Vista"></span>
+  <button data-view="top" data-en="Top-down" data-es="Cenital"></button>
+  <button data-view="tilt" data-en="Tilted" data-es="Inclinada"></button>
+  <button data-view="low" data-en="Low angle" data-es="Ángulo bajo"></button>
+  <button data-view="screen" data-en="Front" data-es="Frontal"></button>
+</div>
+
+<div class="stage" id="stage">
+  <div class="stagebtns">
+    <button id="bLid" aria-pressed="true" data-en="Screen" data-es="Pantalla"></button>
+    <button id="bExplode" aria-pressed="false" data-en="Explode" data-es="Explotar"></button>
+    <button id="bSway" aria-pressed="false" data-en="Sway" data-es="Oscilar"></button>
+    <button id="bLive" aria-pressed="false" data-en="Live keys" data-es="Teclas en vivo"></button>
+    <button id="bReset" data-en="Reset" data-es="Restablecer"></button>
+  </div>
+  <div class="scene" id="scene"><div class="ground" id="ground"></div><div class="rig" id="rig"><div class="board" id="board"></div></div></div>
+  <div class="tip" id="tip"></div>
+</div>
+<p class="hint" id="layoutHint" data-en="US ANSI layout with the proportions of the 2014 Retina MacBook Pro 15″ — a faithful model, not CAD-exact. Click the trackpad to see your gestures."
+ data-es="Distribución US ANSI con las proporciones del MacBook Pro Retina 15″ de 2014 — un modelo fiel, no exacto de CAD. Haz clic en el trackpad para ver tus gestos."></p>
+<p class="hint" id="fnHint"></p>
+
+<div class="grid2"><div class="panel" id="info"></div><div class="panel" id="off"></div></div>
+</div>
+<script>
+const RAW=/*__RAW__*/[];
+const CATS=/*__CATS__*/[];
+const COL={menus:"#7aa2f7",apps:"#f7a35c",workspaces:"#6fd3a0",groups:"#c792ea",windows:"#f2d45c",notifs:"#ff7a90",capture:"#4fd6e6",media:"#a8e06f",display:"#e89bd0",other:"#bbbbbb"};
+const ORDER=["SUPER","SHIFT","CTRL","ALT"];
+const MACSYM={SUPER:"⌘",SHIFT:"⇧",CTRL:"⌃",ALT:"⌥"};
+const NAME={SUPER:"Super",SHIFT:"Shift",CTRL:"Ctrl",ALT:"Alt"};
+const MODKEY={MetaLeft:"SUPER",MetaRight:"SUPER",ShiftLeft:"SHIFT",ShiftRight:"SHIFT",ControlLeft:"CTRL",ControlRight:"CTRL",AltLeft:"ALT",AltRight:"ALT"};
+const GEST=[
+ {f:"3 / 4 ↔",en:"Switch spaces (follows your fingers)",es:"Cambiar de espacio (sigue tus dedos)"},
+ {f:"4 ↑",en:"Omarchy menu (≈ Mission Control)",es:"Menú de Omarchy (≈ Mission Control)"},
+ {f:"4 ↓",en:"Toggle scratchpad (≈ Show Desktop)",es:"Alternar scratchpad (≈ Mostrar escritorio)"},
+ {f:"4 pinch",en:"Apps menu (≈ Launchpad)",es:"Menú de apps (≈ Launchpad)"},
+ {f:"2 click",en:"Right-click",es:"Clic derecho"},
+ {f:"2 scroll",en:"Natural scrolling",es:"Desplazamiento natural"}];
+const T={en:{inl:"In this layer",oth:"Other layers",none:"No modifier",nokey:"Nothing on this key in this layer.",
+ offT:"Not on this keyboard / mouse",offN:"Nothing off-keyboard in this layer.",fn:"with Fn",noMatch:"No match",bindings:"bindings",
+ gest:"Trackpad gestures",lay:"Layer",pad:"Trackpad"},
+ es:{inl:"En esta capa",oth:"Otras capas",none:"Sin modificador",nokey:"Esta tecla no tiene atajos en esta capa.",
+ offT:"Fuera del teclado / ratón",offN:"Nada fuera del teclado en esta capa.",fn:"con Fn",noMatch:"Sin resultados",bindings:"atajos",
+ gest:"Gestos del trackpad",lay:"Capa",pad:"Trackpad"}};
+let lang=(navigator.language||"en").slice(0,2)==="es"?"es":"en";
+try{lang=localStorage.getItem("lang")||lang}catch(e){}
+const V={top:[0,0],tilt:[36,0],low:[62,-10],screen:[78,0]};
+let mac=false,sel=new Set(["SUPER"]),selKey=null,hoverKey=null,hidden=new Set(),q="",live=false,preview=null;
+let rx=36,rz=0,zoom=1,U=54,sway=false,explode=false;
+
+/* ---- binding key -> physical key (event.code) ---- */
+const NAMED={SPACE:"Space",RETURN:"Enter",ESCAPE:"Escape",BACKSPACE:"Backspace",TAB:"Tab",MINUS:"Minus",EQUAL:"Equal",COMMA:"Comma",PERIOD:"Period",SLASH:"Slash",
+ BRACKETLEFT:"BracketLeft",BRACKETRIGHT:"BracketRight",LEFT:"ArrowLeft",RIGHT:"ArrowRight",UP:"ArrowUp",DOWN:"ArrowDown",SEMICOLON:"Semicolon",APOSTROPHE:"Quote",BACKSLASH:"Backslash",GRAVE:"Backquote"};
+// MEDIA_FIRST mirrors /sys/module/hid_apple/parameters/fnmode (injected at build time): true = Mac-style top row
+// (brightness/volume without Fn, F1–F12 need Fn); false = plain F-keys, media needs Fn.
+const MEDIA_FIRST=/*__MEDIAFIRST__*/false;
+const XF={XF86MonBrightnessDown:"F1",XF86MonBrightnessUp:"F2",XF86KbdBrightnessDown:"F5",XF86KbdBrightnessUp:"F6",XF86AudioPrev:"F7",XF86AudioPlay:"F8",XF86AudioNext:"F9",XF86AudioMute:"F10",XF86AudioLowerVolume:"F11",XF86AudioRaiseVolume:"F12"};
+function mapKey(k){const u=k.toUpperCase();
+  if(/^[A-Z]$/.test(u))return{code:"Key"+u};if(/^\d$/.test(k))return{code:"Digit"+k};if(NAMED[u])return{code:NAMED[u]};
+  if(/^F\d+$/i.test(k))return{code:u,fn:MEDIA_FIRST};if(XF[k])return{code:XF[k],fn:!MEDIA_FIRST};
+  if(u==="HOME")return{code:"ArrowLeft",fn:true};if(u==="DELETE")return{code:"Backspace",fn:true};return{code:null}}
+const BINDS=RAW.map(r=>{const m=mapKey(r.key);const mods=r.mods.slice().sort((a,b)=>ORDER.indexOf(a)-ORDER.indexOf(b));return{...r,mods,lk:mods.join("+"),code:m.code,fn:!!m.fn}});
+
+/* ---- physical layout (US ANSI, MacBook Pro Retina proportions) ---- */
+const L=(id,lg,w=1,o={})=>({id,lg,w,...o});
+const ROWS=[
+ {h:.68,keys:[L("Escape","esc",1.5,{al:"l"}),...[1,2,3,4,5,6,7,8,9,10,11,12].map(n=>L("F"+n,"F"+n,1)),L("Power","⏻",1.5,{dead:1})]},
+ {h:1,keys:[L("Backquote","~\n`"),...["1!","2@","3#","4$","5%","6^","7&","8*","9(","0)"].map(p=>L("Digit"+p[0],p[1]+"\n"+p[0])),L("Minus","_\n-"),L("Equal","+\n="),L("Backspace","delete",2,{al:"r"})]},
+ {h:1,keys:[L("Tab","tab",1.5,{al:"l"}),..."QWERTYUIOP".split("").map(c=>L("Key"+c,c)),L("BracketLeft","{\n["),L("BracketRight","}\n]"),L("Backslash","|\n\\",1.5)]},
+ {h:1,keys:[L("CapsLock","caps lock",1.75,{al:"l"}),..."ASDFGHJKL".split("").map(c=>L("Key"+c,c)),L("Semicolon",":\n;"),L("Quote","\"\n'"),L("Enter","return",2.25,{al:"r"})]},
+ {h:1,keys:[L("ShiftLeft","⇧\nshift",2.25,{al:"l"}),..."ZXCVBNM".split("").map(c=>L("Key"+c,c)),L("Comma","<\n,"),L("Period",">\n."),L("Slash","?\n/"),L("ShiftRight","⇧\nshift",2.75,{al:"r"})]},
+ {h:1,keys:[L("Fn","fn",1,{dead:1,al:"l"}),L("ControlLeft","⌃\ncontrol",1,{al:"l",sm:1}),L("AltLeft","⌥\noption",1,{al:"l",sm:1}),L("MetaLeft","⌘\ncommand",1.25,{al:"l",sm:1}),L("Space","",5.5),L("MetaRight","⌘\ncommand",1.25,{al:"r",sm:1}),L("AltRight","⌥\noption",1,{sm:1}),
+  L("ArrowLeft","◀",1),{stack:[L("ArrowUp","▲",1,{half:1}),L("ArrowDown","▼",1,{half:1})]},L("ArrowRight","▶",1)]}
+];
+const KEYLABEL={Escape:"Esc",Backspace:"Delete",Enter:"Return",Tab:"Tab",CapsLock:"Caps",Space:"Space",MetaLeft:"⌘",MetaRight:"⌘",AltLeft:"⌥",AltRight:"⌥",ControlLeft:"⌃",ShiftLeft:"⇧",ShiftRight:"⇧",
+ ArrowLeft:"←",ArrowRight:"→",ArrowUp:"↑",ArrowDown:"↓",Backquote:"`",Minus:"-",Equal:"=",Comma:",",Period:".",Slash:"/",BracketLeft:"[",BracketRight:"]",Backslash:"\\",Semicolon:";",Quote:"'",Trackpad:"Trackpad"};
+const keyName=c=>KEYLABEL[c]||c.replace(/^Key/,"").replace(/^Digit/,"");
+const layerKey=()=>[...sel].sort((a,b)=>ORDER.indexOf(a)-ORDER.indexOf(b)).join("+");
+const modName=m=>mac?MACSYM[m]:NAME[m];
+const layerName=lk=>lk?lk.split("+").map(modName).join(mac?"":"+"):T[lang].none;
+const short=s=>s.replace(/^(Switch to workspace|Ir al espacio de trabajo)\s*/,"→ WS ").replace(/^(Move window to workspace|Mover ventana al espacio)\s*/,"▣→ WS ").replace(/^(Toggle|Move|Focus on|Show|Make|Mover|Alternar|Mostrar)\s+/,"");
+
+/* ---- lighting: a fixed light from upper-left/front; faces shade as the board turns ---- */
+const LIGHT=(()=>{const v=[-.35,-.55,.76],n=Math.hypot(...v);return v.map(a=>a/n)})();
+function rotN(n){const a=rz*Math.PI/180,b=rx*Math.PI/180;let[x,y,z]=n;
+  [x,y]=[x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];return[x,y,z]}
+const lamb=n=>{const r=rotN(n);return Math.max(0,r[0]*LIGHT[0]+r[1]*LIGHT[1]+r[2]*LIGHT[2])};
+// Rotation is compositor-only and cheap; relighting repaints every face, so while the model is moving
+// (fit=false) relight at most every 200 ms, and fully once it comes to rest.
+let lastLight=0,fitK=1;
+function applyTilt(fit=true){
+  board.style.transform=`rotateX(${rx}deg) rotateZ(${rz}deg)`;
+  const now=performance.now();
+  if(fit||now-lastLight>200){lastLight=now;relight()}
+  rig.style.transform=`scale(${zoom*fitK})`;
+  if(fit)fitScene();
+}
+function relight(){
+  const st=board.style;
+  st.setProperty("--lS",lamb([0,1,0]).toFixed(2));st.setProperty("--lN",lamb([0,-1,0]).toFixed(2));
+  st.setProperty("--lE",lamb([1,0,0]).toFixed(2));st.setProperty("--lW",lamb([-1,0,0]).toFixed(2));
+  st.setProperty("--spec",(50+rz*1.2-rx*.2).toFixed(1)+"%");
+}
+function fitScene(){
+  if(!caseEl)return;
+  const sr=scene.getBoundingClientRect(),box=()=>{const cr=caseEl.getBoundingClientRect(),lr=(lidOn&&lidEl)?lidEl.getBoundingClientRect():cr;
+    return{l:Math.min(cr.left,lr.left),r:Math.max(cr.right,lr.right),t:Math.min(cr.top,lr.top),b:Math.max(cr.bottom,lr.bottom),cr}};
+  // Auto-fit so the rotated laptop is never clipped by the stage. In a perspective view, moving or scaling
+  // the model also changes its projected size, so one measure-and-adjust pass can't settle: iterate.
+  // (The user's own zoom still applies on top; zooming in may overflow on purpose.)
+  for(let i=0;i<4;i++){
+    let bx=box();fitK=Math.min(1,(sr.width-36)/((bx.r-bx.l)/(zoom*fitK)));rig.style.transform=`scale(${zoom*fitK})`;
+    bx=box();rig.style.left=zoom<=1?(parseFloat(rig.style.left||0)+(sr.left+sr.width/2-(bx.l+bx.r)/2))+"px":"0px";
+    bx=box();rig.style.marginTop=(parseFloat(rig.style.marginTop||0)+(sr.top+30-bx.t))+"px";
+  }
+  const bx=box(),cr=bx.cr;
+  scene.style.height=Math.max(240,(bx.b-bx.t)+90)+"px";
+  const g=document.getElementById("ground");g.style.height=(cr.height*.22)+"px";g.style.bottom="22px";g.style.opacity=Math.max(.15,.9-rx/110);
+}
+
+/* ---- build the 3D laptop ---- */
+const board=document.getElementById("board"),rig=document.getElementById("rig"),scene=document.getElementById("scene"),stage=document.getElementById("stage");
+const keyEls={};let screenEl=null,tpWrap=null,lidEl=null,caseEl=null,lidOn=true;
+function mkBox(w,h,d,cls,bottom){const b=document.createElement("div");b.className="box "+cls;b.style.cssText=`width:${w}px;height:${h}px;`;
+  for(const f of["top","s","n","e","w"].concat(bottom?["b"]:[])){const i=document.createElement("i");i.className="f-"+f;
+    if(f==="s"||f==="n")i.style.height=d+"px";if(f==="e"||f==="w")i.style.width=d+"px";
+    if(f==="b")i.style.transform=`translateZ(${-d}px) rotateY(180deg)`;b.appendChild(i)}return b}
+function build(){
+  board.innerHTML="";Object.keys(keyEls).forEach(k=>delete keyEls[k]);
+  const pad=U*.7,gap=U*.055,D=U*.14,CD=U*.2,TP=U*.03;
+  const W=15*U,rowsH=ROWS.reduce((a,r)=>a+r.h,0)*U,tpW=U*8.4,tpH=U*5.1,gapTP=U*.7;
+  const cw=W+pad*2,ch=pad+rowsH+gapTP+tpH+U*.75,lidH=cw*.42,lidD=U*.1;
+  board.dataset.cw=cw;board.dataset.ch=ch;board.dataset.lid=lidH;
+  board.style.width=cw+"px";board.style.height=ch+"px";board.style.setProperty("--u",U+"px");
+  const cs=mkBox(cw,ch,CD,"case");cs.style.transform=`translateZ(${CD}px)`;board.appendChild(cs);
+  const deck=cs.querySelector(".f-top");
+  for(const side of[0,1]){const g=document.createElement("div");g.className="grille";g.style.cssText=`left:${side?cw-pad*.62:pad*.14}px;top:${pad}px;width:${pad*.48}px;height:${rowsH}px`;deck.appendChild(g)}
+  const lid=mkBox(cw,lidH,lidD,"lid",true);lid.querySelectorAll(".f-s,.f-n,.f-e,.f-w").forEach(f=>f.remove());lid.style.top=(-lidH-3)+"px";lid.style.transformOrigin="50% 100%";lid.style.transform=`translateZ(${CD+2}px) rotateX(-66deg)`;
+  lid.querySelector(".f-top").innerHTML='<div class="screen"></div>';board.appendChild(lid);screenEl=lid.querySelector(".screen");lidEl=lid;caseEl=cs;lid.style.display=lidOn?"":"none";
+  // one plane per row, floating just above the deck (see the CSS note on .rowplane)
+  let y=pad,ri=0;
+  const inset=pad*.5;
+  for(const row of ROWS){const rp=document.createElement("div");rp.className="rowplane";
+    rp.style.cssText=`left:${inset}px;top:${y}px;width:${cw-inset*2}px;height:${row.h*U}px`;rp.style.setProperty("--zr",(CD+D)+"px");rp.style.setProperty("--ex",ri);
+    let x=pad-inset;
+    for(const k of row.keys){
+      if(k.stack){for(const s of k.stack){addKey(s,x,s===k.stack[1]?U/2:0,U,U/2,rp)}x+=U;continue}
+      addKey(k,x,0,k.w*U,row.h*U,rp);x+=k.w*U}
+    (explode?board:deck).appendChild(rp);y+=row.h*U;ri++}
+  function addKey(k,x,y,w,h,rp){const b=document.createElement("div");b.className="key"+(k.dead?" nopress":"");b.dataset.id=k.id;
+    b.style.cssText=`left:${x+gap}px;top:${y+gap}px;width:${w-gap*2}px;height:${h-gap*2}px`;
+    const al=k.al==="r"?"right":k.al==="l"?"left":"center";
+    b.innerHTML=`<i class="f-top"><div class="cap"><span class="lg" style="${k.sm?"font-size:calc(var(--u)*.15);":""}text-align:${al}">${k.id==="Space"?"":k.lg}</span><span class="bd"></span><span class="badge" hidden></span></div></i>`;
+    rp.appendChild(b);keyEls[k.id]=b}
+  const tp=document.createElement("div");tp.className="trackpad tp-wrap";tp.dataset.id="Trackpad";
+  tp.style.cssText=`position:absolute;left:${(cw-tpW)/2}px;top:${pad+rowsH+gapTP}px;width:${tpW}px;height:${tpH}px`;
+  tp.innerHTML='<div class="tp-dots"><b></b><b></b><b></b></div><span style="position:relative" id="tpLabel">'+T[lang].pad+'</span>';
+  deck.appendChild(tp);tpWrap=tp;keyEls.Trackpad=tp;
+  applyTilt();paint();
+}
+function fit(){const w=stage.clientWidth;U=Math.max(14,Math.min(46,(w-24)/(15+1.4)));build()}
+
+/* ---- painting ---- */
+function visible(b){return !hidden.has(b.cat)&&(!q||(b.en+" "+b.es+" "+b.key+" "+b.lk).toLowerCase().includes(q))}
+function inLayer(){const lk=layerKey();return BINDS.filter(b=>b.lk===lk&&visible(b))}
+function byKey(code,lk){return BINDS.filter(b=>b.code===code&&b.lk===lk&&visible(b)).sort((x,y)=>x.fn-y.fn)}
+function paint(){
+  const lk=layerKey(),inL=inLayer(),by={};
+  inL.forEach(b=>{if(b.code)(by[b.code]=by[b.code]||[]).push(b)});Object.values(by).forEach(a=>a.sort((x,y)=>x.fn-y.fn));
+  const chordMods=preview?new Set(preview.mods):null;
+  for(const id in keyEls){const el=keyEls[id];if(id==="Trackpad"){el.classList.toggle("sel",selKey==="Trackpad");continue}
+    const top=el.querySelector(".f-top"),bd=top.querySelector(".bd"),bg=top.querySelector(".badge"),list=by[id]||[];
+    el.classList.toggle("has",list.length>0);el.classList.toggle("dim",list.length===0&&!sel.has(MODKEY[id]));
+    el.classList.toggle("mod-on",!!MODKEY[id]&&sel.has(MODKEY[id]));el.classList.toggle("sel",selKey===id);
+    el.classList.toggle("chord",!!preview&&(preview.code===id||(MODKEY[id]&&chordMods.has(MODKEY[id]))));
+    el.style.setProperty("--face",list.length?COL[list[0].cat]||COL.other:"");
+    bd.textContent=list.length?(list[0].fn?"fn·":"")+short(list[0][lang]):"";bg.hidden=list.length<2;bg.textContent="+"+(list.length-1)}
+  const counts={};BINDS.forEach(b=>{counts[b.lk]=(counts[b.lk]||0)+1});
+  const keys=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]);
+  document.getElementById("layers").innerHTML=keys.map(k=>`<button class="chip" data-l="${k}" aria-pressed="${k===lk}">${layerName(k)}<small>${counts[k]}</small></button>`).join("");
+  document.getElementById("cats").innerHTML=CATS.map(c=>`<button data-c="${c.id}" aria-pressed="${!hidden.has(c.id)}" style="--c:${COL[c.id]||COL.other}">${c[lang]}</button>`).join("");
+  renderInfo(lk,inL);renderScreen();
+}
+function chordHTML(b,withKey=true){return b.mods.map(m=>`<kbd>${modName(m)}</kbd>`).join("")+(withKey?`<kbd>${b.code?keyName(b.code):b.key}</kbd>`:"")+(b.fn?`<span class="tag">${T[lang].fn}</span>`:"")}
+const chordAttr=b=>b.code?`data-chord="${b.lk}|${b.code}"`:"";
+function renderInfo(lk,inL){
+  const t=T[lang],info=document.getElementById("info"),off=document.getElementById("off");
+  if(selKey==="Trackpad"){
+    info.innerHTML=`<h3>${t.gest}</h3><ul>${GEST.map(g=>`<li><kbd>${g.f}</kbd><span>${g[lang]}</span></li>`).join("")}</ul>`;
+  }else if(selKey){
+    const here=byKey(selKey,lk),others=BINDS.filter(b=>b.code===selKey&&b.lk!==lk&&visible(b));
+    info.innerHTML=`<h3><kbd>${keyName(selKey)}</kbd> · ${layerName(lk)}</h3>`+
+      (here.length?`<div class="lbl">${t.inl}</div><ul>${here.map(b=>`<li ${chordAttr(b)}><span class="dot" style="--c:${COL[b.cat]}"></span><span>${chordHTML(b)} — ${b[lang]}</span></li>`).join("")}</ul>`:`<div class="lbl">${t.nokey}</div>`)+
+      (others.length?`<div class="lbl">${t.oth}</div><ul>${others.map(b=>`<li ${chordAttr(b)}><span class="dot" style="--c:${COL[b.cat]}"></span><span>${chordHTML(b)} — ${b[lang]} <button class="link" data-jump="${b.lk}|${selKey}">↗</button></span></li>`).join("")}</ul>`:"");
+  }else{
+    info.innerHTML=`<h3>${layerName(lk)} <span class="tag">${inL.length} ${t.bindings}</span></h3><ul>`+
+      (inL.filter(b=>b.code).map(b=>`<li ${chordAttr(b)}><span class="dot" style="--c:${COL[b.cat]}"></span><span>${chordHTML(b)} — ${b[lang]}</span></li>`).join("")||`<li>${t.noMatch}</li>`)+`</ul>`;
+  }
+  const o=inL.filter(b=>!b.code);
+  off.innerHTML=`<h3>${t.offT}</h3>`+(o.length?`<ul>${o.map(b=>`<li><span class="dot" style="--c:${COL[b.cat]}"></span><span>${chordHTML(b)} — ${b[lang]}</span></li>`).join("")}</ul>`:`<div class="lbl">${t.offN}</div>`);
+}
+function renderScreen(){
+  if(!screenEl)return;const t=T[lang],lk=layerKey(),id=hoverKey||selKey;let hud="";
+  if(id==="Trackpad"){hud=`<div class="hud"><div class="d">${t.gest}</div>${GEST.slice(0,4).map(g=>`<div class="cb" style="--c:#7fb2e8"><kbd>${g.f}</kbd> <span class="s">${g[lang]}</span></div>`).join("")}</div>`}
+  else if(id){const list=byKey(id,lk),oth=BINDS.filter(b=>b.code===id&&b.lk!==lk&&visible(b)).length;
+    hud=`<div class="hud"><div class="s">${t.lay}: ${layerName(lk)}</div>`+
+      (list.length?list.slice(0,3).map(b=>`<div class="cb" style="--c:${COL[b.cat]}"><div>${chordHTML(b)}</div><div class="d">${b[lang]}</div></div>`).join(""):`<div class="d"><kbd>${keyName(id)}</kbd> <span class="s">${t.nokey}</span></div>`)+
+      (oth?`<div class="s">+${oth} ${t.oth.toLowerCase()}</div>`:"")+`</div>`}
+  const n=inLayer().length;
+  screenEl.innerHTML=`<div class="sbar"><b>◐</b>${[1,2,3,4,5,6,7,8,9].map(i=>`<span class="ws${i===1?" on":""}">${i}</span>`).join("")}<span style="margin-left:auto">${layerName(lk)} · ${n}</span></div>
+   <div class="sbody"><div class="swin"><b>Claude</b><br>omarchy-kit</div><div class="swin"><b>Cheat sheet</b><br>Super + K</div></div>${hud}`;
+}
+
+/* ---- interaction ---- */
+// Pick the key under the pointer ourselves: the browser's own hit-test target is unreliable inside a deep
+// preserve-3d tree, but elementsFromPoint lists the real stack. A lid in front blocks the keys behind it.
+function keyOf(e){for(const el of document.elementsFromPoint(e.clientX,e.clientY)){
+  if(el.closest&&el.closest(".stagebtns"))return null;if(el.closest&&el.closest(".lid"))return null;
+  const k=el.closest&&el.closest(".key,.tp-wrap");if(k)return k.dataset.id}return null}
+function onKey(id){
+  if(!id||(keyEls[id]&&keyEls[id].classList.contains("nopress")))return;
+  if(MODKEY[id]){const m=MODKEY[id];sel.has(m)?sel.delete(m):sel.add(m);selKey=null}else selKey=(selKey===id?null:id);
+  const el=keyEls[id];if(el){el.classList.add("hit");setTimeout(()=>el.classList.remove("hit"),160)}
+  paint()}
+document.addEventListener("click",e=>{
+  if(e.target.closest(".stage")){if(window._dragged||e.target.closest(".stagebtns"))return;onKey(keyOf(e));return}
+  const l=e.target.closest("[data-l]");if(l){sel=new Set(l.dataset.l?l.dataset.l.split("+"):[]);selKey=null;paint()}
+  const c=e.target.closest("[data-c]");if(c){hidden.has(c.dataset.c)?hidden.delete(c.dataset.c):hidden.add(c.dataset.c);paint()}
+  const j=e.target.closest("[data-jump]");if(j){const[lk,k]=j.dataset.jump.split("|");sel=new Set(lk?lk.split("+"):[]);selKey=k;paint()}
+  const v=e.target.closest("[data-view]");if(v){const m=V[v.dataset.view];tweenTo(m[0],m[1],1)}
+});
+document.addEventListener("mouseover",e=>{const li=e.target.closest("[data-chord]");if(!li){if(preview){preview=null;paint()}return}
+  const[lk,code]=li.dataset.chord.split("|");const p={mods:lk?lk.split("+"):[],code};if(!preview||preview.code!==code||preview.mods.join()!==p.mods.join()){preview=p;paint()}});
+const tip=document.getElementById("tip");
+stage.addEventListener("pointermove",e=>{if(window._dragging)return;const id=keyOf(e);
+  if(id!==hoverKey){if(hoverKey&&keyEls[hoverKey])keyEls[hoverKey].classList.remove("hover");hoverKey=id;if(id&&keyEls[id])keyEls[id].classList.add("hover");renderScreen();showTip(id)}
+  if(id){const r=stage.getBoundingClientRect();tip.style.left=Math.max(4,Math.min(r.width-270,e.clientX-r.left+16))+"px";tip.style.top=(e.clientY-r.top+18)+"px"}});
+stage.addEventListener("pointerleave",()=>{if(hoverKey&&keyEls[hoverKey])keyEls[hoverKey].classList.remove("hover");hoverKey=null;tip.classList.remove("on");renderScreen()});
+function showTip(id){const lk=layerKey();if(!id||window._dragging){tip.classList.remove("on");return}
+  if(id==="Trackpad"){tip.innerHTML=`<b>${T[lang].pad}</b>${GEST.slice(0,3).map(g=>`<div><kbd>${g.f}</kbd>${g[lang]}</div>`).join("")}`;tip.classList.add("on");return}
+  const list=byKey(id,lk),oth=BINDS.filter(b=>b.code===id&&b.lk!==lk&&visible(b)).length;
+  tip.innerHTML=`<b>${keyName(id)} <span class="tag">${layerName(lk)}</span></b>`+(list.length?list.slice(0,4).map(b=>`<div><span class="dot" style="--c:${COL[b.cat]}"></span><span>${b[lang]}${b.fn?" ("+T[lang].fn+")":""}</span></div>`).join(""):`<div style="color:var(--mut)">${T[lang].nokey}</div>`)+(oth?`<div style="color:var(--mut)">+${oth} ${T[lang].oth.toLowerCase()}</div>`:"");
+  tip.classList.add("on")}
+document.getElementById("q").oninput=e=>{q=e.target.value.trim().toLowerCase();
+  if(q){const hit=BINDS.find(b=>visible(b)&&b.code)||BINDS.find(visible);if(hit)sel=new Set(hit.mods)}paint()};
+document.getElementById("bLang").onclick=()=>{lang=lang==="en"?"es":"en";try{localStorage.setItem("lang",lang)}catch(e){}ui();const l=document.getElementById("tpLabel");if(l)l.textContent=T[lang].pad};
+document.getElementById("bMac").onclick=e=>{mac=!mac;e.target.setAttribute("aria-pressed",mac);paint()};
+document.getElementById("bLive").onclick=e=>{live=!live;e.target.setAttribute("aria-pressed",live)};
+document.getElementById("bExplode").onclick=e=>{explode=!explode;board.classList.toggle("exploded",explode);
+  // rows live flat on the deck; only Explode moves them into the 3D scene so they can lift
+  const deck=caseEl.querySelector(".f-top");board.querySelectorAll(".rowplane").forEach(rp=>(explode?board:deck).appendChild(rp));e.target.setAttribute("aria-pressed",explode)};
+document.getElementById("bSway").onclick=e=>{sway=!sway;e.target.setAttribute("aria-pressed",sway);board.classList.toggle("sway",sway);if(sway)swayLoop()};
+document.getElementById("bLid").onclick=e=>{lidOn=!lidOn;e.target.setAttribute("aria-pressed",lidOn);if(lidEl)lidEl.style.display=lidOn?"":"none";applyTilt()};
+document.getElementById("bReset").onclick=resetView;
+function resetView(){tweenTo(36,0,1)}
+stage.addEventListener("dblclick",resetView);
+stage.addEventListener("wheel",e=>{e.preventDefault();zoom=Math.max(.6,Math.min(1.9,zoom*(e.deltaY<0?1.08:1/1.08)));applyTilt()},{passive:false});
+let vx=0,vy=0,raf=0,tw=0;
+const REDUCED=matchMedia("(prefers-reduced-motion:reduce)").matches;
+function tweenTo(trx,trz,tz,ms=420){cancelAnimationFrame(tw);cancelAnimationFrame(raf);vx=vy=0;
+  if(REDUCED){rx=trx;rz=trz;zoom=tz;applyTilt();return}
+  const s0={rx,rz,zoom},t0=performance.now();
+  const step=now=>{const k=Math.min(1,(now-t0)/ms),e=1-Math.pow(1-k,3);rx=s0.rx+(trx-s0.rx)*e;rz=s0.rz+(trz-s0.rz)*e;zoom=s0.zoom+(tz-s0.zoom)*e;
+    applyTilt(k===1);if(k<1)tw=requestAnimationFrame(step)};tw=requestAnimationFrame(step)}
+(function(){let d=null;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".stagebtns"))return;cancelAnimationFrame(raf);vx=vy=0;d={x:e.clientX,y:e.clientY,rx,rz,lx:e.clientX,ly:e.clientY,moved:false};window._dragged=false});
+  window.addEventListener("pointermove",e=>{if(!d)return;const dx=e.clientX-d.x,dy=e.clientY-d.y;
+    if(!d.moved&&Math.hypot(dx,dy)<5)return;
+    if(!d.moved){d.moved=true;window._dragging=true;window._dragged=true;stage.classList.add("grab");board.classList.add("drag");tip.classList.remove("on")}
+    vx=(e.clientX-d.lx)*.3;vy=(e.clientY-d.ly)*.3;d.lx=e.clientX;d.ly=e.clientY;
+    rz=Math.max(-75,Math.min(75,d.rz+dx*.3));rx=Math.max(0,Math.min(86,d.rx-dy*.3));applyTilt(false)});
+  window.addEventListener("pointerup",()=>{if(!d)return;const was=d.moved;d=null;stage.classList.remove("grab");
+    if(was){window._dragging=false;setTimeout(()=>window._dragged=false,0);
+      const step=()=>{vx*=.92;vy*=.92;if(Math.abs(vx)<.05&&Math.abs(vy)<.05){board.classList.remove("drag");applyTilt();return}
+        rz=Math.max(-75,Math.min(75,rz+vx));rx=Math.max(0,Math.min(86,rx-vy));applyTilt(false);raf=requestAnimationFrame(step)};step()}});
+})();
+function swayLoop(){if(!sway)return;const t=performance.now()/1000;rz=Math.sin(t*.6)*16;rx=40+Math.sin(t*.4)*6;applyTilt(false);requestAnimationFrame(swayLoop)}
+addEventListener("keydown",e=>{const el=keyEls[e.code];if(el)el.classList.add("hit");
+  if(live){const m=MODKEY[e.code];if(m){sel.add(m);paint()}else if(el&&!e.repeat){selKey=e.code;paint()}}});
+addEventListener("keyup",e=>{const el=keyEls[e.code];if(el)el.classList.remove("hit");if(live&&MODKEY[e.code]){sel.delete(MODKEY[e.code]);paint()}});
+addEventListener("blur",()=>Object.values(keyEls).forEach(k=>k.classList.remove("hit")));
+function ui(){document.getElementById("fnHint").textContent=MEDIA_FIRST?(lang==="en"?"Top row works like macOS: brightness, volume and media without Fn; hold Fn for F1–F12.":"La fila superior funciona como en macOS: brillo, volumen y multimedia sin Fn; mantén Fn para F1–F12."):(lang==="en"?"Top row sends F1–F12; hold Fn for brightness, volume and media.":"La fila superior envía F1–F12; mantén Fn para brillo, volumen y multimedia.");document.documentElement.lang=lang;document.querySelectorAll("[data-en]").forEach(e=>e.textContent=e.dataset[lang]);document.getElementById("bLang").textContent=lang==="en"?"EN → ES":"ES → EN";paint()}
+addEventListener("resize",()=>{clearTimeout(window._rt);window._rt=setTimeout(fit,150)});
+fit();ui();
+</script></body></html>

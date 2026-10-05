@@ -1,0 +1,30 @@
+#!/bin/bash
+# Keep the MacBook speaker EQ on the speakers only.
+# Speakers and headphones are two ports of ONE hardware sink on this Mac, so an EQ in front of that sink
+# would also colour headphones. Whenever the active port or the EQ sink's presence changes, point the
+# default output (and running apps) at the EQ for speakers, or straight at the hardware for headphones.
+# It only switches between those two: if you pick Bluetooth or HDMI, it leaves your choice alone.
+HW=alsa_output.pci-0000_00_1b.0.analog-stereo
+EQ=omarchy_speaker_tuning
+last=""
+
+active_port() { pactl list sinks 2>/dev/null | awk -v n="$HW" '$1=="Name:"{cur=$2} cur==n && /Active Port:/{print $3; exit}'; }
+has_sink() { pactl list sinks short 2>/dev/null | awk '{print $2}' | grep -qx "$1"; }
+# Real application streams only (same rule as omarchy-audio-tuning: the filter's own output has no app name).
+app_streams() { pactl list sink-inputs 2>/dev/null | awk '/^Sink Input #/{id=substr($3,2)} /application\.name = /{print id}'; }
+
+sync_route() {
+  local port eq key target cur id
+  port="$(active_port)"; has_sink "$EQ" && eq=1 || eq=0
+  key="$port|$eq"; [[ $key == "$last" ]] && return; last="$key"
+  if [[ $port == analog-output-headphones || $eq == 0 ]]; then target=$HW; else target=$EQ; fi
+  cur="$(pactl get-default-sink 2>/dev/null)"
+  [[ $cur == "$HW" || $cur == "$EQ" ]] || return
+  [[ $cur == "$target" ]] || pactl set-default-sink "$target"
+  for id in $(app_streams); do pactl move-sink-input "$id" "$target" 2>/dev/null || true; done
+}
+
+sync_route
+pactl subscribe 2>/dev/null | while read -r line; do
+  case $line in *"on sink "*|*"on card "*|*"on server "*) sync_route ;; esac
+done

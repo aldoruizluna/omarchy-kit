@@ -1,0 +1,357 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Omarchy Trackpad · Trackpad</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1d1d1b;--mut:#6b6b66;--card:#fff;--line:#e3e2dc;--acc:#2b6cb0;--kbd:#f0efe9;--stage1:#eef1f6;--stage2:#cfd6e2;--ok:#2f855a;--warn:#b7791f;--no:#a0aec0}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#14161a;--fg:#e8e8e3;--mut:#9a9a93;--card:#1b1e23;--line:#2c3037;--acc:#7fb2e8;--kbd:#262a31;--stage1:#222a38;--stage2:#0e1117;--ok:#68d391;--warn:#f6c453;--no:#718096;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#14161a;--fg:#e8e8e3;--mut:#9a9a93;--card:#1b1e23;--line:#2c3037;--acc:#7fb2e8;--kbd:#262a31;--stage1:#222a38;--stage2:#0e1117;--ok:#68d391;--warn:#f6c453;--no:#718096;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;padding-inline:max(16px,3vw)}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 60px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{font-size:1.6rem;margin:0}
+a{color:var(--acc)}
+button,input[type=search]{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 11px}
+button{cursor:pointer}
+button:focus-visible,input:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+.row{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0;align-items:center}
+.lbl{color:var(--mut);font-size:.8rem;margin-right:4px}
+.hint{color:var(--mut);font-size:.82rem;margin:6px 2px}
+
+/* ================= 3D stage (same engine as the keyboard page) ================= */
+.stage{position:relative;background:radial-gradient(ellipse at 50% 20%,var(--stage1),var(--stage2) 75%);border:1px solid var(--line);border-radius:14px;overflow:hidden;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.stage.grab{cursor:grabbing}
+.scene{perspective:1700px;perspective-origin:50% 320px; /* fixed px: a % origin would move as the scene resizes to fit */display:flex;justify-content:center;align-items:flex-start;position:relative}
+.rig{transform-style:preserve-3d;position:relative}
+.board{position:relative;transform-style:preserve-3d}
+.box{position:absolute;transform-style:preserve-3d}
+.box>i{position:absolute;display:block;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+.f-top{inset:0}
+.f-s{left:0;width:100%;top:100%;transform-origin:top;transform:rotateX(-90deg)}
+.f-n{left:0;width:100%;bottom:100%;transform-origin:bottom;transform:rotateX(90deg)}
+.f-e{top:0;height:100%;left:100%;transform-origin:left;transform:rotateY(90deg)}
+.f-w{top:0;height:100%;right:100%;transform-origin:right;transform:rotateY(-90deg)}
+.f-b{inset:0}
+.case>.f-top{border-radius:calc(var(--u)*.35);background:linear-gradient(115deg,#bfc3ca 0%,#e6e8ec 38%,#c4c8cf 62%,#d9dce1 100%);background-size:260% 100%;background-position:var(--spec,50%) 0;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.5),inset 0 0 calc(var(--u)*.6) rgba(0,0,0,.18)}
+.case>.f-s{background:hsl(215 7% calc(34% + var(--lS)*34%))}
+.case>.f-n{background:hsl(215 7% calc(34% + var(--lN)*34%))}
+.case>.f-e{background:hsl(215 7% calc(34% + var(--lE)*34%))}
+.case>.f-w{background:hsl(215 7% calc(34% + var(--lW)*34%))}
+.pad{position:absolute;background:linear-gradient(160deg,rgba(255,255,255,.75),rgba(255,255,255,.12) 40%,rgba(0,0,0,.07)),linear-gradient(135deg,#dde0e5,#c2c6cd);border-radius:calc(var(--u)*.16);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.75),inset 0 0 calc(var(--u)*.3) rgba(0,0,0,.16);cursor:pointer;overflow:hidden}
+.pad.hover{box-shadow:inset 0 0 0 3px var(--acc),inset 0 0 calc(var(--u)*.3) rgba(0,0,0,.16)}
+.pad.try{box-shadow:inset 0 0 0 3px #f6c453,0 0 calc(var(--u)*.8) rgba(246,196,83,.5),inset 0 0 calc(var(--u)*.3) rgba(0,0,0,.16);cursor:crosshair}
+.dots{position:absolute;inset:0;pointer-events:none}
+.dots b{position:absolute;left:50%;top:50%;width:calc(var(--u)*.62);height:calc(var(--u)*.62);margin:calc(var(--u)*-.31) 0 0 calc(var(--u)*-.31);border-radius:50%;
+  background:radial-gradient(circle at 35% 30%,#bcd8ff,#2b6cb0);box-shadow:0 0 calc(var(--u)*.5) rgba(43,108,176,.85);opacity:0}
+.padlbl{position:absolute;left:0;right:0;bottom:calc(var(--u)*.18);text-align:center;font:600 calc(var(--u)*.2)/1.2 system-ui;color:#5c626b;pointer-events:none}
+/* Keys are painted onto the deck (2D), not separate 3D boxes: the real GPU mis-culls many small tilted layers
+   and drops chunks of them at oblique angles (see the note on .rowplane in keyboard.template.html). */
+.key{position:absolute}
+.key>.f-top{position:absolute;inset:0;display:block;background:linear-gradient(160deg,#34363b,#202226 55%,#1a1b1e);border-radius:calc(var(--u)*.12);
+  box-shadow:0 calc(var(--u)*.07) 0 #0b0c0e,0 calc(var(--u)*.1) calc(var(--u)*.14) rgba(0,0,0,.42),inset 0 0 0 1px rgba(255,255,255,.09),inset 0 1px 0 rgba(255,255,255,.18),inset 0 -3px 5px rgba(0,0,0,.5)}
+.key .lg{position:absolute;left:calc(var(--u)*.08);top:calc(var(--u)*.06);font:600 calc(var(--u)*.14)/1 system-ui;color:#cfcfcb;white-space:pre}
+.grille{position:absolute;border-radius:99px;background:radial-gradient(circle,#5d626b 24%,transparent 27%) 0 0/calc(var(--u)*.11) calc(var(--u)*.11);opacity:.75}
+.lid>.f-top{background:#050608;border-radius:calc(var(--u)*.3) calc(var(--u)*.3) calc(var(--u)*.12) calc(var(--u)*.12);padding:calc(var(--u)*.38) calc(var(--u)*.36) calc(var(--u)*.5);box-shadow:0 0 calc(var(--u)*.5) rgba(0,0,0,.01),inset 0 0 0 2px #2a2c30}
+.lid>.f-b{background:linear-gradient(135deg,#d6d9de,#b4b8bf);border-radius:calc(var(--u)*.3);box-shadow:0 0 calc(var(--u)*.5) rgba(0,0,0,.01)}
+.lid>.f-s,.lid>.f-n,.lid>.f-e,.lid>.f-w{background:hsl(215 7% calc(30% + var(--lN)*30%))}
+
+/* ---------- laptop screen (shows what the gesture does) ---------- */
+.screen{width:100%;height:100%;border-radius:calc(var(--u)*.08);overflow:hidden;position:relative;background:radial-gradient(ellipse at 30% 20%,#2c3e63,#10141f 70%);color:#e8e8e3;font-size:calc(var(--u)*.26);display:flex;flex-direction:column}
+.sbar{display:flex;gap:calc(var(--u)*.22);align-items:center;padding:calc(var(--u)*.1) calc(var(--u)*.26);background:rgba(0,0,0,.5);font-size:calc(var(--u)*.22);z-index:2}
+.sbar .ws{opacity:.5;transition:all .25s}.sbar .ws.on{opacity:1;color:#7fb2e8;font-weight:700}
+.sview{flex:1;position:relative;overflow:hidden;min-height:0}
+.sbody{position:absolute;inset:0;display:flex;gap:calc(var(--u)*.2);padding:calc(var(--u)*.26);transition:transform .45s cubic-bezier(.2,.8,.2,1)}
+.swin{flex:1;border:1px solid rgba(255,255,255,.18);border-radius:calc(var(--u)*.1);background:rgba(255,255,255,.06);padding:calc(var(--u)*.2);font-size:calc(var(--u)*.2);color:#aab;overflow:hidden;transition:transform .4s}
+.swin i{display:block;height:calc(var(--u)*.09);margin:calc(var(--u)*.1) 0;background:rgba(255,255,255,.14);border-radius:99px}
+.ov{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .25s,transform .3s;transform:scale(.94);z-index:3}
+.ov.on{opacity:1;transform:none}
+.menu{background:rgba(10,12,18,.94);border:1px solid rgba(255,255,255,.22);border-radius:calc(var(--u)*.16);padding:calc(var(--u)*.2) calc(var(--u)*.4);min-width:50%}
+.menu div{padding:calc(var(--u)*.05) 0;font-size:calc(var(--u)*.24)}.menu div:first-child{color:#7fb2e8;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:calc(var(--u)*.3);background:rgba(10,12,18,.9);padding:calc(var(--u)*.4);border-radius:calc(var(--u)*.2);width:70%}
+.grid b{aspect-ratio:1;border-radius:22%;display:block}
+.scratch{position:absolute;left:12%;right:12%;top:8%;bottom:8%;background:rgba(18,22,32,.97);border:1px solid rgba(255,255,255,.28);border-radius:calc(var(--u)*.14);padding:calc(var(--u)*.25);transform:translateY(-120%);transition:transform .4s cubic-bezier(.2,.8,.2,1);z-index:3}
+.scratch.on{transform:none}
+.ctx{position:absolute;left:52%;top:42%;background:rgba(10,12,18,.95);border:1px solid rgba(255,255,255,.25);border-radius:calc(var(--u)*.1);padding:calc(var(--u)*.1) calc(var(--u)*.3);opacity:0;transition:opacity .2s;z-index:3;font-size:calc(var(--u)*.22)}
+.ctx.on{opacity:1}
+.ripple{position:absolute;left:50%;top:50%;width:calc(var(--u)*.8);height:calc(var(--u)*.8);margin:calc(var(--u)*-.4);border-radius:50%;border:3px solid #7fb2e8;opacity:0;z-index:3}
+.ripple.on{animation:rip .7s ease-out}
+@keyframes rip{from{opacity:1;transform:scale(.3)}to{opacity:0;transform:scale(2.2)}}
+.note{position:absolute;left:calc(var(--u)*.3);right:calc(var(--u)*.3);bottom:calc(var(--u)*.3);background:rgba(10,12,18,.92);border:1px solid rgba(255,255,255,.25);border-radius:calc(var(--u)*.12);padding:calc(var(--u)*.15) calc(var(--u)*.25);font-size:calc(var(--u)*.22);opacity:0;transition:opacity .25s;z-index:4}
+.note.on{opacity:1}
+.ground{position:absolute;left:5%;right:5%;border-radius:50%;background:radial-gradient(ellipse,rgba(0,0,0,.55),transparent 68%);filter:blur(8px);pointer-events:none}
+.stagebtns{position:absolute;right:10px;top:10px;z-index:4;display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.stagebtns button{background:color-mix(in srgb,var(--card) 80%,transparent);backdrop-filter:blur(4px);padding:4px 9px;font-size:.8rem}
+.toast{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:var(--card);border:1px solid var(--line);border-radius:99px;padding:5px 14px;font-size:.85rem;opacity:0;transition:opacity .2s;z-index:5;pointer-events:none;white-space:nowrap}
+.toast.on{opacity:1}
+
+/* ---------- gesture cards ---------- */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-top:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;cursor:pointer;text-align:left;color:var(--fg);display:block;width:100%}
+.card:hover,.card.sel{border-color:var(--acc);box-shadow:0 0 0 2px color-mix(in srgb,var(--acc) 30%,transparent)}
+.card h4{margin:0 0 2px;font-size:.98rem;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.card p{margin:2px 0 0;font-size:.85rem;color:var(--mut)}
+.fing{display:inline-flex;gap:3px;align-items:center}
+.fing i{width:9px;height:9px;border-radius:50%;background:var(--acc)}
+.badge{font-size:.68rem;padding:0 7px;border-radius:99px;border:1px solid currentColor;line-height:1.5;font-weight:600}
+.b-cfg{color:var(--ok)}.b-app{color:var(--acc)}.b-opt{color:var(--warn)}.b-no{color:var(--no)}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-top:14px}
+.panel h3{margin:0 0 6px;font-size:1.05rem}
+kbd,code{display:inline-block;padding:0 6px;border:1px solid var(--line);border-radius:5px;background:var(--kbd);font:600 .8rem ui-monospace,monospace}
+pre{margin:6px 0 0;overflow-x:auto;background:var(--kbd);padding:10px;border-radius:8px;font:.8rem/1.45 ui-monospace,monospace}
+@media (prefers-reduced-motion:reduce){.sbody,.swin,.ov,.scratch{transition:none!important}}
+</style>
+<meta name="kit-token" content=""><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="kit.css"><script src="kit.js" defer></script></head>
+<body><div class="wrap">
+<header><h1 data-en="Trackpad · gestures" data-es="Trackpad · gestos"></h1>
+<div><button id="bLang"></button></div></header>
+<div id="top"></div>
+<script src="portal-nav.js"></script>
+
+<p class="hint" data-en="Click a gesture to watch it on the trackpad and on the laptop screen. Turn on “Try it”, pick how many fingers, then drag on the trackpad to perform it yourself. Drag elsewhere to rotate, scroll to zoom, double-click to reset."
+ data-es="Haz clic en un gesto para verlo en el trackpad y en la pantalla del portátil. Activa “Pruébalo”, elige cuántos dedos y arrastra sobre el trackpad para hacerlo tú. Arrastra fuera para girar, rueda para acercar, doble clic para restablecer."></p>
+
+<div class="row" id="filters"></div>
+<div class="row">
+  <button id="bTry" aria-pressed="false" data-en="✋ Try it" data-es="✋ Pruébalo"></button>
+  <span id="fingBtns" class="row" style="margin:0" hidden>
+    <span class="lbl" data-en="Fingers" data-es="Dedos"></span>
+    <button data-f="1">1</button><button data-f="2">2</button><button data-f="3" aria-pressed="true">3</button><button data-f="4">4</button>
+    <button data-pinch="in" data-en="4 pinch in" data-es="4 pellizcar"></button>
+  </span>
+  <span class="lbl" style="margin-left:auto" data-en="View" data-es="Vista"></span>
+  <button data-view="top" data-en="Top-down" data-es="Cenital"></button>
+  <button data-view="tilt" data-en="Tilted" data-es="Inclinada"></button>
+  <button data-view="low" data-en="Low angle" data-es="Ángulo bajo"></button>
+</div>
+
+<div class="stage" id="stage">
+  <div class="stagebtns">
+    <button id="bSway" aria-pressed="false" data-en="Sway" data-es="Oscilar"></button>
+    <button id="bReset" data-en="Reset" data-es="Restablecer"></button>
+  </div>
+  <div class="scene" id="scene"><div class="ground" id="ground"></div><div class="rig" id="rig"><div class="board" id="board"></div></div></div>
+  <div class="toast" id="toast"></div>
+</div>
+<p class="hint" data-en="Gestures marked “configured” come from ~/.config/hypr/input.lua. “App” gestures are handled by the application itself. Libinput on your bcm5974 trackpad decides which finger counts are really reported — tell me if a swipe does nothing."
+ data-es="Los gestos “configurado” vienen de ~/.config/hypr/input.lua. Los de “app” los gestiona la propia aplicación. Libinput en tu trackpad bcm5974 decide qué cantidad de dedos se reporta realmente — avísame si un gesto no hace nada."></p>
+
+<div class="cards" id="cards"></div>
+<div class="panel" id="info"></div>
+</div>
+<script>
+/* ---------- the gestures ---------- */
+const GEST=[
+ {id:"swipe3",fingers:3,kind:"swipe",dir:"h",st:"cfg",fx:"ws",en:"Swipe left / right",es:"Deslizar izquierda / derecha",
+  d:{en:"Switch spaces (workspaces), following your fingers 1:1.",es:"Cambiar de espacio (workspace), siguiendo tus dedos 1:1."},mac:{en:"macOS: swipe between spaces",es:"macOS: moverse entre espacios"},
+  cfg:'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })'},
+ {id:"swipe4",fingers:4,kind:"swipe",dir:"h",st:"cfg",fx:"ws",en:"Swipe left / right",es:"Deslizar izquierda / derecha",
+  d:{en:"Same as 3 fingers — your macOS default used 4.",es:"Igual que con 3 dedos — en macOS el predeterminado eran 4."},mac:{en:"macOS: swipe between full-screen apps",es:"macOS: moverse entre apps a pantalla completa"},
+  cfg:'hl.gesture({ fingers = 4, direction = "horizontal", action = "workspace" })'},
+ {id:"up4",fingers:4,kind:"swipe",dir:"u",st:"cfg",fx:"menu",en:"Swipe up",es:"Deslizar arriba",
+  d:{en:"Open the Omarchy menu.",es:"Abrir el menú de Omarchy."},mac:{en:"≈ Mission Control",es:"≈ Mission Control"},
+  cfg:'hl.gesture({ fingers = 4, direction = "up", action = function() hl.exec_cmd("omarchy-menu toggle") end })'},
+ {id:"down4",fingers:4,kind:"swipe",dir:"d",st:"cfg",fx:"scratch",en:"Swipe down",es:"Deslizar abajo",
+  d:{en:"Show or hide the scratchpad.",es:"Mostrar u ocultar el scratchpad."},mac:{en:"≈ Show Desktop / App Exposé",es:"≈ Mostrar escritorio / App Exposé"},
+  cfg:'hl.gesture({ fingers = 4, direction = "down", action = function() hl.dispatch(hl.dsp.workspace.toggle_special("scratchpad")) end })'},
+ {id:"pinch4",fingers:4,kind:"pinch",dir:"in",st:"cfg",fx:"apps",en:"Pinch in",es:"Pellizcar",
+  d:{en:"Open the apps menu.",es:"Abrir el menú de aplicaciones."},mac:{en:"≈ Launchpad",es:"≈ Launchpad"},
+  cfg:'hl.gesture({ fingers = 4, direction = "pinchin", action = function() hl.exec_cmd("omarchy-menu toggle apps") end })'},
+ {id:"scroll2",fingers:2,kind:"scroll",dir:"u",st:"cfg",fx:"scroll",en:"Scroll",es:"Desplazar",
+  d:{en:"Natural scrolling: content follows your fingers.",es:"Desplazamiento natural: el contenido sigue tus dedos."},mac:{en:"macOS default",es:"Predeterminado de macOS"},
+  cfg:"hl.config({ input = { touchpad = { natural_scroll = true } } })"},
+ {id:"click2",fingers:2,kind:"tap",dir:"",st:"cfg",fx:"ctx",en:"Click / tap",es:"Clic / toque",
+  d:{en:"Secondary (right) click.",es:"Clic secundario (derecho)."},mac:{en:"macOS: secondary click",es:"macOS: clic secundario"},
+  cfg:"hl.config({ input = { touchpad = { clickfinger_behavior = true } } })"},
+ {id:"tap1",fingers:1,kind:"tap",dir:"",st:"cfg",fx:"click",en:"Tap",es:"Toque",
+  d:{en:"Tap to click (on by default).",es:"Tocar para hacer clic (activado por defecto)."},mac:{en:"macOS: tap to click",es:"macOS: tocar para hacer clic"},cfg:"-- input:touchpad:tap-to-click is already true"},
+ {id:"tap3",fingers:3,kind:"tap",dir:"",st:"cfg",fx:"click",en:"Tap",es:"Toque",
+  d:{en:"Middle click (libinput’s three-finger tap).",es:"Clic central (toque con tres dedos de libinput)."},mac:{en:"macOS: look up (≈ not available)",es:"macOS: consultar (≈ no disponible)"},cfg:"-- libinput default with tap-to-click"},
+ {id:"pinch2",fingers:2,kind:"pinch",dir:"in",st:"app",fx:"zoom",en:"Pinch / spread",es:"Pellizcar / extender",
+  d:{en:"Zoom in apps like Brave. Hyprland does not intercept it.",es:"Zoom en apps como Brave. Hyprland no lo intercepta."},mac:{en:"macOS: zoom",es:"macOS: zoom"},cfg:"-- handled by the application"},
+ {id:"back2",fingers:2,kind:"swipe",dir:"h",st:"app",fx:"page",en:"Swipe left / right",es:"Deslizar izquierda / derecha",
+  d:{en:"Back / forward in browsers. Handled by the app.",es:"Atrás / adelante en navegadores. Lo gestiona la app."},mac:{en:"macOS: swipe between pages",es:"macOS: moverse entre páginas"},cfg:"-- handled by the application"},
+ {id:"drag3",fingers:3,kind:"swipe",dir:"drag",st:"opt",fx:"none",en:"Three-finger drag",es:"Arrastrar con tres dedos",
+  d:{en:"Optional: move windows by dragging with three fingers. Off by default and conflicts with the 3-finger space swipe.",es:"Opcional: mover ventanas arrastrando con tres dedos. Desactivado y choca con el cambio de espacio de 3 dedos."},mac:{en:"macOS accessibility option",es:"Opción de accesibilidad de macOS"},cfg:"-- input.touchpad.drag_3fg = 1"},
+ {id:"smart",fingers:2,kind:"tap",dir:"double",st:"no",fx:"none",en:"Double-tap",es:"Doble toque",
+  d:{en:"Smart zoom — not available on Linux/Hyprland.",es:"Zoom inteligente — no disponible en Linux/Hyprland."},mac:{en:"macOS: smart zoom",es:"macOS: zoom inteligente"},cfg:""},
+ {id:"edge",fingers:2,kind:"swipe",dir:"edge",st:"no",fx:"none",en:"Swipe from the right edge",es:"Deslizar desde el borde derecho",
+  d:{en:"Notification Center — no edge gesture here. Use Super+Shift+Alt+, for notification history.",es:"Centro de notificaciones — no hay gesto de borde. Usa Super+Shift+Alt+, para el historial."},mac:{en:"macOS: Notification Center",es:"macOS: Centro de notificaciones"},cfg:""}];
+const ST={cfg:{en:"configured",es:"configurado",c:"b-cfg"},app:{en:"app-native",es:"de la app",c:"b-app"},opt:{en:"optional",es:"opcional",c:"b-opt"},no:{en:"not available",es:"no disponible",c:"b-no"}};
+const T={en:{try:"Try it",fing:"fingers",tryHint:"Drag on the trackpad",none:"No gesture is bound for",all:"All",mac:"Closest macOS gesture",cfgT:"Hyprland config",noCfg:"Nothing to configure.",
+  menu:["Omarchy menu","Apps","Install","Style","Setup","System"],note:{none:"Not available on Hyprland"},fingersN:n=>n+(n===1?" finger":" fingers")},
+  es:{try:"Pruébalo",fing:"dedos",tryHint:"Arrastra sobre el trackpad",none:"No hay gesto asignado para",all:"Todos",mac:"Gesto equivalente en macOS",cfgT:"Configuración de Hyprland",noCfg:"Nada que configurar.",
+  menu:["Menú de Omarchy","Apps","Instalar","Estilo","Configuración","Sistema"],note:{none:"No disponible en Hyprland"},fingersN:n=>n+(n===1?" dedo":" dedos")}};
+let lang=(navigator.language||"en").slice(0,2)==="es"?"es":"en";try{lang=localStorage.getItem("lang")||lang}catch(e){}
+const V={top:[0,0],tilt:[38,0],low:[62,-10]};
+let rx=38,rz=0,zoom=1,U=46,sway=false,tryOn=false,nF=3,filter="all",selId="swipe3",hover=false,lastResult=null;
+
+/* ---------- lighting (same model as the keyboard page) ---------- */
+const LIGHT=(()=>{const v=[-.35,-.55,.76],n=Math.hypot(...v);return v.map(a=>a/n)})();
+function rotN(n){const a=rz*Math.PI/180,b=rx*Math.PI/180;let[x,y,z]=n;[x,y]=[x*Math.cos(a)-y*Math.sin(a),x*Math.sin(a)+y*Math.cos(a)];[y,z]=[y*Math.cos(b)-z*Math.sin(b),y*Math.sin(b)+z*Math.cos(b)];return[x,y,z]}
+const lamb=n=>{const r=rotN(n);return Math.max(0,r[0]*LIGHT[0]+r[1]*LIGHT[1]+r[2]*LIGHT[2])};
+const board=document.getElementById("board"),rig=document.getElementById("rig"),scene=document.getElementById("scene"),stage=document.getElementById("stage");
+let caseEl=null,lidEl=null,screenEl=null,padEl=null,dots=[];
+let lastLight=0,fitK=1; // relight sparingly while moving; fitK auto-fits the model (see keyboard page)
+function applyTilt(fit=true){board.style.transform=`rotateX(${rx}deg) rotateZ(${rz}deg)`;const now=performance.now();
+  if(fit||now-lastLight>200){lastLight=now;relight()}rig.style.transform=`scale(${zoom*fitK})`;if(fit)fitScene()}
+function relight(){const st=board.style;
+  st.setProperty("--lS",lamb([0,1,0]).toFixed(2));st.setProperty("--lN",lamb([0,-1,0]).toFixed(2));st.setProperty("--lE",lamb([1,0,0]).toFixed(2));st.setProperty("--lW",lamb([-1,0,0]).toFixed(2));
+  st.setProperty("--spec",(50+rz*1.2-rx*.2).toFixed(1)+"%")}
+function fitScene(){
+  if(!caseEl)return;
+  const sr=scene.getBoundingClientRect(),box=()=>{const cr=caseEl.getBoundingClientRect(),lr=lidEl?lidEl.getBoundingClientRect():cr;
+    return{l:Math.min(cr.left,lr.left),r:Math.max(cr.right,lr.right),t:Math.min(cr.top,lr.top),b:Math.max(cr.bottom,lr.bottom),cr}};
+  // Auto-fit so the rotated laptop is never clipped by the stage. In a perspective view, moving or scaling
+  // the model also changes its projected size, so one measure-and-adjust pass can't settle: iterate.
+  // (The user's own zoom still applies on top; zooming in may overflow on purpose.)
+  for(let i=0;i<4;i++){
+    let bx=box();fitK=Math.min(1,(sr.width-36)/((bx.r-bx.l)/(zoom*fitK)));rig.style.transform=`scale(${zoom*fitK})`;
+    bx=box();rig.style.left=zoom<=1?(parseFloat(rig.style.left||0)+(sr.left+sr.width/2-(bx.l+bx.r)/2))+"px":"0px";
+    bx=box();rig.style.marginTop=(parseFloat(rig.style.marginTop||0)+(sr.top+30-bx.t))+"px";
+  }
+  const bx=box(),cr=bx.cr;
+  scene.style.height=Math.max(240,(bx.b-bx.t)+90)+"px";
+  const g=document.getElementById("ground");g.style.height=(cr.height*.22)+"px";g.style.bottom="22px";g.style.opacity=Math.max(.15,.9-rx/110);
+}
+function mkBox(w,h,d,cls,bottom){const b=document.createElement("div");b.className="box "+cls;b.style.cssText=`width:${w}px;height:${h}px;`;
+  for(const f of["top","s","n","e","w"].concat(bottom?["b"]:[])){const i=document.createElement("i");i.className="f-"+f;
+    if(f==="s"||f==="n")i.style.height=d+"px";if(f==="e"||f==="w")i.style.width=d+"px";if(f==="b")i.style.transform=`translateZ(${-d}px) rotateY(180deg)`;b.appendChild(i)}return b}
+
+/* ---------- build: lid + the front half of the deck (trackpad, palm rests, bottom key row) ---------- */
+function build(){
+  board.innerHTML="";const CD=U*.2,pad=U*.9;
+  const cw=U*15.4,tpW=U*8.4,tpH=U*5.3,rowH=U*1,ch=pad*.5+rowH+U*.6+tpH+U*.8,lidH=cw*.5,lidD=U*.1;
+  board.style.width=cw+"px";board.style.height=ch+"px";board.style.setProperty("--u",U+"px");
+  const cs=mkBox(cw,ch,CD,"case");cs.style.transform=`translateZ(${CD}px)`;board.appendChild(cs);caseEl=cs;
+  const deck=cs.querySelector(".f-top");
+  for(const side of[0,1]){const g=document.createElement("div");g.className="grille";g.style.cssText=`left:${side?cw-pad*.55:pad*.12}px;top:${U*.2}px;width:${pad*.43}px;height:${rowH+U*.3}px`;deck.appendChild(g)}
+  const lid=mkBox(cw,lidH,lidD,"lid",true);lid.querySelectorAll(".f-s,.f-n,.f-e,.f-w").forEach(f=>f.remove());lid.style.top=(-lidH-3)+"px";lid.style.transformOrigin="50% 100%";lid.style.transform=`translateZ(${CD+2}px) rotateX(-66deg)`;
+  lid.querySelector(".f-top").innerHTML='<div class="screen"></div>';board.appendChild(lid);lidEl=lid;screenEl=lid.querySelector(".screen");
+  // bottom row of keys (decorative)
+  const rowDef=[["fn",1],["⌃",1],["⌥",1],["⌘",1.25],["",5.5],["⌘",1.25],["⌥",1],["◀",1],["▲▼",1],["▶",1]];let x=pad*.9,gap=U*.055;
+  const rw=rowDef.reduce((a,r)=>a+r[1],0)*U,sx=(cw-rw)/2;x=sx;
+  for(const [lg,w] of rowDef){const k=document.createElement("div");k.className="key";
+    k.style.cssText=`left:${x+gap}px;top:${pad*.25+gap}px;width:${w*U-gap*2}px;height:${U-gap*2}px`;
+    k.innerHTML=`<i class="f-top"><span class="lg">${lg}</span></i>`;deck.appendChild(k);x+=w*U}
+  // trackpad
+  const tp=document.createElement("div");tp.className="pad";tp.style.cssText=`left:${(cw-tpW)/2}px;top:${pad*.25+rowH+U*.6}px;width:${tpW}px;height:${tpH}px`;
+  tp.innerHTML='<div class="dots">'+[0,1,2,3].map(()=>"<b></b>").join("")+'</div><div class="padlbl" id="padlbl"></div>';
+  deck.appendChild(tp);padEl=tp;dots=[...tp.querySelectorAll(".dots b")];
+  applyTilt();renderScreen(null);label()}
+function fit(){U=Math.max(14,Math.min(46,(stage.clientWidth-24)/16.2));build()}
+function label(){const l=document.getElementById("padlbl");if(l)l.textContent=tryOn?T[lang].tryHint+" · "+T[lang].fingersN(nF):""}
+
+/* ---------- laptop screen contents + effects ---------- */
+let wsNow=1;
+function renderScreen(){if(!screenEl)return;const t=T[lang];
+  screenEl.innerHTML=`<div class="sbar"><b>◐</b>${[1,2,3,4,5,6,7,8,9].map(i=>`<span class="ws${i===wsNow?" on":""}">${i}</span>`).join("")}<span style="margin-left:auto" id="sTitle"></span></div>
+  <div class="sview"><div class="sbody" id="sbody"><div class="swin"><b>Claude</b><i></i><i></i><i></i><i></i></div><div class="swin"><b>Cheat sheet</b><i></i><i></i><i></i><i></i></div></div>
+   <div class="ov" id="ovMenu"><div class="menu">${t.menu.map(x=>`<div>${x}</div>`).join("")}</div></div>
+   <div class="ov" id="ovApps"><div class="grid">${["#7aa2f7","#f7a35c","#6fd3a0","#c792ea","#f2d45c","#ff7a90","#4fd6e6","#a8e06f"].map(c=>`<b style="background:${c}"></b>`).join("")}</div></div>
+   <div class="scratch" id="scratch"><b>scratchpad</b><i style="display:block;height:6px;margin:8px 0;background:rgba(255,255,255,.14);border-radius:9px"></i><i style="display:block;height:6px;margin:8px 0;background:rgba(255,255,255,.14);border-radius:9px"></i></div>
+   <div class="ctx" id="ctx">Copy<br>Paste<br>Inspect</div><div class="ripple" id="rip"></div><div class="note" id="note"></div></div>`}
+const $=id=>document.getElementById(id);
+function clearFx(){["ovMenu","ovApps"].forEach(i=>$(i)&&$(i).classList.remove("on"));$("scratch")&&$("scratch").classList.remove("on");$("ctx")&&$("ctx").classList.remove("on");$("note")&&$("note").classList.remove("on");
+  const b=$("sbody");if(b){b.style.transition="none";b.style.transform="none";b.style.removeProperty("transition")}document.querySelectorAll(".swin").forEach(w=>w.style.transform="none")}
+function setWs(n){wsNow=n;document.querySelectorAll(".sbar .ws").forEach((e,i)=>e.classList.toggle("on",i+1===n))}
+function runFx(fx,dir=1){clearFx();const b=$("sbody");if(!b)return;
+  if(fx==="ws"){ // dir>0: next space (swipe left), dir<0: previous (swipe right); wraps so the demo can loop
+    const nxt=wsNow+dir>9?1:wsNow+dir<1?9:wsNow+dir;
+    b.style.transition="none";b.style.transform=`translateX(${dir*40}%)`;void b.offsetWidth;b.style.transition="";b.style.transform="none";setWs(nxt)}
+  else if(fx==="menu")$("ovMenu").classList.add("on");
+  else if(fx==="apps")$("ovApps").classList.add("on");
+  else if(fx==="scratch")$("scratch").classList.add("on");
+  else if(fx==="scroll")document.querySelectorAll(".swin").forEach(w=>w.style.transform="translateY(-14%)");
+  else if(fx==="ctx")$("ctx").classList.add("on");
+  else if(fx==="click"){const r=$("rip");r.classList.remove("on");void r.offsetWidth;r.classList.add("on")}
+  else if(fx==="zoom")document.querySelectorAll(".swin").forEach(w=>w.style.transform="scale(1.12)");
+  else if(fx==="page"){b.style.transition="none";b.style.transform="translateX(30%)";void b.offsetWidth;b.style.transition="";b.style.transform="none"}
+  else if(fx==="none"){const n=$("note");n.textContent=T[lang].note.none;n.classList.add("on")}}
+
+/* ---------- finger dots ---------- */
+let anims=[],loop=0;
+function stopDots(){anims.forEach(a=>a.cancel());anims=[];dots.forEach(d=>d.style.opacity=0);clearInterval(loop)}
+function dotLayout(n,spread){const o=[];for(let i=0;i<n;i++)o.push([(i-(n-1)/2)*spread,((i%2)?.35:-.2)*spread]);return o}
+function playGesture(g,{once=false}={}){stopDots();if(!g||!padEl)return;
+  const w=U*8.4,h=U*5.3,n=g.fingers,lay=dotLayout(n,U*.95);let keys;
+  const move=(dx,dy)=>lay.map(([x,y])=>[{transform:`translate(${x}px,${y}px)`,opacity:0},{transform:`translate(${x}px,${y}px)`,opacity:1,offset:.15},{transform:`translate(${x+dx}px,${y+dy}px)`,opacity:1,offset:.75},{transform:`translate(${x+dx}px,${y+dy}px)`,opacity:0}]);
+  if(g.kind==="swipe"&&g.dir==="h")keys=move(-w*.3,0);else if(g.kind==="swipe"&&g.dir==="u")keys=move(0,-h*.32);else if(g.kind==="swipe"&&g.dir==="d")keys=move(0,h*.32);
+  else if(g.kind==="scroll")keys=move(0,-h*.3);
+  else if(g.kind==="swipe")keys=move(w*.2,0);
+  else if(g.kind==="pinch"){const inw=g.dir==="in";keys=lay.map(([x,y])=>{const a=[x*2.4,y*2.4],b=[x*.5,y*.5],[s,e]=inw?[a,b]:[b,a];return[{transform:`translate(${s[0]}px,${s[1]}px)`,opacity:0},{transform:`translate(${s[0]}px,${s[1]}px)`,opacity:1,offset:.15},{transform:`translate(${e[0]}px,${e[1]}px)`,opacity:1,offset:.75},{transform:`translate(${e[0]}px,${e[1]}px)`,opacity:0}]})}
+  else keys=lay.map(([x,y])=>[{transform:`translate(${x}px,${y}px) scale(.4)`,opacity:0},{transform:`translate(${x}px,${y}px) scale(1.15)`,opacity:1,offset:.25},{transform:`translate(${x}px,${y}px) scale(.9)`,opacity:1,offset:.5},{transform:`translate(${x}px,${y}px) scale(.4)`,opacity:0}]);
+  const dur=1900,reduced=matchMedia("(prefers-reduced-motion:reduce)").matches;
+  const reps=once?1:3;
+  dots.forEach((d,i)=>{if(i<n){anims.push(d.animate(keys[i],{duration:dur,iterations:reps,easing:"ease-in-out"}))}});
+  const fire=()=>runFx(g.fx,1);setTimeout(fire,dur*.55);
+  if(!once&&!reduced){let left=reps-1;loop=setInterval(()=>{if(left--<=0){clearInterval(loop);return}setTimeout(fire,dur*.55)},dur)}}
+
+/* ---------- UI: cards, filters, info ---------- */
+function stBadge(g){const s=ST[g.st];return`<span class="badge ${s.c}">${s[lang]}</span>`}
+const fing=n=>`<span class="fing" title="${T[lang].fingersN(n)}">${Array.from({length:n},()=>"<i></i>").join("")}</span>`;
+function renderCards(){const list=GEST.filter(g=>filter==="all"||g.st===filter);
+  $("cards").innerHTML=list.map(g=>`<button class="card${g.id===selId?" sel":""}" data-g="${g.id}"><h4>${fing(g.fingers)} ${g[lang]} ${stBadge(g)}</h4><p>${g.d[lang]}</p></button>`).join("");
+  $("filters").innerHTML=`<span class="lbl">${lang==="en"?"Show":"Mostrar"}</span>`+["all","cfg","app","opt","no"].map(f=>`<button data-filter="${f}" aria-pressed="${filter===f}">${f==="all"?T[lang].all:ST[f][lang]}</button>`).join("")}
+function renderInfo(){const g=GEST.find(x=>x.id===selId);if(!g){$("info").innerHTML="";return}
+  $("info").innerHTML=`<h3>${fing(g.fingers)} ${T[lang].fingersN(g.fingers)} — ${g[lang]} ${stBadge(g)}</h3><p style="margin:4px 0">${g.d[lang]}</p><p style="margin:4px 0;color:var(--mut)">${T[lang].mac}: ${g.mac[lang]}</p>
+   <div class="lbl" style="margin-top:8px">${T[lang].cfgT}</div>${g.cfg?`<pre>${g.cfg.replace(/</g,"&lt;")}</pre>`:`<p style="color:var(--mut);margin:4px 0">${T[lang].noCfg}</p>`}`}
+function select(id,{play=true}={}){selId=id;renderCards();renderInfo();if(play)playGesture(GEST.find(g=>g.id===id))}
+document.addEventListener("click",e=>{
+  const c=e.target.closest("[data-g]");if(c){select(c.dataset.g);return}
+  const f=e.target.closest("[data-filter]");if(f){filter=f.dataset.filter;renderCards();return}
+  const v=e.target.closest("[data-view]");if(v){const m=V[v.dataset.view];tweenTo(m[0],m[1],1);return}
+  const n=e.target.closest("[data-f]");if(n){nF=+n.dataset.f;document.querySelectorAll("[data-f]").forEach(b=>b.setAttribute("aria-pressed",b===n));label();return}
+  const p=e.target.closest("[data-pinch]");if(p){perform(4,"pinch","in");return}
+});
+
+/* ---------- Try it: drag on the trackpad with N fingers ---------- */
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),1800)}
+function perform(n,kind,dir){const g=GEST.find(x=>x.fingers===n&&x.kind===kind&&(x.dir===dir||(x.dir==="h"&&(dir==="l"||dir==="r"))||(kind==="scroll"&&x.kind==="scroll"))&&(x.st==="cfg"||x.st==="app"));
+  lastResult=g?{id:g.id,fingers:n,kind,dir}:{id:null,fingers:n,kind,dir};
+  if(g){selId=g.id;renderCards();renderInfo();stopDots();runFx(g.fx,dir==="l"?1:-1);toast("✓ "+g[lang]+" — "+g.d[lang].split(".")[0])}
+  else toast(T[lang].none+" "+T[lang].fingersN(n)+" "+(dir==="in"?"⇢⇠":({l:"←",r:"→",u:"↑",d:"↓"}[dir]||"")))}
+function padPoint(e){const els=document.elementsFromPoint(e.clientX,e.clientY);return els.some(el=>el.closest&&el.closest(".lid"))?false:els.some(el=>el.closest&&el.closest(".pad"))}
+let gdrag=null;
+stage.addEventListener("pointerdown",e=>{if(e.target.closest(".stagebtns"))return;
+  if(tryOn&&padPoint(e)){gdrag={x:e.clientX,y:e.clientY};stopDots();const lay=dotLayout(nF,U*.95);dots.forEach((d,i)=>{if(i<nF){d.style.transform=`translate(${lay[i][0]}px,${lay[i][1]}px)`;d.style.opacity=1}});window._gesturing=true;return}
+  startRotate(e)});
+window.addEventListener("pointermove",e=>{if(gdrag){const dx=e.clientX-gdrag.x,dy=e.clientY-gdrag.y,lay=dotLayout(nF,U*.95);
+    dots.forEach((d,i)=>{if(i<nF)d.style.transform=`translate(${lay[i][0]+dx}px,${lay[i][1]+dy}px)`});return}
+  moveRotate(e)});
+window.addEventListener("pointerup",e=>{if(gdrag){const dx=e.clientX-gdrag.x,dy=e.clientY-gdrag.y;gdrag=null;window._gesturing=false;dots.forEach(d=>d.style.opacity=0);
+    const ax=Math.abs(dx),ay=Math.abs(dy);
+    if(ax<14&&ay<14){perform(nF,"tap","")}
+    else if(nF===2&&ay>ax)perform(2,"scroll",dy<0?"u":"d");
+    else if(ax>ay)perform(nF,"swipe",dx<0?"l":"r");else perform(nF,"swipe",dy<0?"u":"d");
+    return}
+  endRotate(e)});
+
+/* ---------- rotate / zoom / tween (same feel as the keyboard page) ---------- */
+let vx=0,vy=0,raf=0,tw=0,drag=null;const REDUCED=matchMedia("(prefers-reduced-motion:reduce)").matches;
+function tweenTo(trx,trz,tz,ms=420){cancelAnimationFrame(tw);cancelAnimationFrame(raf);vx=vy=0;if(REDUCED){rx=trx;rz=trz;zoom=tz;applyTilt();return}
+  const s0={rx,rz,zoom},t0=performance.now();const step=now=>{const k=Math.min(1,(now-t0)/ms),e=1-Math.pow(1-k,3);rx=s0.rx+(trx-s0.rx)*e;rz=s0.rz+(trz-s0.rz)*e;zoom=s0.zoom+(tz-s0.zoom)*e;applyTilt(k===1);if(k<1)tw=requestAnimationFrame(step)};tw=requestAnimationFrame(step)}
+function startRotate(e){cancelAnimationFrame(raf);vx=vy=0;drag={x:e.clientX,y:e.clientY,rx,rz,lx:e.clientX,ly:e.clientY,moved:false}}
+function moveRotate(e){if(!drag){const h=padPoint(e);if(h!==hover){hover=h;padEl&&padEl.classList.toggle("hover",h&&!tryOn)}return}
+  const dx=e.clientX-drag.x,dy=e.clientY-drag.y;if(!drag.moved&&Math.hypot(dx,dy)<5)return;
+  if(!drag.moved){drag.moved=true;stage.classList.add("grab")}
+  vx=(e.clientX-drag.lx)*.3;vy=(e.clientY-drag.ly)*.3;drag.lx=e.clientX;drag.ly=e.clientY;
+  rz=Math.max(-75,Math.min(75,drag.rz+dx*.3));rx=Math.max(0,Math.min(86,drag.rx-dy*.3));applyTilt(false)}
+function endRotate(){if(!drag)return;const was=drag.moved;drag=null;stage.classList.remove("grab");
+  if(was){const step=()=>{vx*=.92;vy*=.92;if(Math.abs(vx)<.05&&Math.abs(vy)<.05){applyTilt();return}rz=Math.max(-75,Math.min(75,rz+vx));rx=Math.max(0,Math.min(86,rx-vy));applyTilt(false);raf=requestAnimationFrame(step)};step()}}
+stage.addEventListener("wheel",e=>{e.preventDefault();zoom=Math.max(.6,Math.min(1.9,zoom*(e.deltaY<0?1.08:1/1.08)));applyTilt()},{passive:false});
+stage.addEventListener("dblclick",()=>tweenTo(38,0,1));
+$("bReset").onclick=()=>tweenTo(38,0,1);
+$("bSway").onclick=e=>{sway=!sway;e.target.setAttribute("aria-pressed",sway);if(sway)swayLoop()};
+function swayLoop(){if(!sway)return;const t=performance.now()/1000;rz=Math.sin(t*.6)*16;rx=42+Math.sin(t*.4)*6;applyTilt(false);requestAnimationFrame(swayLoop)}
+$("bTry").onclick=e=>{tryOn=!tryOn;e.target.setAttribute("aria-pressed",tryOn);$("fingBtns").hidden=!tryOn;padEl.classList.toggle("try",tryOn);label();stopDots()};
+$("bLang").onclick=()=>{lang=lang==="en"?"es":"en";try{localStorage.setItem("lang",lang)}catch(e){}ui()};
+function ui(){document.documentElement.lang=lang;document.querySelectorAll("[data-en]").forEach(e=>e.textContent=e.dataset[lang]);$("bLang").textContent=lang==="en"?"EN → ES":"ES → EN";
+  renderCards();renderInfo();renderScreen();label()}
+addEventListener("resize",()=>{clearTimeout(window._rt);window._rt=setTimeout(()=>{fit();ui()},150)});
+fit();ui();select(selId);
+document.addEventListener("visibilitychange",()=>{if(document.hidden)stopDots()});
+</script></body></html>

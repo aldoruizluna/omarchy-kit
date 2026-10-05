@@ -1,0 +1,12 @@
+[Unit]
+Description=Route around the MacBook speaker EQ when headphones are in use
+After=pipewire-pulse.service omarchy-speaker-tuning.service
+PartOf=pipewire.service
+
+[Service]
+ExecStart=%h/.local/bin/speaker-eq-follow
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=graphical-session.target

@@ -1,0 +1,17 @@
+# Personal, per-machine details (co-admin name, etc.)
+local.toml
+
+# Built pages and data: regenerate with `python3 build_cheatsheet.py`
+/*.html
+!/*.template.html
+/data/
+
+# Machine backups made while setting this MacBook up (firmware variables, boot entries, old configs)
+/backups/
+*.bak
+*.bak-*
+*.backup
+*.backup-*
+
+__pycache__/
+node_modules/

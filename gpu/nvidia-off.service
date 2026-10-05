@@ -1,0 +1,11 @@
+[Unit]
+Description=Power off the idle NVIDIA GPU at boot and after sleep (MacBookPro11,3, omarchy-kit/gpu)
+After=sys-kernel-debug.mount systemd-modules-load.service plymouth-quit.service display-manager.service suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target
+Requires=sys-kernel-debug.mount
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nvidia-off
+
+[Install]
+WantedBy=graphical.target suspend.target hibernate.target hybrid-sleep.target suspend-then-hibernate.target

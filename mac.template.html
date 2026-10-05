@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>From macOS to Omarchy · Desde macOS</title>
+<link rel="stylesheet" href="portal.css">
+<style>
+.t{display:grid;grid-template-columns:minmax(150px,1fr) minmax(200px,1.3fr) minmax(200px,1.6fr);gap:6px 16px;padding:12px 4px;border-top:1px solid var(--line);align-items:start}
+@media(max-width:760px){.t{grid-template-columns:1fr}}
+.mac b{display:block}.mk{font:600 .82rem ui-monospace,monospace;color:var(--mut)}
+.lit{font:600 .84rem ui-monospace,monospace}
+.how-same{color:var(--ok)}.how-similar{color:var(--info)}.how-different{color:var(--warn)}.how-none{color:var(--bad)}
+.cat h3{margin:22px 0 2px}
+.gest{display:inline-block;background:var(--soft);border-radius:99px;padding:0 9px;font-weight:700;font-size:.82rem;margin:2px 0}
+</style>
+<meta name="kit-token" content=""><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="kit.css"><script src="kit.js" defer></script></head>
+<body><div class="wrap">
+<header class="top"><span class="brand">Omarchy Kit</span><button id="bLang"></button></header>
+<div id="top"></div>
+<h1 data-en="Coming from macOS" data-es="Viniendo de macOS"></h1>
+<p class="lead" data-en="Every Mac habit, translated to your Omarchy MacBook. Search what you want to do, the way you'd have done it on a Mac." data-es="Cada hábito de Mac, traducido a tu MacBook con Omarchy. Busca lo que quieres hacer, como lo hacías en Mac."></p>
+<div class="callout"><b data-en="The one rule:" data-es="La única regla:"></b> <span data-en="where macOS used ⌘ for the system, Omarchy uses <kbd>Super</kbd>, which <b>is</b> your ⌘ key. Inside apps, Ctrl does what ⌘ did (Ctrl+C, Ctrl+T, Ctrl+F…), and <kbd>Super</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy and paste everywhere." data-es="donde macOS usaba ⌘ para el sistema, Omarchy usa <kbd>Super</kbd>, que <b>es</b> tu tecla ⌘. Dentro de las apps, Ctrl hace lo que hacía ⌘ (Ctrl+C, Ctrl+T, Ctrl+F…), y <kbd>Super</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copian y pegan en todas partes."></span></div>
+<div class="row" style="margin:14px 0"><input type="search" id="q" style="flex:1 1 260px" aria-label="search"></div>
+<div class="tabs" id="how"></div>
+<div id="list"></div>
+</div>
+<script>window.PORTAL=/*__PORTAL__*/{};window.TOKEN=/*__TOKEN__*/null;</script>
+<script src="portal.js"></script><script src="portal-nav.js"></script>
+<script>
+const D = Portal.data, t = Portal.t, esc = Portal.esc;
+const HOW = { same: { en: "same habit", es: "mismo hábito" }, similar: { en: "same idea, new keys", es: "misma idea, otras teclas" }, different: { en: "new concept", es: "concepto nuevo" }, none: { en: "not available", es: "no disponible" } };
+let q = "", how = "all";
+function omarchyCell(r) {
+  const parts = (r.k || []).map((k) => `<div>${Portal.bindHTML(k)} <span class="small mut">${esc(k)}</span></div>`);
+  if (r.lit) parts.push(`<div class="lit">${esc(r.lit)}</div>`);
+  if (r.lit2) parts.push(`<div class="lit">${esc(r.lit2)}</div>`);
+  if (r.gesture) parts.push(`<div><span class="gest">✋ ${esc(r.gesture)}</span></div>`);
+  if (r.menu) parts.push(`<div>${Portal.menuBtn(r.menu)}</div>`);
+  return parts.join("") || "—";
+}
+function render() {
+  document.getElementById("q").placeholder = t({ en: "Search: screenshot, spotlight, minimize, accent, force quit…", es: "Busca: captura, spotlight, minimizar, acento, forzar salida…" });
+  document.getElementById("how").innerHTML = ["all", "same", "similar", "different"].map((h) =>
+    `<button data-how="${h}" aria-pressed="${how === h}">${h === "all" ? t({ en: "All", es: "Todo" }) : t(HOW[h])}</button>`).join("");
+  let shown = 0;
+  document.getElementById("list").innerHTML = D.mac.map(([cen, ces, rows]) => {
+    const rs = rows.filter((r) => (how === "all" || r.how === how) && (!q || [t(r.mac), r.mk, t(r.note), (r.k || []).join(" "), r.lit || "", cen, ces, r.mac.en, r.mac.es].join(" ").toLowerCase().includes(q)));
+    shown += rs.length;
+    if (!rs.length) return "";
+    return `<div class="cat"><h3>${esc(Portal.lang === "es" ? ces : cen)}</h3>` + rs.map((r) => `<div class="t">
+      <div class="mac"><b>${esc(t(r.mac))}</b>${r.mk ? `<span class="mk">${esc(r.mk)}</span>` : ""}</div>
+      <div>${omarchyCell(r)}</div>
+      <div><span class="badge how-${r.how}">${t(HOW[r.how])}</span> <span class="small">${esc(t(r.note))}</span></div></div>`).join("") + `</div>`;
+  }).join("") || `<p class="mut">${t({ en: "No match. Try another word.", es: "Sin resultados. Prueba otra palabra." })}</p>`;
+}
+document.getElementById("q").addEventListener("input", (e) => { q = e.target.value.trim().toLowerCase(); render(); });
+document.addEventListener("click", (e) => { const b = e.target.closest("[data-how]"); if (b) { how = b.dataset.how; render(); } });
+Portal.start(render);
+</script></body></html>

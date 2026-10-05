@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Omarchy Setup Log · Bitácora</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1d1d1b;--mut:#6b6b66;--card:#fff;--line:#e3e2dc;--acc:#2b6cb0;--kbd:#f0efe9;--ok:#2f855a;--act:#b7791f;--pend:#718096;--info:#2b6cb0}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#14161a;--fg:#e8e8e3;--mut:#9a9a93;--card:#1b1e23;--line:#2c3037;--acc:#7fb2e8;--kbd:#262a31;--ok:#68d391;--act:#f6c453;--pend:#a0aec0;--info:#7fb2e8;color-scheme:dark}}
+:root[data-theme=dark]{--bg:#14161a;--fg:#e8e8e3;--mut:#9a9a93;--card:#1b1e23;--line:#2c3037;--acc:#7fb2e8;--kbd:#262a31;--ok:#68d391;--act:#f6c453;--pend:#a0aec0;--info:#7fb2e8;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.5 system-ui,sans-serif;padding-inline:max(16px,3vw)}
+.wrap{max-width:980px;margin:0 auto;padding-block:20px 60px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
+h1{font-size:1.6rem;margin:0}
+h2{font-size:1.15rem;margin:30px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+h3{font-size:.95rem;margin:18px 0 6px;color:var(--mut);text-transform:uppercase;letter-spacing:.04em}
+a{color:var(--acc)}
+button{font:inherit;color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px 11px;cursor:pointer}
+button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.hint{color:var(--mut);font-size:.85rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:10px 0}
+.summary{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+.pill{border-radius:99px;padding:3px 12px;font-weight:600;font-size:.85rem;border:1px solid currentColor}
+.row{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.badge{font-size:.72rem;font-weight:700;padding:1px 9px;border-radius:99px;border:1px solid currentColor;white-space:nowrap;align-self:start;margin-top:2px;min-width:5.5em;text-align:center}
+.ok{color:var(--ok)}.action{color:var(--act)}.pending{color:var(--pend)}.info{color:var(--info)}
+.title{font-weight:600}
+.detail{color:var(--mut);font-size:.85rem;grid-column:2}
+.todo{grid-column:2;font-size:.88rem}
+.cmd{grid-column:2;display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:2px}
+code{background:var(--kbd);padding:3px 8px;border-radius:5px;font:.82rem ui-monospace,monospace;word-break:break-all}
+.copy{padding:2px 9px;font-size:.78rem}
+.log h4{margin:0 0 4px;font-size:1rem}
+.log p{margin:0 0 6px}
+.access{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.access div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.access b{display:block;margin-bottom:2px}
+kbd{display:inline-block;padding:0 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:var(--kbd);font:600 .8rem ui-monospace,monospace}
+</style>
+<meta name="kit-token" content=""><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="kit.css"><script src="kit.js" defer></script></head>
+<body><div class="wrap">
+<header><h1 data-en="Setup log" data-es="Bitácora de configuración"></h1><button id="bLang"></button></header>
+<div id="top"></div>
+<script src="portal-nav.js"></script>
+<p class="hint" id="built"></p>
+
+<h2 data-en="Opening Omarchy Kit" data-es="Cómo abrir Omarchy Kit"></h2>
+<div class="access">
+  <div><b data-en="Keyboard" data-es="Teclado"></b><kbd>Super</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd></div>
+  <div><b data-en="App launcher" data-es="Lanzador de apps"></b><span data-en="Super+Alt+Space → “Omarchy Kit”" data-es="Super+Alt+Space → “Omarchy Kit”"></span></div>
+  <div><b data-en="Any browser" data-es="Cualquier navegador"></b><code>http://127.0.0.1:8787/</code></div>
+</div>
+<p class="hint" data-en="It is served by a small local service (omarchy-kit.service) that starts with your session and only listens on this machine."
+ data-es="Lo sirve un pequeño servicio local (omarchy-kit.service) que arranca con tu sesión y solo escucha en esta máquina."></p>
+
+<h2 data-en="Status (checked live)" data-es="Estado (verificado en vivo)"></h2>
+<div class="summary" id="summary"></div>
+<div id="status"></div>
+
+<h2 data-en="What was changed, and how to undo it" data-es="Qué se cambió y cómo deshacerlo"></h2>
+<div id="log"></div>
+
+<h2 data-en="Known issues" data-es="Problemas conocidos"></h2>
+<div id="issues"></div>
+</div>
+<script>
+const D=/*__DATA__*/{};
+let lang=(navigator.language||"en").slice(0,2)==="es"?"es":"en";
+try{lang=localStorage.getItem("lang")||lang}catch(e){}
+const L={en:{ok:"done",action:"needs action",pending:"pending",info:"manual check",built:"Status checked",copy:"Copy",copied:"Copied ✔"},
+         es:{ok:"listo",action:"requiere acción",pending:"pendiente",info:"revisión manual",built:"Estado verificado",copy:"Copiar",copied:"Copiado ✔"}};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const cmdHTML=c=>c?`<div class="cmd"><code>${esc(c)}</code><button class="copy" data-c="${esc(c)}">${L[lang].copy}</button></div>`:"";
+function render(){
+  const t=L[lang];document.documentElement.lang=lang;
+  document.querySelectorAll("[data-en]").forEach(e=>e.textContent=e.dataset[lang]);
+  document.getElementById("bLang").textContent=lang==="en"?"EN → ES":"ES → EN";
+  document.getElementById("built").textContent=`${t.built}: ${D.built}`;
+  const counts={ok:0,action:0,pending:0,info:0};
+  document.getElementById("status").innerHTML=D.status.map(([en,es,rows])=>`<h3>${lang==="en"?en:es}</h3><div class="card">`+rows.map(([key,ten,tes,den,des,cmd])=>{
+      const [st,detail]=D.checks[key]||["info",""];counts[st]++;
+      const todo=st==="ok"?"":(lang==="en"?den:des);
+      return `<div class="row"><span class="badge ${st}">${t[st]}</span><span class="title">${esc(lang==="en"?ten:tes)}</span><span class="detail">${esc(detail)}</span>${todo?`<span class="todo">${esc(todo)}</span>`:""}${st==="ok"?"":cmdHTML(cmd)}</div>`}).join("")+`</div>`).join("");
+  document.getElementById("summary").innerHTML=["ok","action","pending","info"].filter(k=>counts[k]).map(k=>`<span class="pill ${k}">${counts[k]} ${t[k]}</span>`).join("");
+  document.getElementById("log").innerHTML=D.log.map(([en,es,pen,pes,cmd])=>`<div class="card log"><h4>${esc(lang==="en"?en:es)}</h4><p>${esc(lang==="en"?pen:pes)}</p>${cmdHTML(cmd)}</div>`).join("");
+  document.getElementById("issues").innerHTML=D.issues.map(([en,es,pen,pes])=>`<div class="card log"><h4>${esc(lang==="en"?en:es)}</h4><p>${esc(lang==="en"?pen:pes)}</p></div>`).join("");
+}
+document.addEventListener("click",async e=>{const b=e.target.closest("[data-c]");if(!b)return;
+  try{await navigator.clipboard.writeText(b.dataset.c);b.textContent=L[lang].copied;setTimeout(()=>b.textContent=L[lang].copy,1200)}catch(_){}});
+document.getElementById("bLang").onclick=()=>{lang=lang==="en"?"es":"en";try{localStorage.setItem("lang",lang)}catch(e){}render()};
+render();
+</script></body></html>

@@ -1,0 +1,191 @@
+#!/usr/bin/env python3
+"""Omarchy Kit local server (127.0.0.1:8787, runs as omarchy-kit.service).
+
+Serves the portal pages, and exposes three things to them:
+  GET  /api/state  read-only snapshot of the desktop (workspace, windows, theme, volume) so lessons can
+                   check that you really did the exercise
+  POST /api/menu   open the real Omarchy menu at a route — only routes that exist in the menu definition
+  POST /install    run install-apps for ids listed in apps.toml, in a terminal so sudo can prompt
+  POST /api/theme  switch the Omarchy theme (only names from the installed theme list)
+  GET  /theme.css, /api/theme, /api/live, /api/top, /wallpaper  the current theme and live hardware history
+All POSTs need the per-run token embedded in the pages it serves; the Host check blocks DNS rebinding.
+"""
+import json, secrets, subprocess, sys, webbrowser
+from pathlib import Path
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from appslib import load, render, HERE
+from install_status import installed
+import kitlive
+
+PORT = 8787
+TOKEN = secrets.token_urlsafe(24)
+HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
+
+PAGES = {"/": "index.html", "/index.html": "index.html", "/learn": "learn.html", "/mac": "mac.html",
+         "/macbook": "macbook.html", "/reference": "reference.html", "/cheatsheet": "cheatsheet.html",
+         "/keyboard": "keyboard.html", "/trackpad": "trackpad.html", "/system": "system.html"}
+ASSETS = {"/portal.css": "text/css; charset=utf-8", "/portal.js": "text/javascript; charset=utf-8", "/portal-nav.js": "text/javascript; charset=utf-8",
+          "/kit.css": "text/css; charset=utf-8", "/kit.js": "text/javascript; charset=utf-8", "/data/kit-index.json": "application/json"}
+
+
+def run_json(*cmd):
+    try:
+        return json.loads(subprocess.run(cmd, capture_output=True, text=True, timeout=2).stdout or "null")
+    except Exception:
+        return None
+
+
+def run_text(*cmd):
+    try:
+        return subprocess.run(cmd, capture_output=True, text=True, timeout=2).stdout.strip()
+    except Exception:
+        return ""
+
+
+def desktop_state():
+    aw = run_json("hyprctl", "-j", "activewindow") or {}
+    mons = run_json("hyprctl", "-j", "monitors") or []
+    clients = run_json("hyprctl", "-j", "clients") or []
+    mon = next((m for m in mons if m.get("focused")), mons[0] if mons else {})
+    vol = run_text("wpctl", "get-volume", "@DEFAULT_AUDIO_SINK@")
+    return {
+        "ws": (mon.get("activeWorkspace") or {}).get("id"),
+        "special": (mon.get("specialWorkspace") or {}).get("name") or "",
+        "active": {"class": aw.get("class"), "floating": aw.get("floating"), "fullscreen": aw.get("fullscreen"),
+                   "ws": (aw.get("workspace") or {}).get("id"), "addr": aw.get("address"), "grouped": len(aw.get("grouped") or [])},
+        "clients": [{"addr": c.get("address"), "class": c.get("class"), "ws": (c.get("workspace") or {}).get("id")} for c in clients],
+        "theme": run_text("omarchy-theme-current"),
+        "volume": vol.replace("Volume: ", ""),
+        "shot": newest_shot(),
+    }
+
+
+def newest_shot():
+    """mtime of the newest image in Omarchy's screenshot folder (~/Pictures), for the screenshot lesson."""
+    import glob, os
+    files = glob.glob(os.path.expanduser("~/Pictures/*.png"))
+    return max((os.path.getmtime(f) for f in files), default=0)
+
+
+def read(path):
+    try:
+        with open(path) as f: return f.read().strip()
+    except Exception:
+        return ""
+
+
+def hardware():
+    """Live MacBook readings for the Your-MacBook page (all read-only sysfs/CLI)."""
+    import glob, os
+    gpu = "unknown"
+    for link in glob.glob("/sys/class/drm/card*-eDP-1"):
+        dev = os.path.realpath(link)
+        gpu = "nvidia" if "0000:01:00.0" in dev else "intel" if "0000:00:02.0" in dev else "unknown"
+    temps = {}
+    for hw in glob.glob("/sys/class/hwmon/hwmon*"):
+        if read(hw + "/name") == "coretemp":
+            temps["cpu"] = int(read(hw + "/temp1_input") or 0) // 1000
+        if read(hw + "/name") == "nouveau":
+            temps["gpu"] = int(read(hw + "/temp1_input") or 0) // 1000
+    fans = [int(read(f) or 0) for f in sorted(glob.glob("/sys/devices/platform/applesmc.768/fan*_input"))]
+    bat = "/sys/class/power_supply/BAT0"
+    full, design = int(read(bat + "/charge_full") or 0), int(read(bat + "/charge_full_design") or 0)
+    return {"gpu": gpu, "temps": temps, "fans": fans,
+            # charge vs. the battery's *current* full capacity (the kernel's "capacity" here is vs. design)
+            "battery": {"pct": round(100 * int(read(bat + "/charge_now") or 0) / full) if full else int(read(bat + "/capacity") or 0),
+                        "status": read(bat + "/status"),
+                        "health": round(100 * full / design) if design else None, "cycles": read(bat + "/cycle_count")},
+            "profile": run_text("powerprofilesctl", "get")}
+
+
+def menu_ids():
+    try:
+        return set(json.loads((HERE / "data" / "menu_ids.json").read_text()))
+    except Exception:
+        return set()
+
+
+class H(BaseHTTPRequestHandler):
+    def log_message(self, *a): pass
+
+    def _send(self, code, body, ctype="text/plain; charset=utf-8"):
+        if ctype.startswith("text/html"):  # kit.js reads the token from here to call the POST endpoints
+            body = body.replace('<meta name="kit-token" content="">', f'<meta name="kit-token" content="{TOKEN}">', 1)
+        b = body.encode(); self.send_response(code)
+        self.send_header("Content-Type", ctype); self.send_header("Content-Length", str(len(b)))
+        self.send_header("Cache-Control", "no-store"); self.end_headers(); self.wfile.write(b)
+
+    def _host_ok(self): return self.headers.get("Host") in HOSTS
+
+    def _page(self, name):
+        if not (HERE / name).exists():
+            return self._send(500, f"{name} has not been built yet: run python3 build_cheatsheet.py")
+        html = (HERE / name).read_text()
+        return self._send(200, html.replace("/*__TOKEN__*/null", json.dumps(TOKEN)), "text/html; charset=utf-8")
+
+    def do_GET(self):
+        if not self._host_ok(): return self._send(403, "bad host")
+        p = self.path.split("?")[0]
+        if p in PAGES: return self._page(PAGES[p])
+        if p in ASSETS: return self._send(200, (HERE / p.lstrip("/")).read_text(), ASSETS[p])
+        if p == "/favicon.ico":  # the Omarchy logo, so the tab and launcher match
+            data = Path("/usr/share/omarchy/icon.png").read_bytes()
+            self.send_response(200); self.send_header("Content-Type", "image/png"); self.send_header("Content-Length", str(len(data)))
+            self.end_headers(); return self.wfile.write(data)
+        if p == "/setup":  # status is re-checked on every visit
+            import build_setup
+            return self._send(200, build_setup.build(), "text/html; charset=utf-8")
+        if p == "/apps": return self._send(200, render(TOKEN), "text/html; charset=utf-8")
+        if p == "/status": return self._send(200, json.dumps({a["id"]: installed(a) for a in load()}), "application/json")
+        if p == "/api/state": return self._send(200, json.dumps(desktop_state()), "application/json")
+        if p == "/api/hw": return self._send(200, json.dumps(hardware()), "application/json")
+        if p == "/theme.css": return self._send(200, kitlive.theme_css(), "text/css; charset=utf-8")
+        if p == "/api/theme":
+            return self._send(200, json.dumps({"name": kitlive.theme_name(), "version": kitlive.theme_version(),
+                                               "colors": kitlive.theme_colors(), "themes": kitlive.theme_list()}), "application/json")
+        if p == "/api/live":
+            q = dict(x.split("=", 1) for x in self.path.partition("?")[2].split("&") if "=" in x)
+            try: since = float(q.get("since", 0))
+            except ValueError: since = 0
+            return self._send(200, json.dumps({"samples": kitlive.history(since), "snap": kitlive.snapshot(),
+                                               "theme": kitlive.theme_version()}), "application/json")
+        if p == "/api/top": return self._send(200, json.dumps(kitlive.top()), "application/json")
+        if p == "/wallpaper":
+            w = kitlive.wallpaper()
+            if not w: return self._send(404, "no wallpaper")
+            data = Path(w).read_bytes()
+            self.send_response(200); self.send_header("Content-Type", "image/png" if w.endswith(".png") else "image/webp" if w.endswith(".webp") else "image/jpeg")
+            self.send_header("Content-Length", str(len(data))); self.send_header("Cache-Control", "max-age=60"); self.end_headers()
+            return self.wfile.write(data)
+        return self._send(404, "not found")
+
+    def do_POST(self):
+        if not self._host_ok(): return self._send(403, "bad host")
+        if self.headers.get("X-Token") != TOKEN: return self._send(403, "forbidden")
+        try: body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        except Exception: return self._send(400, "bad json")
+        if self.path == "/api/menu":
+            route = body.get("route", "root")
+            if route != "root" and route not in menu_ids(): return self._send(400, "unknown menu route")
+            subprocess.Popen(["omarchy-menu", "summon", route])
+            return self._send(200, "opened")
+        if self.path == "/api/theme":
+            ok = kitlive.set_theme(str(body.get("id", "")))
+            return self._send(200 if ok else 400, "switching" if ok else "unknown theme")
+        if self.path == "/install":
+            ids = body.get("ids", [])
+            known = {a["id"] for a in load()}
+            if not ids or not all(isinstance(i, str) and i in known for i in ids): return self._send(400, "unknown app id")
+            script = f'"{HERE}/install-apps" {" ".join(ids)}; echo; read -rp "Done. Press Enter to close. "'
+            subprocess.Popen(["xdg-terminal-exec", "bash", "-c", script])
+            return self._send(200, "started")
+        return self._send(404, "not found")
+
+
+if __name__ == "__main__":
+    srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
+    kitlive.start_sampler()
+    print(f"Omarchy Kit: http://127.0.0.1:{PORT}/   (Ctrl+C to stop)")
+    if "--no-open" not in sys.argv: webbrowser.open(f"http://127.0.0.1:{PORT}/")
+    try: srv.serve_forever()
+    except KeyboardInterrupt: pass

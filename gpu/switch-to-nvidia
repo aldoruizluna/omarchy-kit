@@ -1,0 +1,10 @@
+#!/bin/bash
+# Undo switch-to-intel: remove Apple's gpu-power-prefs variable so the firmware uses its default
+# (the NVIDIA GPU) at the next boot. Equivalent to what an NVRAM reset does to this setting.
+set -euo pipefail
+VAR=/sys/firmware/efi/efivars/gpu-power-prefs-fa4ce28d-b62f-4c99-9cc3-6815686e30f9
+if [[ ! -e $VAR ]]; then echo "gpu-power-prefs is not set; the Mac already boots on NVIDIA."; exit 0; fi
+sudo chattr -i "$VAR"
+sudo rm "$VAR"
+[[ -e $VAR ]] && { echo "Could not remove $VAR" >&2; exit 1; }
+echo "Removed gpu-power-prefs. The Mac will boot on NVIDIA from the next reboot."

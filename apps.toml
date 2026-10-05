@@ -1,0 +1,92 @@
+# Single source of truth for the apps installer (and the future web page).
+# type: "pacman" (official repo), "aur" (via yay), "webapp" (Omarchy web app), "note" (manual step only)
+# Add an app = add a [[app]] block. Verified against repos/AUR on 2026-10-04.
+
+[[app]]
+id = "brave"
+name = "Brave"
+type = "pacman"          # in the Omarchy repo
+pkg = "brave-bin"
+desc.en = "Privacy-focused Chromium browser"
+desc.es = "Navegador Chromium enfocado en privacidad"
+note.en = "To use Kagi: Settings → Search engine → Add → URL https://kagi.com/search?q=%s"
+note.es = "Para usar Kagi: Ajustes → Buscador → Añadir → URL https://kagi.com/search?q=%s"
+
+[[app]]
+id = "signal"
+name = "Signal"
+type = "pacman"          # official 'extra' repo
+pkg = "signal-desktop"
+desc.en = "Private messenger (desktop)"
+desc.es = "Mensajería privada (escritorio)"
+
+[[app]]
+id = "beeper"
+name = "Beeper"
+type = "aur"
+pkg = "beeper-bin"       # stable channel; beeper-nightly-bin also exists
+desc.en = "All your chat networks in one app"
+desc.es = "Todas tus redes de chat en una sola app"
+
+[[app]]
+id = "anytype"
+name = "Anytype"
+type = "aur"
+pkg = "anytype-bin"
+desc.en = "Local-first, encrypted notes and knowledge base"
+desc.es = "Notas y base de conocimiento cifradas, local-first"
+
+[[app]]
+id = "kagi"
+name = "Kagi"
+type = "webapp"          # Kagi is a web service; no native Linux package exists
+url = "https://kagi.com"
+icon = "https://kagi.com/favicon.ico"
+desc.en = "Kagi search as a launcher web app"
+desc.es = "Buscador Kagi como webapp en el lanzador"
+
+[[app]]
+id = "bitwarden"
+name = "Bitwarden"
+type = "pacman"          # official 'extra' repo
+pkg = "bitwarden"
+desc.en = "Open-source password manager (desktop)"
+desc.es = "Gestor de contraseñas de código abierto (escritorio)"
+note.en = "Also add the Bitwarden extension in Brave (Web Store) for autofill."
+note.es = "Agrega también la extensión de Bitwarden en Brave (Web Store) para autocompletar."
+
+[[app]]
+id = "telegram"
+name = "Telegram"
+type = "pacman"          # official 'extra' repo
+pkg = "telegram-desktop"
+desc.en = "Official Telegram desktop client"
+desc.es = "Cliente oficial de Telegram para escritorio"
+
+[[app]]
+id = "grayjay"
+name = "Grayjay"
+type = "aur"
+pkg = "grayjay-bin"      # v17 binary, not flagged; 'grayjay' (v18) is source-built and flagged out-of-date
+desc.en = "Follow creators, not platforms (YouTube, Rumble, Twitch…)"
+desc.es = "Sigue a creadores, no plataformas (YouTube, Rumble, Twitch…)"
+
+[[app]]
+id = "qdirstat"
+name = "QDirStat"
+type = "aur"
+pkg = "qdirstat"        # Qt6 treemap disk analyzer; qt6-base already installed here
+desc.en = "Bird's-eye treemap of your whole drive: every file as a rectangle sized by space used"
+desc.es = "Vista aérea de todo el disco: cada archivo es un rectángulo proporcional a su tamaño"
+note.en = "Open it and choose / (root) to see the whole drive. Alternatives: baobab or filelight (rings), gdu (terminal)."
+note.es = "Ábrelo y elige / (raíz) para ver todo el disco. Alternativas: baobab o filelight (anillos), gdu (terminal)."
+
+[[app]]
+id = "mullvad-browser"
+name = "Mullvad Browser"
+type = "aur"
+pkg = "mullvad-browser-bin"   # maintained repackage of the official release; 'mullvad-browser' is orphaned/out of date
+desc.en = "Private browser by Mullvad and the Tor Project (Tor Browser's privacy, without Tor)"
+desc.es = "Navegador privado de Mullvad y el Proyecto Tor (la privacidad de Tor Browser, sin Tor)"
+note.en = "Works with or without a VPN. It resets everything when closed, so keep Brave for logged-in daily browsing."
+note.es = "Funciona con o sin VPN. Borra todo al cerrarse; usa Brave para la navegación diaria con sesiones iniciadas."

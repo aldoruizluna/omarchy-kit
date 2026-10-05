@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""Install apps listed in apps.toml.
+
+  install-apps                 pick interactively (gum; space/tab to select)
+  install-apps brave signal    install specific ids
+  install-apps --all           install everything
+  install-apps --list          show apps and install status
+  add --dry-run to print the commands without running them
+"""
+from pathlib import Path
+import shutil, subprocess, sys, tomllib, os
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+HERE = Path(__file__).resolve().parent
+APPS = tomllib.loads((HERE / "apps.toml").read_text())["app"]
+LANG = "es" if os.environ.get("LANG", "").startswith("es") else "en"
+
+from install_status import installed
+
+def command(a):
+    t = a["type"]
+    if t == "pacman": return ["sudo", "pacman", "-S", "--needed", "--noconfirm", a["pkg"]]
+    if t == "aur":    return ["yay", "-S", "--needed", "--noconfirm", a["pkg"]]
+    if t == "webapp": return ["omarchy-webapp-install", a["name"], a["url"], a["icon"]]
+    return None
+
+def label(a):
+    return f"{a['name']:<10} {'✔' if installed(a) else ' '}  {a['desc'][LANG]}"
+
+def main():
+    args = [x for x in sys.argv[1:] if not x.startswith("--")]
+    flags = {x for x in sys.argv[1:] if x.startswith("--")}
+    if "--list" in flags:
+        for a in APPS: print(f"{a['id']:<9} {a['type']:<7} {label(a)}")
+        return
+    if "--all" in flags: chosen = APPS
+    elif args:
+        byid = {a["id"]: a for a in APPS}
+        bad = [x for x in args if x not in byid]
+        if bad: sys.exit(f"unknown app id(s): {', '.join(bad)}  (try --list)")
+        chosen = [byid[x] for x in args]
+    else:
+        if not shutil.which("gum"): sys.exit("gum not found; pass app ids instead (see --list)")
+        r = subprocess.run(["gum", "choose", "--no-limit", "--header", "Select apps (space = toggle, enter = install)"]
+                           + [label(a) for a in APPS], capture_output=True, text=True)
+        names = {line.split()[0] for line in r.stdout.splitlines() if line.strip()}
+        chosen = [a for a in APPS if a["name"] in names]
+    if not chosen: return print("nothing selected")
+    failed = []
+    for a in chosen:
+        print(f"\n==> {a['name']}")
+        if installed(a): print("    already installed, skipping"); continue
+        cmd = command(a)
+        print("    $", " ".join(cmd))
+        if a.get("post"): print("    then $", a["post"])
+        if "--dry-run" not in flags:
+            if subprocess.run(cmd).returncode != 0: failed.append(a["name"]); continue
+            # optional follow-up from apps.toml (e.g. enabling a service the package ships)
+            if a.get("post") and subprocess.run(["bash", "-c", a["post"]]).returncode != 0: failed.append(a["name"] + " (post-install)")
+        if a.get("note"): print("    →", a["note"][LANG])
+    if failed: sys.exit(f"\nfailed: {', '.join(failed)}")
+if __name__ == "__main__": main()
