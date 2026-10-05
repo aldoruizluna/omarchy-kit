@@ -422,7 +422,10 @@ def cmd_export_telesia(upload=None):
 
 # ---------------------------------------------------------------- RetroFE cabinet
 CABINET = GAMES / "retrofe"
-RETROFE_HOME = Path("/opt/retrofe")
+# The AUR package installs to /opt/retrofe; built from source (AUR build fails on CMake 4 without
+# -DCMAKE_POLICY_VERSION_MINIMUM=3.5) it lives in ~/.local/opt/retrofe. Either works.
+RETROFE_HOME = next((p for p in (Path("/opt/retrofe"), Path.home() / ".local/opt/retrofe") if (p / "layouts").exists()), Path("/opt/retrofe"))
+RETROFE_BIN = shutil.which("retrofe") or str(RETROFE_HOME / "retrofe")
 CABINET_SETTINGS = {  # keys read from phulshof/RetroFE@Release-0.10.31 Package/Environment/Common/settings.conf
     "fullscreen": "yes", "horizontal": "stretch", "vertical": "stretch", "layout": "Aeon Nox", "hideMouse": "yes",
     "showParenthesis": "no", "showSquareBrackets": "no", "videoEnable": "yes", "firstCollection": "Main",
@@ -489,10 +492,16 @@ def cmd_cabinet():
     (main / "settings.conf").write_text("list.extensions = sh\nlist.menuSort = no\nlauncher = Main\n")
     (main / "menu.txt").write_text("\n".join(menu) + "\n")
     (CABINET / "launchers" / "Main.conf").write_text("executable = /bin/true\n")
+    # KNOWN ISSUE (2026-10-05): RetroFE 0.10.31 draws only a black window on this machine (Hyprland, Mesa 26,
+    # Iris Pro), its own sample config included, windowed or fullscreen, with SDL on wayland/x11 and the
+    # opengl/software renderers. So no launcher entry is written unless asked for with --desktop.
+    if "--desktop" not in sys.argv:
+        print(f"Cabinet: {len(menu)} collections in {CABINET} (no launcher entry: RetroFE renders black here; see kit-games source).")
+        return 0
     desktop = Path.home() / ".local/share/applications/retro-cabinet.desktop"
     desktop.parent.mkdir(parents=True, exist_ok=True)
     desktop.write_text("[Desktop Entry]\nType=Application\nName=Retro Cabinet\nComment=Arcade-cabinet frontend (RetroFE) over your game library\n"
-                       f"Exec=env RETROFE_PATH={CABINET} retrofe\nIcon=retro-gaming\nCategories=Game;Emulator;\nTerminal=false\n")
+                       f"Exec=env RETROFE_PATH={CABINET} {RETROFE_BIN}\nIcon=retro-gaming\nCategories=Game;Emulator;\nTerminal=false\n")
     print(f"Cabinet: {len(menu)} collections in {CABINET}. Start it from the launcher as 'Retro Cabinet' "
           f"(or: RETROFE_PATH={CABINET} retrofe).")
     return 0
