@@ -7,12 +7,18 @@
   kit-games budget    show space used per system against the plan; exits 1 when over the cap
   kit-games bios      show which BIOS files each system's core needs and whether ~/Games/bios has them
   kit-games status    budget + BIOS as JSON (used by the Omarchy Kit Setup log)
+  kit-games ingest    identify your own dumps in ~/Games/inbox against libretro's No-Intro/Redump databases,
+                      rename them to the canonical title, compress discs (CHD) and GameCube (RVZ), file them
+  kit-games export-telesia [--upload]
+                      write ~/Games/telesia/library.json for Telesia's import (RetroArch playlist items with
+                      clean titles + playtime from RetroArch's runtime logs); --upload sends it when
+                      TELESIA_TOKEN (a Janua bearer) is set
 
 Systems, cores and allocations live in systems.toml next to this script. ROMs are never downloaded by
 this tool: put your own dumps in ~/Games/roms/<folder>, named the No-Intro/Redump way
 ("Title (Region).ext") so playlists and box art match.
 """
-import json, os, re, shutil, subprocess, sys, tomllib, urllib.parse, urllib.request
+import json, os, re, shutil, subprocess, sys, tomllib, urllib.error, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -190,7 +196,16 @@ def cmd_scan():
         made += 1
         print(f"{s['name']:30} {len(data['items']):>4} games → {core_name}")
     print(f"{made} playlists in {PLAYLISTS}")
+    quiet_export()
     return cmd_budget_quiet()
+
+
+def quiet_export():
+    """Keep ~/Games/telesia/library.json in step with the playlists (writing a file only; never uploads)."""
+    import contextlib, io
+    with contextlib.redirect_stdout(io.StringIO()):
+        try: cmd_export_telesia(upload=False)
+        except Exception: pass
 
 
 def cmd_budget_quiet():
@@ -244,6 +259,165 @@ def cmd_art():
     return cmd_budget_quiet()
 
 
+# ---------------------------------------------------------------- ingest (your own dumps)
+INBOX = GAMES / "inbox"
+INGEST_LOG = GAMES / ".kit-ingest.json"
+DISC_SRC = {".cue", ".gdi", ".iso", ".toc"}
+
+
+def ra_scan(folder, tmp):
+    """Identify files with RetroArch's own scanner (CRC for cartridges, serial for discs) into a scratch
+    playlist directory. A throwaway config with config_save_on_exit off, so the real one is never touched."""
+    cfg = tmp / "scan.cfg"
+    cfg.write_text(f'config_save_on_exit = "false"\nplaylist_directory = "{tmp / "pl"}"\n'
+                   f'content_database_path = "/usr/share/libretro/database/rdb"\nlibretro_info_path = "{INFO}"\n'
+                   f'libretro_directory = "{CORES}"\nlog_verbosity = "false"\n')
+    (tmp / "pl").mkdir(exist_ok=True)
+    subprocess.run(["retroarch", f"--config={cfg}", f"--scan={folder}"], capture_output=True, timeout=1800)
+    found = {}
+    for lpl in (tmp / "pl").glob("*.lpl"):
+        if lpl.stem in ("content_history", "content_favorites"): continue
+        for item in json.loads(lpl.read_text()).get("items", []):
+            found[Path(item["path"].split("#")[0]).resolve()] = (item["label"], lpl.stem)
+    return found
+
+
+def disc_members(src):
+    """The files a .cue/.gdi sheet names (its .bin/.raw tracks), so they move together."""
+    out = []
+    if src.suffix.lower() in (".cue", ".gdi"):
+        for line in src.read_text(errors="ignore").splitlines():
+            m = re.search(r'FILE\s+"([^"]+)"', line) or (re.match(r"\s*\d+\s+\d+\s+\d+\s+\d+\s+(\S+)", line) if src.suffix.lower() == ".gdi" else None)
+            if m and (src.parent / m[1]).exists(): out.append(src.parent / m[1])
+    return out
+
+
+def cmd_ingest():
+    import tempfile
+    INBOX.mkdir(parents=True, exist_ok=True)
+    files = [p for p in INBOX.rglob("*") if p.is_file() and not p.name.startswith(".")]
+    if not files:
+        print(f"Nothing to ingest. Put your dumps in {INBOX} and run this again."); return 0
+    by_db = {s["db"]: s for s in SYSTEMS}
+    log = json.loads(INGEST_LOG.read_text()) if INGEST_LOG.exists() else []
+    cap = (budget_cap() or {}).get("cap_bytes")
+    moved = unknown = 0
+    with tempfile.TemporaryDirectory() as t:
+        found = ra_scan(INBOX, Path(t))
+        claimed = set()
+        for path, (label, db) in sorted(found.items(), key=lambda kv: str(kv[0])):
+            if path in claimed or not path.exists(): continue
+            sysdef = by_db.get(db)
+            if not sysdef:
+                print(f"? {path.name}: identified as {db}, which this library has no folder for"); continue
+            members = disc_members(path)
+            size = sum(f.stat().st_size for f in [path, *members])
+            if cap and library_bytes() + size > cap:
+                print(f"! {label}: would exceed the {cap / GB:.0f} GB budget; left in the inbox"); continue
+            dest_dir = ROMS / sysdef["folder"]; dest_dir.mkdir(parents=True, exist_ok=True)
+            name = thumb_name(label)
+            ext = path.suffix.lower()
+            if ext in DISC_SRC and sysdef["folder"] == "gc" and shutil.which("dolphin-tool"):
+                out = dest_dir / f"{name}.rvz"
+                r = subprocess.run(["dolphin-tool", "convert", "-f", "rvz", "-b", "131072", "-c", "zstd", "-l", "5",
+                                    "-i", str(path), "-o", str(out)], capture_output=True, text=True)
+                ok = r.returncode == 0
+            elif ext in DISC_SRC and sysdef["folder"] != "gc" and shutil.which("chdman"):
+                out = dest_dir / f"{name}.chd"
+                mode = "createdvd" if ext == ".iso" and sysdef["folder"] in ("psp",) else "createcd"
+                r = subprocess.run(["chdman", mode, "-i", str(path), "-o", str(out), "-f"], capture_output=True, text=True)
+                ok = r.returncode == 0
+            else:  # cartridges, or discs while the converters are not installed: move as they are
+                out = dest_dir / f"{name}{ext}"
+                for m in members: shutil.move(str(m), str(dest_dir / m.name))
+                shutil.move(str(path), str(out)); ok = True
+            if not ok:
+                print(f"! {label}: conversion failed, left in the inbox ({(r.stderr or r.stdout).strip()[-200:]})"); continue
+            if out.suffix in (".chd", ".rvz"):
+                for f in [path, *members]: f.unlink(missing_ok=True)
+            claimed.update([path, *members])
+            log.append({"file": str(out), "label": label, "db": db, "from": path.name,
+                        "date": subprocess.run(["date", "-Iseconds"], capture_output=True, text=True).stdout.strip()})
+            moved += 1
+            print(f"✓ {label} → {sysdef['folder']}/{out.name}")
+    leftovers = [p for p in INBOX.rglob("*") if p.is_file() and not p.name.startswith(".")]
+    for p in leftovers:
+        if p.suffix.lower() in (".bin", ".raw") : continue  # tracks of a sheet that wasn't identified are reported via the sheet
+        unknown += 1
+        print(f"? {p.name}: not in libretro's databases. A bad or modified dump, a homebrew, or an unsupported format.")
+    INGEST_LOG.write_text(json.dumps(log, indent=1, ensure_ascii=False))
+    print(f"\nIngested {moved}; {unknown} left in {INBOX} for a look.")
+    if moved:
+        cmd_scan(); cmd_art()
+    return 0
+
+
+# ---------------------------------------------------------------- Telesia export
+TELESIA_OUT = GAMES / "telesia" / "library.json"
+TAGS = re.compile(r"\s*[\(\[][^\)\]]*[\)\]]\s*$")
+
+
+def clean_title(label):
+    """No-Intro/Redump dump names end in tag groups: "Super Metroid (Japan, USA) (En,Ja)". This library names
+    its files that way on purpose, so it is this side's job (not Telesia's) to send the title without them."""
+    prev = None
+    while prev != label:
+        prev, label = label, TAGS.sub("", label)
+    return label.strip()
+
+
+def runtimes():
+    """RetroArch's per-game runtime logs: logs/<core>/<content>.lrtl with runtime "H:MM:SS" and a local
+    last_played "YYYY-MM-DD HH:MM:SS". Keyed by content file name without extension."""
+    out = {}
+    for f in (PLAYLISTS / "logs").rglob("*.lrtl"):
+        try: d = json.loads(f.read_text())
+        except Exception: continue
+        h, m, sec = (int(x) for x in d.get("runtime", "0:00:00").split(":"))
+        minutes = h * 60 + m + sec / 60
+        lp = d.get("last_played", "")
+        key = f.stem
+        prev = out.get(key)
+        if prev is None or minutes > prev[0]: out[key] = (minutes, lp)
+    return out
+
+
+def cmd_export_telesia(upload=None):
+    from datetime import datetime
+    rt = runtimes()
+    offset = datetime.now().astimezone().strftime("%z")
+    offset = offset[:3] + ":" + offset[3:]
+    items = []
+    for s in SYSTEMS:
+        lpl = PLAYLISTS / f"{s['db']}.lpl"
+        if not lpl.exists(): continue
+        for it in json.loads(lpl.read_text())["items"]:
+            stem = Path(it["path"]).stem
+            row = {"label": clean_title(it["label"]), "db_name": f"{s['db']}.lpl", "core_name": info(s["core"]).get("corename", s["core"]),
+                   "core_path": it.get("core_path", "DETECT"), "crc32": it.get("crc32", "DETECT")}
+            if stem in rt:
+                minutes, lp = rt[stem]
+                row["playtime_minutes"] = round(minutes)
+                if re.match(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", lp): row["last_played"] = lp.replace(" ", "T") + offset
+            items.append(row)
+    TELESIA_OUT.parent.mkdir(parents=True, exist_ok=True)
+    TELESIA_OUT.write_text(json.dumps(items, indent=1, ensure_ascii=False))
+    played = sum(1 for i in items if i.get("playtime_minutes"))
+    print(f"Wrote {len(items)} titles ({played} with playtime) to {TELESIA_OUT}")
+    if (("--upload" in sys.argv) if upload is None else upload):
+        token, api = os.environ.get("TELESIA_TOKEN"), os.environ.get("TELESIA_API", "https://api.telesia.quest")
+        if not token:
+            print("Not uploaded: set TELESIA_TOKEN to a Janua access token for your Telesia account."); return 1
+        req = urllib.request.Request(f"{api}/v1/library/import/export?provider=OTHER", data=TELESIA_OUT.read_bytes(), method="POST",
+                                     headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json", "User-Agent": "omarchy-kit"})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r:
+                print(f"Telesia answered {r.status}: {r.read().decode()[:400]}")
+        except urllib.error.HTTPError as e:
+            print(f"Telesia answered {e.code}: {e.read().decode()[:400]}"); return 1
+    return 0
+
+
 # ---------------------------------------------------------------- BIOS
 def bios_report():
     """One row per console from systems.toml [[bios]]; a row is satisfied when any of its files exists."""
@@ -268,7 +442,8 @@ def cmd_bios():
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "budget"
     if cmd == "status": print(json.dumps(status())); return 0
-    fn = {"init": cmd_init, "scan": cmd_scan, "art": cmd_art, "budget": cmd_budget, "bios": cmd_bios}.get(cmd)
+    fn = {"init": cmd_init, "scan": cmd_scan, "art": cmd_art, "budget": cmd_budget, "bios": cmd_bios,
+          "ingest": cmd_ingest, "export-telesia": cmd_export_telesia}.get(cmd)
     if not fn: print(__doc__); return 2
     return fn() or 0
 

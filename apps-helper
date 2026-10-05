@@ -178,6 +178,12 @@ class H(BaseHTTPRequestHandler):
             lines = [l for l in r.stdout.splitlines() if l.strip()]
             msg = next((l for l in reversed(lines) if "WARNING" in l), lines[-1] if lines else "done")
             return self._send(200, json.dumps({"message": msg + " · box art downloading…", "ok": r.returncode == 0}), "application/json")
+        if self.path in ("/api/games/ingest", "/api/games/export-telesia"):
+            cmd = self.path.rsplit("/", 1)[1]
+            r = subprocess.run([str(HERE / "games" / "kit-games"), cmd], capture_output=True, text=True, timeout=3600)
+            kitlive._games["t"] = 0
+            lines = [l for l in r.stdout.splitlines() if l.strip()]
+            return self._send(200, json.dumps({"ok": r.returncode == 0, "lines": lines[-40:]}), "application/json")
         if self.path == "/api/theme":
             ok = kitlive.set_theme(str(body.get("id", "")))
             return self._send(200 if ok else 400, "switching" if ok else "unknown theme")

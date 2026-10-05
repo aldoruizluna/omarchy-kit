@@ -68,6 +68,15 @@ ol.steps{padding-left:20px;margin:6px 0}ol.steps li{margin:6px 0}
   <p class="small mut" style="margin-top:10px" data-en="From a terminal: <code>~/labspace/omarchy-kit/games/kit-games scan</code>, then <code>kit-games art</code> and <code>kit-games budget</code>." data-es="Desde una terminal: <code>~/labspace/omarchy-kit/games/kit-games scan</code>, luego <code>kit-games art</code> y <code>kit-games budget</code>."></p>
 </div>
 
+<h2 data-en="Bring your own collection" data-es="Trae tu propia colección"></h2>
+<p class="small mut" data-en="Your cartridges and discs become files with a dumper, then the inbox does the rest: it checks each dump against the No-Intro and Redump databases (a match means a clean dump), renames it to the official title so box art and Telesia match, compresses discs, and files it." data-es="Tus cartuchos y discos se vuelven archivos con un lector; luego la bandeja hace el resto: compara cada copia con las bases No-Intro y Redump (si coincide, la copia está limpia), le pone el título oficial para que coincidan carátulas y Telesia, comprime los discos y la archiva."></p>
+<div class="card"><table class="bios" id="dumpers"></table></div>
+<div class="card" style="margin-top:10px"><div class="row" style="justify-content:space-between"><div id="inboxInfo"></div><button class="primary" id="ingestBtn"></button></div><pre class="small hidden" id="ingestOut" style="max-height:260px;overflow:auto"></pre></div>
+
+<h2>Telesia</h2>
+<div class="card"><div class="row" style="justify-content:space-between"><div id="telesiaInfo"></div><button id="exportBtn"></button></div>
+<p class="small mut" style="margin-top:8px" data-en="Telesia keeps your completionist record; this machine keeps the games. The kit writes your library as RetroArch playlist entries with clean titles and the play time RetroArch logged, a format Telesia reads directly (its RetroArch profile). Upload it from Telesia's import panel, or with <code>kit-games export-telesia --upload</code> once you have a Telesia sign-in." data-es="Telesia guarda tu registro de completista; esta máquina guarda los juegos. El kit escribe tu biblioteca como entradas de lista de RetroArch con títulos limpios y el tiempo de juego que registró RetroArch, un formato que Telesia lee directamente (su perfil de RetroArch). Súbelo desde el panel de importación de Telesia, o con <code>kit-games export-telesia --upload</code> cuando tengas acceso a Telesia."></p></div>
+
 <h2 data-en="BIOS files" data-es="Archivos BIOS"></h2>
 <p class="small mut" data-en="Some consoles need the startup firmware of the real console, dumped from one you own, in <code>~/Games/bios</code>." data-es="Algunas consolas necesitan el firmware de arranque de la consola real, copiado de una que tengas, en <code>~/Games/bios</code>."></p>
 <div class="card"><table class="bios" id="bios"></table></div>
@@ -119,10 +128,39 @@ function draw() {
   document.getElementById("bios").innerHTML = `<tr><th></th><th>${t({ en: "Console", es: "Consola" })}</th><th>${t({ en: "File in ~/Games/bios", es: "Archivo en ~/Games/bios" })}</th><th>${t({ en: "Needed?", es: "¿Necesario?" })}</th></tr>` +
     B.map((b) => `<tr><td>${b.present ? state("ok", "") : b.optional ? state("off", "") : state("warn", "")}</td><td>${esc(b.system)}</td><td>${(b.present ? [b.file] : b.alternatives).map((f) => `<code>${esc(f)}</code>`).join(` <span class="mut small">${t({ en: "or", es: "o" })}</span> `)}<div class="small mut">${esc(b.desc)}</div></td><td>${b.need === "required" ? `<b>${t(NEED.required)}</b>` : t(NEED[b.need])}</td></tr>`).join("");
 }
+const DUMP = [
+  [{ en: "Game Boy, Game Boy Color, GBA", es: "Game Boy, Game Boy Color, GBA" }, "GB Operator (Epilogue) · Open Source Cartridge Reader", { en: "USB; saves can be backed up too", es: "USB; también respalda partidas" }],
+  [{ en: "NES, SNES, N64, Mega Drive, Master System, Game Gear, PC Engine, 32X", es: "NES, SNES, N64, Mega Drive, Master System, Game Gear, PC Engine, 32X" }, "Open Source Cartridge Reader (sanni/cartreader)", { en: "One open-hardware reader with adapters per console", es: "Un lector de hardware abierto con adaptadores por consola" }],
+  [{ en: "PlayStation, Saturn, Sega CD, PC Engine CD", es: "PlayStation, Saturn, Sega CD, PC Engine CD" }, "USB CD/DVD drive + redumper", { en: "redumper is the Redump project's dumper; this MacBook has no optical drive", es: "redumper es el lector del proyecto Redump; esta MacBook no tiene unidad óptica" }],
+  [{ en: "Dreamcast", es: "Dreamcast" }, { en: "A Dreamcast with an SD card adapter (DreamShell)", es: "Un Dreamcast con adaptador de SD (DreamShell)" }, { en: "PC drives can't read GD-ROMs", es: "Las unidades de PC no leen GD-ROM" }],
+  [{ en: "GameCube", es: "GameCube" }, { en: "A Wii with the Homebrew Channel + CleanRip", es: "Un Wii con Homebrew Channel + CleanRip" }, { en: "Writes to SD/USB; the inbox converts it to RVZ", es: "Escribe a SD/USB; la bandeja lo convierte a RVZ" }],
+];
+function drawCollection() {
+  document.getElementById("dumpers").innerHTML = `<tr><th>${t({ en: "Console", es: "Consola" })}</th><th>${t({ en: "Dump with", es: "Copiar con" })}</th><th>${t({ en: "Notes", es: "Notas" })}</th></tr>` +
+    DUMP.map(([c, h, n]) => `<tr><td>${esc(t(c))}</td><td>${esc(t(h))}</td><td class="small mut">${esc(t(n))}</td></tr>`).join("");
+  document.getElementById("ingestBtn").textContent = t({ en: "Ingest the inbox", es: "Procesar la bandeja" });
+  document.getElementById("exportBtn").textContent = t({ en: "Write the Telesia export", es: "Escribir la exportación para Telesia" });
+  if (!G) return;
+  const tools = G.tools || {}, missing = Object.entries(tools).filter(([, v]) => !v).map(([k]) => k);
+  document.getElementById("inboxInfo").innerHTML = `<b>~/Games/inbox</b>: ${G.inbox.files} ${t({ en: "files", es: "archivos" })} (${human(G.inbox.bytes)})` +
+    (missing.length ? `<div class="small warn">${t({ en: "Not installed yet: ", es: "Aún no instalado: " })}${missing.map((m) => `<code>${esc(m)}</code>`).join(" ")} ${t({ en: "(discs are filed uncompressed until chdman / dolphin-tool exist)", es: "(los discos se archivan sin comprimir hasta tener chdman / dolphin-tool)" })}</div>` : `<div class="small ok">${t({ en: "Dump and conversion tools installed", es: "Herramientas de copia y conversión instaladas" })}</div>`);
+  const T = G.telesia;
+  document.getElementById("telesiaInfo").innerHTML = `<b>${T.titles}</b> ${t({ en: "titles exported", es: "títulos exportados" })} · ${T.played} ${t({ en: "with play time", es: "con tiempo de juego" })}` +
+    (T.written ? `<div class="small mut">${esc(T.file)} · ${new Date(T.written * 1000).toLocaleString(Portal.lang === "es" ? "es-MX" : "en-US")}</div>` : "");
+}
+async function post(path, btn, out) {
+  const tk = document.querySelector('meta[name="kit-token"]')?.content, o = document.getElementById(out);
+  btn.disabled = true; o && (o.classList.remove("hidden"), (o.textContent = t({ en: "Working…", es: "Trabajando…" })));
+  try { const j = await (await fetch(path, { method: "POST", headers: { "X-Token": tk, "Content-Type": "application/json" }, body: "{}" })).json(); if (o) o.textContent = j.lines.join("\n"); }
+  catch (e) { if (o) o.textContent = t({ en: "Couldn't run: open the kit with Super+Shift+H.", es: "No se pudo ejecutar: abre el kit con Super+Shift+H." }); }
+  btn.disabled = false; load();
+}
+document.getElementById("ingestBtn").addEventListener("click", (e) => post("/api/games/ingest", e.target, "ingestOut"));
+document.getElementById("exportBtn").addEventListener("click", (e) => post("/api/games/export-telesia", e.target, null));
 async function load() {
   if (!Portal.live) { const o = document.getElementById("offline"); o.classList.remove("hidden"); o.textContent = t({ en: "Open this page with Super+Shift+H to see your library and controller.", es: "Abre esta página con Super+Shift+H para ver tu biblioteca y control." }); return; }
   try { G = await (await fetch("/api/games", { cache: "no-store" })).json(); } catch (e) { G = null; }
-  draw();
+  draw(); drawCollection();
 }
 document.getElementById("scanBtn").addEventListener("click", async () => {
   const msg = document.getElementById("scanMsg"), tk = document.querySelector('meta[name="kit-token"]')?.content;
@@ -132,6 +170,6 @@ document.getElementById("scanBtn").addEventListener("click", async () => {
     const j = await r.json(); msg.textContent = j.message; load();
   } catch (e) { msg.textContent = t({ en: "Couldn't update: open the kit with Super+Shift+H.", es: "No se pudo actualizar: abre el kit con Super+Shift+H." }); }
 });
-Portal.start(draw);
+Portal.start(() => { draw(); drawCollection(); });
 load(); setInterval(() => { if (!document.hidden) load(); }, 5000);
 </script></body></html>

@@ -311,4 +311,13 @@ def games():
             _games.update(t=time.time(), v=json.loads(out))
         except Exception:
             _games.update(t=time.time(), v=None)
-    return {"library": _games["v"], "controller": controller(), "retroarch": shutil.which("retroarch") is not None}
+    games_dir = Path.home() / "Games"
+    inbox = [p for p in (games_dir / "inbox").rglob("*") if p.is_file() and not p.name.startswith(".")] if (games_dir / "inbox").exists() else []
+    export = games_dir / "telesia" / "library.json"
+    try: exported = json.loads(export.read_text()) if export.exists() else []
+    except Exception: exported = []
+    return {"library": _games["v"], "controller": controller(), "retroarch": shutil.which("retroarch") is not None,
+            "inbox": {"files": len(inbox), "bytes": sum(p.stat().st_size for p in inbox)},
+            "tools": {t: shutil.which(t) is not None for t in ("chdman", "dolphin-tool", "redumper")},
+            "telesia": {"file": str(export), "titles": len(exported), "played": sum(1 for i in exported if i.get("playtime_minutes")),
+                        "written": export.stat().st_mtime if export.exists() else None}}
