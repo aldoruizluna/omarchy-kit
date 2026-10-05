@@ -1,0 +1,76 @@
+#!/bin/bash
+# A faster, themed boot for Omarchy on the MacBook Pro 2014. Run as root:
+#   sudo ~/labspace/omarchy-kit/boot/apply-boot-look          apply
+#   sudo ~/labspace/omarchy-kit/boot/apply-boot-look --undo   restore the backups and rebuild
+#
+# 1. Limine: menu wait 5 s -> 1 s (any key still opens the full menu, snapshots included), a wallpaper in the
+#    current Omarchy theme (omarchy-boot.png, made by make-wallpaper), the menu drawn semi-transparent over it at
+#    1440x900 so it is readable on the 2880x1800 panel, colours from the theme.
+#    Only the header of /boot/limine.conf is edited; the entries below it belong to limine-update.
+# 2. Plymouth: UseSimpledrm=1, so the splash (and the disk passphrase prompt) draws on the firmware framebuffer
+#    ~0.5 s into the kernel instead of waiting ~3 s for i915.
+# 3. Rebuild the boot image the way Omarchy does (limine-mkinitcpio), so plymouthd.conf reaches the initramfs.
+# Options verified against Limine 12's CONFIG.md (timeout, wallpaper, wallpaper_style, interface_resolution,
+# term_background TTRRGGBB) and plymouthd.defaults (UseSimpledrm).
+set -euo pipefail
+[[ $EUID -eq 0 ]] || { echo "Run with sudo."; exit 1; }
+HERE="$(cd "$(dirname "$0")" && pwd)"
+CONF=/boot/limine.conf
+PLY=/etc/plymouth/plymouthd.conf
+BAK=bak-boot-look
+
+if [[ ${1:-} == --undo ]]; then
+  [[ -f $CONF.$BAK ]] && cp "$CONF.$BAK" "$CONF" && echo "restored $CONF"
+  [[ -f $PLY.$BAK ]] && cp "$PLY.$BAK" "$PLY" && echo "restored $PLY"
+  rm -f /boot/omarchy-boot.png
+  limine-mkinitcpio
+  echo "Undone. Reboot to see the previous boot."
+  exit 0
+fi
+
+[[ -f $HERE/omarchy-boot.png ]] || { echo "Missing $HERE/omarchy-boot.png (run make-wallpaper first)."; exit 1; }
+[[ -f $CONF.$BAK ]] || cp "$CONF" "$CONF.$BAK"
+[[ -f $PLY.$BAK ]] || cp "$PLY" "$PLY.$BAK"
+install -m 644 "$HERE/omarchy-boot.png" /boot/omarchy-boot.png
+
+colors=$(cat "$HERE/boot-colors.env")
+python3 - "$CONF" "$colors" <<'EOF'
+import sys, re
+path, env = sys.argv[1], dict(l.split("=", 1) for l in sys.argv[2].split())
+lines = open(path).read().split("\n")
+cut = next((i for i, l in enumerate(lines) if l.startswith("/")), len(lines))  # first entry: header ends here
+head, body = lines[:cut], lines[cut:]
+want = {
+    "timeout": "1",
+    "wallpaper": "boot():/omarchy-boot.png",
+    "wallpaper_style": "stretched",
+    "interface_resolution": "1440x900",
+    "backdrop": env["BG"],
+    "term_background": "a0" + env["BG"],      # TT=a0: mostly transparent so the wallpaper shows
+    "term_background_bright": env["BG"],
+    "term_foreground": env["FG"],
+    "term_foreground_bright": env["FG"],
+    "interface_branding_color": env["ACC"],
+    "interface_help_color": env["ACC"],
+    "interface_help_color_bright": env["ACC"],
+}
+seen = set()
+for i, l in enumerate(head):
+    m = re.match(r"\s*#?\s*([a-z_]+)\s*:", l)
+    if m and m[1] in want and m[1] not in seen:
+        head[i] = f"{m[1]}: {want[m[1]]}"; seen.add(m[1])
+    elif m and m[1] in want:      # a second copy of a key we set: drop it
+        head[i] = None
+head = [l for l in head if l is not None]
+while head and head[-1] == "": head.pop()
+head += [f"{k}: {v}" for k, v in want.items() if k not in seen] + [""]
+open(path, "w").write("\n".join(head + body))
+EOF
+
+if grep -q '^UseSimpledrm=' "$PLY"; then sed -i 's/^UseSimpledrm=.*/UseSimpledrm=1/' "$PLY"
+else sed -i '/^\[Daemon\]/a UseSimpledrm=1' "$PLY"; fi
+
+echo "--- $CONF (header)"; sed -n "1,/^\//p" "$CONF" | head -40
+echo "--- $PLY"; cat "$PLY"
+limine-mkinitcpio
+echo "Done. Reboot to see it. Undo: sudo $0 --undo"

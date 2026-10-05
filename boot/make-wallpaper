@@ -1,0 +1,14 @@
+#!/bin/bash
+# Make the Limine boot wallpaper and colours from the CURRENT Omarchy theme (no root needed).
+# Re-run after switching themes, then `sudo ./apply-boot-look` to install it.
+set -euo pipefail
+cd "$(dirname "$0")"
+T=~/.local/state/omarchy/current/theme
+get() { grep -E "^$1\s*=" "$T/colors.toml" | head -1 | cut -d'"' -f2; }
+BG=$(get background); FG=$(get foreground); ACC=$(get accent); MU=$(get light_foreground)
+FONT=$(fc-match -f '%{file}' "$(omarchy-font-current 2>/dev/null || echo monospace):style=Regular")
+magick -size 1440x900 "xc:$BG" \( "$T/unlock.png" -filter point -resize 75% \) -gravity north -geometry +0+250 -composite \
+  -font "$FONT" -pointsize 22 -fill "$FG" -annotate +0+430 "Bienvenido  ·  Welcome" \
+  -fill "${MU:-$FG}" -pointsize 15 -annotate +0+850 "MacBook Pro  ·  Omarchy" -strip -depth 8 PNG24:omarchy-boot.png
+printf 'BG=%s\nFG=%s\nACC=%s\n' "${BG#\#}" "${FG#\#}" "${ACC#\#}" > boot-colors.env
+echo "omarchy-boot.png and boot-colors.env made from theme $(omarchy-theme-current)."

@@ -91,6 +91,11 @@ def checks():
                         f"{lib['games']} games · {lib['used'] / 1e9:.1f} of {lib['cap'] / 1e9:.0f} GB budget (half the free disk)")
     else:
         c["library"] = ("pending", "run games/kit-games init")
+    ply = read("/etc/plymouth/plymouthd.conf")
+    simpledrm = "UseSimpledrm=1" in ply
+    splash = sh("omarchy-plymouth-current")
+    c["bootlook"] = ("ok" if simpledrm and splash not in ("", "Default") else "pending",
+                     f"splash theme: {splash or 'unknown'} · early splash {'on' if simpledrm else 'off'}")
     pad = any("Wireless Controller" in l or "DualShock" in l for l in read("/proc/bus/input/devices").splitlines() if l.startswith("N: Name"))
     c["ds4"] = ("ok" if pad else "pending", "PS4 controller connected" if pad else "not connected right now")
     c["eq"] = ("ok" if eq and fol else "action", f"tuning {'active' if eq else 'inactive'} · headphone watcher {'active' if fol else 'inactive'}")
@@ -162,6 +167,9 @@ STATUS = [
   ("rtkit", "Realtime audio priority (rtkit)", "Prioridad de audio en tiempo real (rtkit)", "", "", "sudo pacman -S rtkit && systemctl --user restart pipewire pipewire-pulse wireplumber"),
   ("eq", "Speaker EQ, bypassed for headphones", "EQ de bocinas, omitido con audífonos", "Reinstall:", "Reinstalar:", "~/labspace/omarchy-kit/audio/install-speaker-eq"),
  ]),
+ ("Boot", "Arranque", [
+  ("bootlook", "Faster, themed boot screen", "Arranque más rápido y con tema", "Theme the splash, then apply (each asks for your password):", "Aplica el tema al arranque y luego los ajustes (cada uno pide tu contraseña):", "omarchy-plymouth-set-by-theme retro-82 ; sudo ~/labspace/omarchy-kit/boot/apply-boot-look"),
+ ]),
  ("Retro gaming", "Juegos retro", [
   ("retro", "RetroArch tuned for this GPU", "RetroArch ajustado a esta GPU", "Re-apply Omarchy's defaults, then ask Claude to re-tune:", "Volver a los valores de Omarchy y luego pedir a Claude que ajuste:", "omarchy-install-gaming-retroarch"),
   ("library", "Game library within its budget", "Biblioteca de juegos dentro de su presupuesto", "See what uses the space:", "Ver qué ocupa el espacio:", "~/labspace/omarchy-kit/games/kit-games budget"),
@@ -221,6 +229,10 @@ LOG = [
   "\"MacBook Speakers\" is a gentle voicing: high-pass at 85 Hz, +4 dB at 160 Hz, −2.5 dB at 380 Hz, −1.5 dB at 2.8 kHz, +2 dB shelf at 9 kHz, with −3.6 dB pre-gain so it can't clip. Measured within 0.01 dB of the design. It's installed in Omarchy's tuning layout, and headphones bypass it. Source: omarchy-kit/audio/design_eq.py.",
   "\"MacBook Speakers\" es una ecualización suave: paso alto en 85 Hz, +4 dB en 160 Hz, −2.5 dB en 380 Hz, −1.5 dB en 2.8 kHz, +2 dB en 9 kHz, con −3.6 dB de ganancia previa para no saturar. Medida con 0.01 dB de diferencia del diseño. Instalada al estilo de Omarchy; los audífonos la omiten. Fuente: omarchy-kit/audio/design_eq.py.",
   "~/labspace/omarchy-kit/audio/install-speaker-eq --remove   # undo"),
+ ("Boot screen", "Pantalla de arranque",
+  "Measured: firmware 6.3 s, Limine 7.7 s (Omarchy leaves Limine's 5 s menu timeout), kernel to disk unlock ~3 s of black before the splash because Plymouth ignores the firmware framebuffer (UseSimpledrm=0) and waits for i915. boot/apply-boot-look sets the Limine menu to 1 s (any key still opens it), a wallpaper in the current theme with the menu semi-transparent at 1440x900, Plymouth UseSimpledrm=1 so the splash appears ~0.5 s into the kernel, and rebuilds with limine-mkinitcpio. The splash itself uses Omarchy's omarchy-plymouth-set-by-theme. The Mac firmware's ~6 s cannot be changed. Backups: /boot/limine.conf.bak-boot-look, /etc/plymouth/plymouthd.conf.bak-boot-look.",
+  "Medido: firmware 6.3 s, Limine 7.7 s (Omarchy deja el menú de Limine en 5 s), y del kernel al desbloqueo ~3 s en negro antes del splash porque Plymouth ignora el framebuffer del firmware (UseSimpledrm=0) y espera a i915. boot/apply-boot-look deja el menú de Limine en 1 s (cualquier tecla lo abre), un fondo con el tema actual y el menú semitransparente a 1440x900, Plymouth UseSimpledrm=1 para que el splash aparezca ~0.5 s después de iniciar el kernel, y reconstruye con limine-mkinitcpio. El splash usa omarchy-plymouth-set-by-theme de Omarchy. Los ~6 s del firmware de la Mac no se pueden cambiar. Respaldos: /boot/limine.conf.bak-boot-look, /etc/plymouth/plymouthd.conf.bak-boot-look.",
+  "sudo ~/labspace/omarchy-kit/boot/apply-boot-look --undo"),
  ("Retro gaming (RetroArch)", "Juegos retro (RetroArch)",
   "Installed with Omarchy's RetroArch installer, then tuned from benchmarks at 2880×1800 (60 fps needed): crt-royale, Omarchy's default CRT filter, ran at 45 fps, so the global filter is zfast-crt (558 fps); 2D consoles use crt-hyllian-fast (272 fps); Game Boy uses authentic_gbc_fast, GBA agb001, DS/PSP a sharp unfiltered preset. Video driver is OpenGL (glcore): Mesa warns that Haswell Vulkan is incomplete. Integer scaling on. Saves and states moved to ~/Games/saves and ~/Games/states for syncing. Files: ~/.config/retroarch/retroarch.cfg and config/*/*.slangp. Undo: restore retroarch.cfg.bak-2026-10-05 and config/global.slangp.bak-2026-10-05.",
   "Instalado con el instalador de RetroArch de Omarchy y ajustado con mediciones a 2880×1800 (se necesitan 60 fps): crt-royale, el filtro CRT por defecto de Omarchy, daba 45 fps, así que el filtro global es zfast-crt (558 fps); las consolas 2D usan crt-hyllian-fast (272 fps); Game Boy usa authentic_gbc_fast, GBA agb001, DS/PSP un preset nítido sin filtro. El driver de video es OpenGL (glcore): Mesa advierte que Vulkan en Haswell está incompleto. Escalado entero activado. Partidas y estados movidos a ~/Games/saves y ~/Games/states para sincronizar. Archivos: ~/.config/retroarch/retroarch.cfg y config/*/*.slangp. Deshacer: restaurar retroarch.cfg.bak-2026-10-05 y config/global.slangp.bak-2026-10-05.",
