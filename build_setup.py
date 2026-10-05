@@ -74,6 +74,16 @@ def checks():
     rt = "RR" in sh("bash", "-c", "ps -eLo cls,comm | awk '$2==\"data-loop.0\"{print $1}' | sort -u")
     c["rtkit"] = ("ok" if sh("pacman", "-Q", "rtkit") and rt else "action", "rtkit installed, audio threads SCHED_RR" if rt else "not realtime")
     eq, fol = active("omarchy-speaker-tuning.service", True), active("speaker-eq-follow.service", True)
+    ra = Path.home() / ".config/retroarch/retroarch.cfg"
+    racfg = read(ra) if ra.exists() else ""
+    glob_preset = read(Path.home() / ".config/retroarch/config/global.slangp")
+    if not racfg:
+        c["retro"] = ("pending", "RetroArch not installed (Omarchy menu → Install → Gaming → RetroArch)")
+    else:
+        tuned = 'video_driver = "glcore"' in racfg and "zfast-crt" in glob_preset
+        c["retro"] = ("ok" if tuned else "action", ("OpenGL · zfast-crt (3D) / crt-hyllian-fast (2D) · saves in ~/Games" if tuned else "Omarchy defaults: Vulkan + crt-royale (45 fps here)"))
+    pad = any("Wireless Controller" in l or "DualShock" in l for l in read("/proc/bus/input/devices").splitlines() if l.startswith("N: Name"))
+    c["ds4"] = ("ok" if pad else "pending", "PS4 controller connected" if pad else "not connected right now")
     c["eq"] = ("ok" if eq and fol else "action", f"tuning {'active' if eq else 'inactive'} · headphone watcher {'active' if fol else 'inactive'}")
     ts_state = ""
     try:
@@ -143,6 +153,10 @@ STATUS = [
   ("rtkit", "Realtime audio priority (rtkit)", "Prioridad de audio en tiempo real (rtkit)", "", "", "sudo pacman -S rtkit && systemctl --user restart pipewire pipewire-pulse wireplumber"),
   ("eq", "Speaker EQ, bypassed for headphones", "EQ de bocinas, omitido con audífonos", "Reinstall:", "Reinstalar:", "~/labspace/omarchy-kit/audio/install-speaker-eq"),
  ]),
+ ("Retro gaming", "Juegos retro", [
+  ("retro", "RetroArch tuned for this GPU", "RetroArch ajustado a esta GPU", "Re-apply Omarchy's defaults, then ask Claude to re-tune:", "Volver a los valores de Omarchy y luego pedir a Claude que ajuste:", "omarchy-install-gaming-retroarch"),
+  ("ds4", "PS4 controller (Bluetooth)", "Control de PS4 (Bluetooth)", "Hold Share + PS until the light bar flashes, then pair it in the Bluetooth menu:", "Mantén Share + PS hasta que la barra de luz parpadee y emparéjalo en el menú Bluetooth:", "omarchy-launch-bluetooth"),
+ ]),
  ("Access", "Acceso", [
   ("tailscale", "Tailscale connected", "Tailscale conectado", "Installed but needs a one-time login:", "Instalado pero falta iniciar sesión una vez:", "sudo tailscale up"),
   ("ssh", "SSH server (key-only)", "Servidor SSH (solo llaves)", "Needs a public key from another device or a GitHub username:", "Necesita una llave pública de otro equipo o un usuario de GitHub:", "omarchy-setup-security-sshd"),
@@ -197,6 +211,10 @@ LOG = [
   "\"MacBook Speakers\" is a gentle voicing: high-pass at 85 Hz, +4 dB at 160 Hz, −2.5 dB at 380 Hz, −1.5 dB at 2.8 kHz, +2 dB shelf at 9 kHz, with −3.6 dB pre-gain so it can't clip. Measured within 0.01 dB of the design. It's installed in Omarchy's tuning layout, and headphones bypass it. Source: omarchy-kit/audio/design_eq.py.",
   "\"MacBook Speakers\" es una ecualización suave: paso alto en 85 Hz, +4 dB en 160 Hz, −2.5 dB en 380 Hz, −1.5 dB en 2.8 kHz, +2 dB en 9 kHz, con −3.6 dB de ganancia previa para no saturar. Medida con 0.01 dB de diferencia del diseño. Instalada al estilo de Omarchy; los audífonos la omiten. Fuente: omarchy-kit/audio/design_eq.py.",
   "~/labspace/omarchy-kit/audio/install-speaker-eq --remove   # undo"),
+ ("Retro gaming (RetroArch)", "Juegos retro (RetroArch)",
+  "Installed with Omarchy's RetroArch installer, then tuned from benchmarks at 2880×1800 (60 fps needed): crt-royale, Omarchy's default CRT filter, ran at 45 fps, so the global filter is zfast-crt (558 fps); 2D consoles use crt-hyllian-fast (272 fps); Game Boy uses authentic_gbc_fast, GBA agb001, DS/PSP a sharp unfiltered preset. Video driver is OpenGL (glcore): Mesa warns that Haswell Vulkan is incomplete. Integer scaling on. Saves and states moved to ~/Games/saves and ~/Games/states for syncing. Files: ~/.config/retroarch/retroarch.cfg and config/*/*.slangp. Undo: restore retroarch.cfg.bak-2026-10-05 and config/global.slangp.bak-2026-10-05.",
+  "Instalado con el instalador de RetroArch de Omarchy y ajustado con mediciones a 2880×1800 (se necesitan 60 fps): crt-royale, el filtro CRT por defecto de Omarchy, daba 45 fps, así que el filtro global es zfast-crt (558 fps); las consolas 2D usan crt-hyllian-fast (272 fps); Game Boy usa authentic_gbc_fast, GBA agb001, DS/PSP un preset nítido sin filtro. El driver de video es OpenGL (glcore): Mesa advierte que Vulkan en Haswell está incompleto. Escalado entero activado. Partidas y estados movidos a ~/Games/saves y ~/Games/states para sincronizar. Archivos: ~/.config/retroarch/retroarch.cfg y config/*/*.slangp. Deshacer: restaurar retroarch.cfg.bak-2026-10-05 y config/global.slangp.bak-2026-10-05.",
+  "cp ~/.config/retroarch/retroarch.cfg.bak-2026-10-05 ~/.config/retroarch/retroarch.cfg   # undo"),
  ("Co-admin", "Co-administración",
   f"Plan for {CO_NAME} (username {CO_USER}): a wheel member with a sudo password and a private home; Omarchy finishes their setup on first login; the login screen is shown at boot; {CO_FIRST} gets their own LUKS passphrase. The temporary password was given in chat and is not stored here. {CO_FIRST} should run passwd right after their first login.",
   f"Plan para {CO_NAME} (usuario {CO_USER}): miembro de wheel con contraseña para sudo y carpeta privada; Omarchy termina su configuración al primer inicio; pantalla de inicio al arrancar; frase LUKS propia. La contraseña temporal se dio en el chat y no se guarda aquí. {CO_FIRST_ES} debe ejecutar passwd tras su primer inicio.",
