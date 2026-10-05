@@ -94,7 +94,7 @@ def checks():
     ply = read("/etc/plymouth/plymouthd.conf")
     simpledrm = "UseSimpledrm=1" in ply
     splash = sh("omarchy-plymouth-current")
-    c["bootlook"] = ("ok" if simpledrm and splash not in ("", "Default") else "pending",
+    c["bootlook"] = ("ok" if simpledrm and splash.lower() not in ("", "default") else "pending",
                      f"splash theme: {splash or 'unknown'} · early splash {'on' if simpledrm else 'off'}")
     pad = any("Wireless Controller" in l or "DualShock" in l for l in read("/proc/bus/input/devices").splitlines() if l.startswith("N: Name"))
     c["ds4"] = ("ok" if pad else "pending", "PS4 controller connected" if pad else "not connected right now")
