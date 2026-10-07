@@ -1,0 +1,33 @@
+#!/bin/bash
+# Choose which of the Mac keys that Omarchy already uses (⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P) also work in apps.
+#   mac-key-extras                 show what is on
+#   mac-key-extras W T F S         turn on exactly these (letters, any order)
+#   mac-key-extras all | none
+# In apps, Super+<key> then sends Ctrl+<key> (the Mac meaning). In terminals it keeps its Omarchy meaning, and the Omarchy
+# action stays reachable in every window at: W Super+Alt+W · T Super+Alt+T · L Super+Alt+L · F/S/G/P Super+Ctrl+Alt+<key>.
+# Writes ~/.config/omarchy-kit/mackeys.conf, reloads Hyprland and rebuilds the kit pages. Needs install-mackeys first.
+set -euo pipefail
+CONF=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy-kit/mackeys.conf
+KIT=$(cd "$(dirname "$0")/.." && pwd)
+current() { sed -n 's/^EXTRA="\(.*\)".*/\1/p' "$CONF" 2>/dev/null | head -1; }
+
+if (($# == 0)); then
+  now=$(current); echo "Mac keys that replace an Omarchy shortcut in apps: ${now:-none}"
+  echo "(available: W T F S L G P; change with: mac-key-extras W T F S | all | none)"; exit 0
+fi
+case ${1,,} in
+  none) letters="" ;;
+  all) letters="W T F S L G P" ;;
+  *) letters=$(printf '%s' "$*" | tr 'a-z' 'A-Z' | tr -cd 'WTFSLGP' | fold -w1 | sort -u | tr '\n' ' ' | sed 's/ $//')
+     [[ -n $letters ]] || { echo "pick from: W T F S L G P (or all / none)" >&2; exit 2; } ;;
+esac
+[[ -f ${XDG_CONFIG_HOME:-$HOME/.config}/hypr/mackeys.lua ]] || { echo "run keys/install-mackeys first" >&2; exit 1; }
+install -d "$(dirname "$CONF")"
+cat > "$CONF" <<CONFIG
+# Mac keys that also work in apps although Omarchy uses them (keys/mackeys.lua). Change with keys/mac-key-extras.
+EXTRA="$letters"
+CONFIG
+hyprctl reload >/dev/null; sleep 1
+errs=$(hyprctl configerrors); [[ -z $errs ]] || { echo "Hyprland reported errors:"; echo "$errs"; exit 1; }
+python3 "$KIT/build_cheatsheet.py" >/dev/null 2>&1 || true
+echo "Mac keys that replace an Omarchy shortcut in apps: ${letters:-none}"

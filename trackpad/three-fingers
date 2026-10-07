@@ -1,0 +1,22 @@
+#!/bin/bash
+# What do three fingers do on the trackpad? libinput can do only one of these at a time, and macOS makes the same choice.
+#   three-fingers swipe   switch spaces left/right (the default here)
+#   three-fingers drag    select text and drag things without clicking; spaces then use four fingers only
+#   three-fingers         show the current choice
+# Edits `local THREE_FINGERS = "..."` in ~/.config/hypr/input.lua, reloads Hyprland and rebuilds the kit pages.
+set -euo pipefail
+LUA=${XDG_CONFIG_HOME:-$HOME/.config}/hypr/input.lua
+KIT=$(cd "$(dirname "$0")/.." && pwd)
+current() { sed -n 's/^local THREE_FINGERS = "\(.*\)".*/\1/p' "$LUA"; }
+
+case ${1:-} in
+  "") echo "three fingers: $(current)"; exit 0 ;;
+  swipe|drag) ;;
+  *) echo "usage: three-fingers [swipe|drag]" >&2; exit 2 ;;
+esac
+[[ -n $(current) ]] || { echo "no THREE_FINGERS line in $LUA" >&2; exit 1; }
+sed -i "s/^local THREE_FINGERS = \".*\"/local THREE_FINGERS = \"$1\"/" "$LUA"
+hyprctl reload >/dev/null; sleep 1
+errs=$(hyprctl configerrors); [[ -z $errs ]] || { echo "Hyprland reported errors:"; echo "$errs"; exit 1; }
+python3 "$KIT/build_cheatsheet.py" >/dev/null 2>&1 || true
+echo "three fingers: $(current)   (drag_3fg = $(hyprctl -j getoption input:touchpad:drag_3fg | sed -n 's/.*"int": *\([0-9]*\).*/\1/p'))"

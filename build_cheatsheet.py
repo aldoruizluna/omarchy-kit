@@ -81,8 +81,25 @@ ES = {
  "Keyboard backlight cycle":"Alternar retroiluminación del teclado","Brightness down":"Bajar brillo","Brightness up":"Subir brillo",
  "Power menu":"Menú de energía","Disable touchpad":"Desactivar touchpad","Enable touchpad":"Activar touchpad","Toggle touchpad":"Alternar touchpad",
  "Tmux keybindings":"Atajos de Tmux","Herdr keybindings":"Atajos de Herdr",
+ # Mac ⌘ shortcuts (keys/mackeys.lua)
+ "Select all (⌘A)":"Seleccionar todo (⌘A)","Undo (⌘Z)":"Deshacer (⌘Z)","Redo (⇧⌘Z)":"Rehacer (⇧⌘Z)",
+ "Reload (⌘R)":"Recargar (⌘R)","Hard reload (⇧⌘R)":"Recarga completa (⇧⌘R)","New window (⌘N)":"Ventana nueva (⌘N)",
+ "Reopen closed tab (⇧⌘T)":"Reabrir pestaña cerrada (⇧⌘T)","Bookmark page (⌘D)":"Guardar en marcadores (⌘D)",
+ "Bold (⌘B)":"Negrita (⌘B)","Italic (⌘I)":"Cursiva (⌘I)","Underline (⌘U)":"Subrayado (⌘U)",
+ "Back (⌘[)":"Atrás (⌘[)","Forward (⌘])":"Adelante (⌘])",
+ # optional takeovers (keys/mac-key-extras) and the Omarchy actions they displace
+ "Close tab or window (⌘W)":"Cerrar pestaña o ventana (⌘W)","New tab (⌘T)":"Pestaña nueva (⌘T)","Find (⌘F)":"Buscar (⌘F)",
+ "Save (⌘S)":"Guardar (⌘S)","Address bar (⌘L)":"Barra de direcciones (⌘L)","Find next (⌘G)":"Buscar siguiente (⌘G)","Print (⌘P)":"Imprimir (⌘P)",
+ "Close window (Omarchy, any app)":"Cerrar ventana (Omarchy, cualquier app)",
+ "Toggle window floating/tiling (Omarchy, any app)":"Alternar ventana flotante/mosaico (Omarchy, cualquier app)",
+ "Full screen (Omarchy, any app)":"Pantalla completa (Omarchy, cualquier app)",
+ "Toggle scratchpad (Omarchy, any app)":"Mostrar/ocultar scratchpad (Omarchy, cualquier app)",
+ "Toggle workspace layout (Omarchy, any app)":"Alternar diseño del espacio (Omarchy, cualquier app)",
+ "Toggle window grouping (Omarchy, any app)":"Alternar agrupación de ventanas (Omarchy, cualquier app)",
+ "Pseudo window (Omarchy, any app)":"Ventana pseudo-mosaico (Omarchy, cualquier app)",
 }
 CATS = [  # (id, EN, ES, regex on description)
+ ("mac","Mac ⌘ shortcuts (in apps)","Atajos ⌘ de Mac (en apps)",r"⌘"),
  ("menus","Menus & system","Menús y sistema",r"menu|keybindings|^Keybindings|touchpad|^Lock|^Power|^Network|^Bluetooth|^Audio|^Display|^Activity|^Share|^Transcode|^Calculator|^Toggle (nightlight|locking|weather|dictation)|Bar panel|top bar|^Show |^Calendar|reminder|Background|dictation|Zoom|zoom|Reset zoom|Toggle laptop|laptop display"),
  ("apps","Apps & web apps","Apps y webapps",r"^(Terminal|Browser|File manager|Tmux|Herdr|ChatGPT|Grok|WhatsApp|Signal|Music|Editor|Obsidian|Google|Passwords|Omawrite|X|X Post|YouTube|Email|New email|Docker|Agent|Calendar)"),
  ("workspaces","Workspaces","Espacios de trabajo",r"workspace"),
@@ -95,7 +112,7 @@ CATS = [  # (id, EN, ES, regex on description)
 ]
 def categorize(d):
     # order matters; first match wins, but apps/captures checked precisely first
-    for cid, _, _, rx in [CATS[1], CATS[5], CATS[6], CATS[3], CATS[2], CATS[8], CATS[4], CATS[7], CATS[0]]:
+    for cid, _, _, rx in [CATS[0], CATS[2], CATS[6], CATS[7], CATS[4], CATS[3], CATS[9], CATS[5], CATS[8], CATS[1]]:
         if re.search(rx, d): return cid
     return "other"
 
@@ -152,7 +169,8 @@ if kt.exists():
     print("wrote keyboard.html:", len(RAW), "bindings")
 tt = HERE / "trackpad.template.html"
 if tt.exists():
-    (HERE / "trackpad.html").write_text(tt.read_text()); print("wrote trackpad.html")
+    import kitconf
+    (HERE / "trackpad.html").write_text(tt.read_text().replace("/*__DRAG3__*/false", "true" if kitconf.three_fingers() == "drag" else "false")); print("wrote trackpad.html")
 tpl = (HERE / "cheatsheet.template.html").read_text()
 (HERE / "cheatsheet.html").write_text(tpl.replace("/*__DATA__*/[]", DATA))
 print("wrote cheatsheet.html:", sum(len(c["rows"]) for c in cats), "entries")

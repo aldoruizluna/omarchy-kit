@@ -1,0 +1,27 @@
+#!/bin/bash
+# Install the Mac ⌘ shortcuts (mackeys.lua) into the Hyprland config; no root needed.
+# Remove with: ./install-mackeys --remove      (then Super+Z etc. go back to doing nothing)
+set -euo pipefail
+cd "$(dirname "$0")"
+HYPR=${XDG_CONFIG_HOME:-$HOME/.config}/hypr
+LINE='require("hypr.mackeys")'
+
+if [[ ${1:-} == --remove ]]; then
+  grep -vF "$LINE" "$HYPR/hyprland.lua" > "$HYPR/hyprland.lua.tmp" && mv "$HYPR/hyprland.lua.tmp" "$HYPR/hyprland.lua"
+  rm -f "$HYPR/mackeys.lua"
+  hyprctl reload >/dev/null
+  echo "removed"; exit 0
+fi
+
+[[ -f $HYPR/hyprland.lua.bak-mackeys ]] || cp "$HYPR/hyprland.lua" "$HYPR/hyprland.lua.bak-mackeys"
+install -Dm644 mackeys.lua "$HYPR/mackeys.lua"
+if ! grep -qF "$LINE" "$HYPR/hyprland.lua"; then
+  # right after the last personal module Omarchy's template loads (gpu.lua was added the same way)
+  sed -i "/^require(\"hypr.gpu\")/a $LINE  -- Mac ⌘ shortcuts (omarchy-kit/keys)" "$HYPR/hyprland.lua"
+  grep -qF "$LINE" "$HYPR/hyprland.lua" || { echo "could not add the require line to hyprland.lua" >&2; exit 1; }
+fi
+hyprctl reload >/dev/null
+sleep 1
+errs=$(hyprctl configerrors)
+[[ -z $errs ]] || { echo "Hyprland reported config errors:"; echo "$errs"; exit 1; }
+echo "installed: $(hyprctl binds -j | grep -o '⌘[^"]*' | wc -l) ⌘ shortcuts are bound"

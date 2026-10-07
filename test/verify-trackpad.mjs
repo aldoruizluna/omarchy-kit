@@ -18,7 +18,9 @@ try {
 
   console.log("playing gestures from the cards");
   const play = async (id) => { await b.eval(`document.querySelector('[data-g="${id}"]').click()`); await b.sleep(1700); };
-  c.ok(await b.eval(`selId==='swipe3'`), "starts on the 3-finger swipe");
+  const DRAG3 = await b.eval(`DRAG3`); console.log(`  (page built for three fingers = ${DRAG3 ? "drag" : "swipe"})`);
+  c.ok(await b.eval(`selId===(DRAG3?'swipe4':'swipe3')`), "starts on the space swipe");
+  c.ok(await b.eval(`GEST.find(g=>g.id==='drag3').st===(DRAG3?'cfg':'opt')&&GEST.find(g=>g.id==='swipe3').st===(DRAG3?'opt':'cfg')`), "exactly one of the three-finger swipe / drag is configured, the other optional");
   await play("up4");
   c.ok(await b.eval(`document.querySelector('.card.sel')?.dataset.g==='up4'`), "clicking a card selects it");
   c.ok(await b.eval(`dots[0].getAnimations().length>0&&dots[3].getAnimations().length>0`), "4 finger dots animate for the 4-finger gesture");
@@ -30,8 +32,9 @@ try {
   await play("down4"); c.ok(await b.eval(`document.getElementById('scratch').classList.contains('on')`), "screen slides the scratchpad for swipe down");
   await play("click2"); c.ok(await b.eval(`document.getElementById('ctx').classList.contains('on')`), "two-finger click opens a context menu");
   await play("smart"); c.ok(await b.eval(`document.getElementById('note').classList.contains('on')`), "unavailable gesture says so on the screen");
-  const ws0 = await b.eval(`wsNow`); await play("swipe3");
-  c.ok(await b.eval(`wsNow`) !== ws0, "3-finger swipe changes the active space", `${ws0} -> ${await b.eval(`wsNow`)}`);
+  const ws0 = await b.eval(`wsNow`); await play("swipe4");
+  c.ok(await b.eval(`wsNow`) !== ws0, "4-finger swipe changes the active space", `${ws0} -> ${await b.eval(`wsNow`)}`);
+  await play("drag3"); c.ok(await b.eval(`document.querySelector('.swin').style.transform.includes('translate')`), "three-finger drag moves a window on the screen");
 
   console.log("filters");
   await b.eval(`document.querySelector('[data-filter="no"]').click()`);
@@ -47,15 +50,17 @@ try {
   c.ok(await b.eval(`padPoint({clientX:${tp.x},clientY:${tp.y}})`), "pointer over the pad is recognised");
   const swipe = async (n, dx, dy) => { await b.eval(`document.querySelector('[data-f="${n}"]').click()`); await b.drag(tp.x, tp.y, tp.x + dx, tp.y + dy, 6); };
   const ws1 = await b.eval(`wsNow`);
-  await swipe(3, -120, 0);
-  c.ok(await b.eval(`lastResult&&lastResult.id==='swipe3'&&lastResult.dir==='l'`), "3 fingers ← performs 'swipe3'", await lastResult());
+  await swipe(4, -120, 0);
+  c.ok(await b.eval(`lastResult&&lastResult.id==='swipe4'&&lastResult.dir==='l'`), "4 fingers ← performs 'swipe4'", await lastResult());
   c.ok(await b.eval(`wsNow`) === (ws1 % 9) + 1, "…and goes to the next space", `${ws1} -> ${await b.eval(`wsNow`)}`);
   await b.shot(`${OUT}/04-try-swipe.png`);
-  await swipe(3, 120, 0); c.ok(await b.eval(`lastResult.id==='swipe3'&&lastResult.dir==='r'&&wsNow===${ws1}`), "3 fingers → returns to the previous space", await lastResult());
+  await swipe(4, 120, 0); c.ok(await b.eval(`lastResult.id==='swipe4'&&lastResult.dir==='r'&&wsNow===${ws1}`), "4 fingers → returns to the previous space", await lastResult());
   await swipe(4, 0, -90); c.ok(await b.eval(`lastResult.id==='up4'&&document.getElementById('ovMenu').classList.contains('on')`), "4 fingers ↑ opens the Omarchy menu", await lastResult());
   await swipe(4, 0, 90); c.ok(await b.eval(`lastResult.id==='down4'&&document.getElementById('scratch').classList.contains('on')`), "4 fingers ↓ toggles the scratchpad", await lastResult());
   await swipe(2, 0, -90); c.ok(await b.eval(`lastResult.id==='scroll2'`), "2 fingers vertical scrolls", await lastResult());
-  await swipe(3, 0, -90); c.ok(await b.eval(`lastResult.id===null`), "3 fingers ↑ has no gesture (and says so)", await lastResult());
+  await swipe(3, 80, 40);
+  c.ok(await b.eval(`lastResult.id===(DRAG3?'drag3':'swipe3')&&(!DRAG3||document.querySelector('.swin').style.transform.includes('translate'))`), DRAG3 ? "3 fingers sliding performs the three-finger drag" : "3 fingers sliding performs the 3-finger space swipe", await lastResult());
+  await swipe(1, 120, 0); c.ok(await b.eval(`lastResult.id===null`), "a 1-finger swipe has no gesture (and says so)", await lastResult());
   c.ok(await b.eval(`document.getElementById('toast').classList.contains('on')&&document.getElementById('toast').innerText.length>5`), "a toast explains it", await b.eval(`document.getElementById('toast').innerText`));
   await swipe(1, 2, 1); c.ok(await b.eval(`lastResult.id==='tap1'`), "1-finger tap performs 'tap1'", await lastResult());
   await b.eval(`document.querySelector('[data-pinch]').click()`); c.ok(await b.eval(`lastResult.id==='pinch4'&&document.getElementById('ovApps').classList.contains('on')`), "4-finger pinch button opens the apps grid", await lastResult());

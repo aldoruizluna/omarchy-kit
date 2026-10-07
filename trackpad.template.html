@@ -145,11 +145,11 @@ pre{margin:6px 0 0;overflow-x:auto;background:var(--kbd);padding:10px;border-rad
 <script>
 /* ---------- the gestures ---------- */
 const GEST=[
- {id:"swipe3",fingers:3,kind:"swipe",dir:"h",st:"cfg",fx:"ws",en:"Swipe left / right",es:"Deslizar izquierda / derecha",
-  d:{en:"Switch spaces (workspaces), following your fingers 1:1.",es:"Cambiar de espacio (workspace), siguiendo tus dedos 1:1."},mac:{en:"macOS: swipe between spaces",es:"macOS: moverse entre espacios"},
-  cfg:'hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })'},
+ {id:"swipe3",fingers:3,kind:"swipe",dir:"h",st:"opt",fx:"ws",en:"Swipe left / right",es:"Deslizar izquierda / derecha",
+  d:{en:"Optional: switch spaces with three fingers. Off, because three fingers now drag windows (macOS makes the same trade-off).",es:"Opcional: cambiar de espacio con tres dedos. Desactivado, porque tres dedos ahora arrastran ventanas (macOS hace el mismo intercambio)."},mac:{en:"macOS: swipe between spaces (3 fingers if three-finger drag is off)",es:"macOS: moverse entre espacios (3 dedos si el arrastre con tres dedos está apagado)"},
+  cfg:'-- To use it instead of three-finger drag: drag_3fg = 0 and\nhl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })'},
  {id:"swipe4",fingers:4,kind:"swipe",dir:"h",st:"cfg",fx:"ws",en:"Swipe left / right",es:"Deslizar izquierda / derecha",
-  d:{en:"Same as 3 fingers — your macOS default used 4.",es:"Igual que con 3 dedos — en macOS el predeterminado eran 4."},mac:{en:"macOS: swipe between full-screen apps",es:"macOS: moverse entre apps a pantalla completa"},
+  d:{en:"Switch spaces (workspaces), following your fingers 1:1.",es:"Cambiar de espacio (workspace), siguiendo tus dedos 1:1."},mac:{en:"macOS: swipe between spaces and full-screen apps",es:"macOS: moverse entre espacios y apps a pantalla completa"},
   cfg:'hl.gesture({ fingers = 4, direction = "horizontal", action = "workspace" })'},
  {id:"up4",fingers:4,kind:"swipe",dir:"u",st:"cfg",fx:"menu",en:"Swipe up",es:"Deslizar arriba",
   d:{en:"Open the Omarchy menu.",es:"Abrir el menú de Omarchy."},mac:{en:"≈ Mission Control",es:"≈ Mission Control"},
@@ -174,12 +174,25 @@ const GEST=[
   d:{en:"Zoom in apps like Brave. Hyprland does not intercept it.",es:"Zoom en apps como Brave. Hyprland no lo intercepta."},mac:{en:"macOS: zoom",es:"macOS: zoom"},cfg:"-- handled by the application"},
  {id:"back2",fingers:2,kind:"swipe",dir:"h",st:"app",fx:"page",en:"Swipe left / right",es:"Deslizar izquierda / derecha",
   d:{en:"Back / forward in browsers. Handled by the app.",es:"Atrás / adelante en navegadores. Lo gestiona la app."},mac:{en:"macOS: swipe between pages",es:"macOS: moverse entre páginas"},cfg:"-- handled by the application"},
- {id:"drag3",fingers:3,kind:"swipe",dir:"drag",st:"opt",fx:"none",en:"Three-finger drag",es:"Arrastrar con tres dedos",
-  d:{en:"Optional: move windows by dragging with three fingers. Off by default and conflicts with the 3-finger space swipe.",es:"Opcional: mover ventanas arrastrando con tres dedos. Desactivado y choca con el cambio de espacio de 3 dedos."},mac:{en:"macOS accessibility option",es:"Opción de accesibilidad de macOS"},cfg:"-- input.touchpad.drag_3fg = 1"},
+ {id:"drag3",fingers:3,kind:"swipe",dir:"drag",st:"cfg",fx:"drag",en:"Three-finger drag",es:"Arrastrar con tres dedos",
+  d:{en:"Slide three fingers to select text and drag things, with no click: it works like holding the button down.",es:"Desliza tres dedos para seleccionar texto y arrastrar cosas, sin hacer clic: funciona como mantener pulsado el botón."},mac:{en:"macOS: Accessibility › Pointer Control › Three-finger drag",es:"macOS: Accesibilidad › Control del puntero › Arrastrar con tres dedos"},cfg:"hl.config({ input = { touchpad = { drag_3fg = 1 } } })"},
  {id:"smart",fingers:2,kind:"tap",dir:"double",st:"no",fx:"none",en:"Double-tap",es:"Doble toque",
   d:{en:"Smart zoom — not available on Linux/Hyprland.",es:"Zoom inteligente — no disponible en Linux/Hyprland."},mac:{en:"macOS: smart zoom",es:"macOS: zoom inteligente"},cfg:""},
  {id:"edge",fingers:2,kind:"swipe",dir:"edge",st:"no",fx:"none",en:"Swipe from the right edge",es:"Deslizar desde el borde derecho",
   d:{en:"Notification Center — no edge gesture here. Use Super+Shift+Alt+, for notification history.",es:"Centro de notificaciones — no hay gesto de borde. Usa Super+Shift+Alt+, para el historial."},mac:{en:"macOS: Notification Center",es:"macOS: Centro de notificaciones"},cfg:""}];
+// Three fingers either swipe between spaces or drag, never both: the build reads THREE_FINGERS from input.lua.
+const DRAG3=/*__DRAG3__*/false;
+(()=>{const s3=GEST.find(g=>g.id==="swipe3"),d3=GEST.find(g=>g.id==="drag3");
+  const I=(en,es)=>({en,es});
+  if(DRAG3){s3.st="opt";d3.st="cfg";
+    s3.d=I("Optional: switch spaces with three fingers. Off, because three fingers now drag (macOS makes the same trade-off).","Opcional: cambiar de espacio con tres dedos. Desactivado, porque tres dedos ahora arrastran (macOS hace el mismo intercambio).");
+    s3.cfg='-- To use it instead of three-finger drag: THREE_FINGERS = "swipe" in input.lua'}
+  else{s3.st="cfg";d3.st="opt";
+    s3.d=I("Switch spaces (workspaces), following your fingers 1:1.","Cambiar de espacio (workspace), siguiendo tus dedos 1:1.");
+    s3.mac=I("macOS: swipe between spaces","macOS: moverse entre espacios");
+    s3.cfg='hl.gesture({ fingers = 3, direction = "horizontal", action = "workspace" })';
+    d3.d=I("Optional: slide three fingers to select text and drag things with no click. Off, because three fingers switch spaces (macOS makes the same trade-off).","Opcional: desliza tres dedos para seleccionar texto y arrastrar cosas sin hacer clic. Desactivado, porque tres dedos cambian de espacio (macOS hace el mismo intercambio).");
+    d3.cfg='-- To use it instead of the 3-finger space swipe: THREE_FINGERS = "drag" in input.lua (or trackpad/three-fingers drag)'}})();
 const ST={cfg:{en:"configured",es:"configurado",c:"b-cfg"},app:{en:"app-native",es:"de la app",c:"b-app"},opt:{en:"optional",es:"opcional",c:"b-opt"},no:{en:"not available",es:"no disponible",c:"b-no"}};
 const T={en:{try:"Try it",fing:"fingers",tryHint:"Drag on the trackpad",none:"No gesture is bound for",all:"All",mac:"Closest macOS gesture",cfgT:"Hyprland config",noCfg:"Nothing to configure.",
   menu:["Omarchy menu","Apps","Install","Style","Setup","System"],note:{none:"Not available on Hyprland"},fingersN:n=>n+(n===1?" finger":" fingers")},
@@ -187,7 +200,7 @@ const T={en:{try:"Try it",fing:"fingers",tryHint:"Drag on the trackpad",none:"No
   menu:["Menú de Omarchy","Apps","Instalar","Estilo","Configuración","Sistema"],note:{none:"No disponible en Hyprland"},fingersN:n=>n+(n===1?" dedo":" dedos")}};
 let lang=(navigator.language||"en").slice(0,2)==="es"?"es":"en";try{lang=localStorage.getItem("lang")||lang}catch(e){}
 const V={top:[0,0],tilt:[38,0],low:[62,-10]};
-let rx=38,rz=0,zoom=1,U=46,sway=false,tryOn=false,nF=3,filter="all",selId="swipe3",hover=false,lastResult=null;
+let rx=38,rz=0,zoom=1,U=46,sway=false,tryOn=false,nF=3,filter="all",selId=DRAG3?"swipe4":"swipe3",hover=false,lastResult=null;
 
 /* ---------- lighting (same model as the keyboard page) ---------- */
 const LIGHT=(()=>{const v=[-.35,-.55,.76],n=Math.hypot(...v);return v.map(a=>a/n)})();
@@ -270,6 +283,7 @@ function runFx(fx,dir=1){clearFx();const b=$("sbody");if(!b)return;
   else if(fx==="click"){const r=$("rip");r.classList.remove("on");void r.offsetWidth;r.classList.add("on")}
   else if(fx==="zoom")document.querySelectorAll(".swin").forEach(w=>w.style.transform="scale(1.12)");
   else if(fx==="page"){b.style.transition="none";b.style.transform="translateX(30%)";void b.offsetWidth;b.style.transition="";b.style.transform="none"}
+  else if(fx==="drag"){const w=document.querySelector(".swin");if(w)w.style.transform="translate(22%,14%) rotate(-1.5deg)"}
   else if(fx==="none"){const n=$("note");n.textContent=T[lang].note.none;n.classList.add("on")}}
 
 /* ---------- finger dots ---------- */
@@ -281,6 +295,7 @@ function playGesture(g,{once=false}={}){stopDots();if(!g||!padEl)return;
   const move=(dx,dy)=>lay.map(([x,y])=>[{transform:`translate(${x}px,${y}px)`,opacity:0},{transform:`translate(${x}px,${y}px)`,opacity:1,offset:.15},{transform:`translate(${x+dx}px,${y+dy}px)`,opacity:1,offset:.75},{transform:`translate(${x+dx}px,${y+dy}px)`,opacity:0}]);
   if(g.kind==="swipe"&&g.dir==="h")keys=move(-w*.3,0);else if(g.kind==="swipe"&&g.dir==="u")keys=move(0,-h*.32);else if(g.kind==="swipe"&&g.dir==="d")keys=move(0,h*.32);
   else if(g.kind==="scroll")keys=move(0,-h*.3);
+  else if(g.kind==="swipe"&&g.dir==="drag")keys=move(w*.18,h*.12);
   else if(g.kind==="swipe")keys=move(w*.2,0);
   else if(g.kind==="pinch"){const inw=g.dir==="in";keys=lay.map(([x,y])=>{const a=[x*2.4,y*2.4],b=[x*.5,y*.5],[s,e]=inw?[a,b]:[b,a];return[{transform:`translate(${s[0]}px,${s[1]}px)`,opacity:0},{transform:`translate(${s[0]}px,${s[1]}px)`,opacity:1,offset:.15},{transform:`translate(${e[0]}px,${e[1]}px)`,opacity:1,offset:.75},{transform:`translate(${e[0]}px,${e[1]}px)`,opacity:0}]})}
   else keys=lay.map(([x,y])=>[{transform:`translate(${x}px,${y}px) scale(.4)`,opacity:0},{transform:`translate(${x}px,${y}px) scale(1.15)`,opacity:1,offset:.25},{transform:`translate(${x}px,${y}px) scale(.9)`,opacity:1,offset:.5},{transform:`translate(${x}px,${y}px) scale(.4)`,opacity:0}]);
@@ -310,7 +325,9 @@ document.addEventListener("click",e=>{
 
 /* ---------- Try it: drag on the trackpad with N fingers ---------- */
 function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("on");clearTimeout(toast.h);toast.h=setTimeout(()=>t.classList.remove("on"),1800)}
-function perform(n,kind,dir){const g=GEST.find(x=>x.fingers===n&&x.kind===kind&&(x.dir===dir||(x.dir==="h"&&(dir==="l"||dir==="r"))||(kind==="scroll"&&x.kind==="scroll"))&&(x.st==="cfg"||x.st==="app"));
+function perform(n,kind,dir){
+  // with three-finger drag configured, any three-finger movement is a drag, not a swipe
+  const g=(n===3&&kind==="swipe"&&GEST.find(x=>x.dir==="drag"&&x.st==="cfg"))||GEST.find(x=>x.fingers===n&&x.kind===kind&&(x.dir===dir||(x.dir==="h"&&(dir==="l"||dir==="r"))||(kind==="scroll"&&x.kind==="scroll"))&&(x.st==="cfg"||x.st==="app"));
   lastResult=g?{id:g.id,fingers:n,kind,dir}:{id:null,fingers:n,kind,dir};
   if(g){selId=g.id;renderCards();renderInfo();stopDots();runFx(g.fx,dir==="l"?1:-1);toast("✓ "+g[lang]+" — "+g.d[lang].split(".")[0])}
   else toast(T[lang].none+" "+T[lang].fingersN(n)+" "+(dir==="in"?"⇢⇠":({l:"←",r:"→",u:"↑",d:"↓"}[dir]||"")))}
