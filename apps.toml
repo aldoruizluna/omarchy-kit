@@ -1,6 +1,6 @@
 # Single source of truth for the apps installer (and the future web page).
 # type: "pacman" (official repo), "aur" (via yay), "webapp" (Omarchy web app), "note" (manual step only)
-# Add an app = add a [[app]] block. Verified against repos/AUR on 2026-10-04.
+# Add an app = add a [[app]] block. Verified against repos/AUR on 2026-10-04 (qBittorrent added 2026-10-05).
 
 [[app]]
 id = "brave"
@@ -90,3 +90,13 @@ desc.en = "Private browser by Mullvad and the Tor Project (Tor Browser's privacy
 desc.es = "Navegador privado de Mullvad y el Proyecto Tor (la privacidad de Tor Browser, sin Tor)"
 note.en = "Works with or without a VPN. It resets everything when closed, so keep Brave for logged-in daily browsing."
 note.es = "Funciona con o sin VPN. Borra todo al cerrarse; usa Brave para la navegación diaria con sesiones iniciadas."
+
+[[app]]
+id = "qbittorrent"
+name = "qBittorrent"
+type = "pacman"          # official 'extra' repo (5.2.3 on 2026-10-05)
+pkg = "qbittorrent"
+desc.en = "The most popular open-source BitTorrent client: Linux ISOs, open game releases, public datasets"
+desc.es = "El cliente BitTorrent de código abierto más popular: ISOs de Linux, juegos libres, datos públicos"
+note.en = "Privacy: Tools → Options → Advanced → Network interface binds it to a VPN, so traffic stops if the VPN drops. Your IP is visible to peers otherwise."
+note.es = "Privacidad: Herramientas → Opciones → Avanzado → Interfaz de red lo amarra a una VPN, así el tráfico se detiene si la VPN se cae. Si no, los demás pares ven tu IP."
