@@ -58,7 +58,10 @@ try {
 
   console.log("hygiene");
   const all = await b.eval(`document.documentElement.outerHTML`);
-  c.ok(!/ludoteca/i.test(all), "the public page names no private product");
+  // Private product names are not written into this public repo. A maintainer lists them in the environment to check the page:
+  //   KIT_PRIVATE_NAMES="name1,name2" node test/verify-store-page.mjs
+  const privateNames = (process.env.KIT_PRIVATE_NAMES || "").split(",").map((n) => n.trim().toLowerCase()).filter(Boolean);
+  c.ok(privateNames.every((n) => !all.toLowerCase().includes(n)), `the page names none of the ${privateNames.length} private names given in KIT_PRIVATE_NAMES`);
   c.ok(!b.errors.some(e => e.startsWith("exception:")), "no script exceptions", b.errors.filter(e => e.startsWith("exception:")).join(" | "));
   await b.viewport(400, 900, true); await go();
   c.ok(await b.eval(`document.documentElement.scrollWidth <= innerWidth + 1`), "no horizontal overflow at phone width", await b.eval(`document.documentElement.scrollWidth`));
