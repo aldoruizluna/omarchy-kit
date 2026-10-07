@@ -105,6 +105,10 @@ SUPER ALT + BRACKETRIGHT            → Make webcam overlay larger
 SUPER ALT + Home                    → Save window width
 SUPER ALT + SLASH                   → Monitor scaling down
 SUPER ALT + SPACE                   → Apps menu
+SUPER + A                           → Select all (⌘A)
+SUPER + B                           → Bold (⌘B)
+SUPER + BRACKETLEFT                 → Back (⌘[)
+SUPER + BRACKETRIGHT                → Forward (⌘])
 SUPER CTRL + 1                      → Bar panel 1
 SUPER CTRL + 2                      → Bar panel 2
 SUPER CTRL + 3                      → Bar panel 3
@@ -141,9 +145,13 @@ SUPER CTRL + T                      → Activity
 SUPER CTRL + W                      → Network
 SUPER CTRL + X                      → Toggle dictation
 SUPER CTRL + Z                      → Zoom in
+SUPER + D                           → Bookmark page (⌘D)
 SUPER + Home                        → Restore window width
+SUPER + I                           → Italic (⌘I)
 SUPER + L                           → Toggle workspace layout
+SUPER + N                           → New window (⌘N)
 SUPER + P                           → Pseudo window
+SUPER + R                           → Reload (⌘R)
 SUPER SHIFT + A                     → ChatGPT
 SUPER SHIFT ALT + A                 → Grok
 SUPER SHIFT ALT + DOWN              → Move workspace to down monitor
@@ -173,13 +181,18 @@ SUPER SHIFT + M                     → Music
 SUPER SHIFT + N                     → Editor
 SUPER SHIFT + O                     → Obsidian
 SUPER SHIFT + P                     → Google Photos
+SUPER SHIFT + R                     → Hard reload (⇧⌘R)
 SUPER SHIFT + S                     → Google Maps
 SUPER SHIFT + SLASH                 → Passwords
 SUPER SHIFT + SPACE                 → Toggle top bar
+SUPER SHIFT + T                     → Reopen closed tab (⇧⌘T)
 SUPER SHIFT + W                     → Omawrite
 SUPER SHIFT + X                     → X
 SUPER SHIFT + Y                     → YouTube
+SUPER SHIFT + Z                     → Redo (⇧⌘Z)
 SUPER + SLASH                       → Monitor scaling up
+SUPER + U                           → Underline (⌘U)
+SUPER + Z                           → Undo (⌘Z)
 SUPER ALT + 1                       → Switch to group window 1
 SUPER ALT + 2                       → Switch to group window 2
 SUPER ALT + 3                       → Switch to group window 3

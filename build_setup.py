@@ -5,11 +5,16 @@ Every status line is checked live against the system when this runs (no sudo nee
 never claims something is done that isn't. The helper re-runs this on each visit to /setup.
 Passwords and passphrases are never written here.
 """
-import grp, json, os, pwd, re, stat, subprocess
+import grp, json, os, pwd, re, stat, subprocess, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 HOME = Path.home()
+import sys as _sys
+_sys.path.insert(0, str(HERE))
+import portal_content as _pc, portal_lessons as _pl
+N_HABITS = sum(len(rows) for _, _, rows in _pc.MAC)
+N_LESSONS = sum(len(l["lessons"]) for l in _pl.LEVELS)
 
 # Personal details (the co-admin's name/username) live in local.toml, which is git-ignored:
 #   [coadmin]
@@ -34,6 +39,19 @@ def sh(*cmd):
 
 def active(unit, user=False):
     return sh("systemctl", *(["--user"] if user else []), "is-active", unit) == "active"
+
+
+def hypr_json(*args, default=None):
+    """hyprctl -j <args> as a dict/list (the live compositor), or default when Hyprland is not reachable."""
+    try:
+        return json.loads(sh("hyprctl", "-j", *args) or "null") or ({} if default is None else default)
+    except Exception:
+        return {} if default is None else default
+
+
+def hypr_opt(name):
+    d = hypr_json("getoption", name)
+    return d if isinstance(d, dict) else {}
 
 
 def read(path):
@@ -63,7 +81,40 @@ def checks():
     have = [n for n in names if f'"{n}"' in b]
     c["bindings"] = ("ok" if len(have) == len(names) else "action", f"{len(have)}/{len(names)}: " + ", ".join(have))
     i = read(HOME / ".config/hypr/input.lua")
-    c["gestures"] = ("ok" if 'hl.gesture({ fingers = 3, direction = "horizontal"' in i and "natural_scroll = true" in i else "action", "input.lua")
+    c["gestures"] = ("ok" if 'hl.gesture({ fingers = 4, direction = "horizontal"' in i and "natural_scroll = true" in i else "action", "input.lua")
+    import kitconf
+    tf = kitconf.three_fingers()
+    drag_live = hypr_opt("input:touchpad:drag_3fg").get("int")
+    c["threefingers"] = ("ok" if drag_live == (1 if tf == "drag" else 0) else "action",
+                         f"three fingers: {'drag (select and drag without clicking), spaces on four fingers' if tf == 'drag' else 'swipe between spaces'} · live drag_3fg {drag_live if drag_live is not None else '?'}"
+                         + ("" if drag_live == (1 if tf == "drag" else 0) else " (does not match input.lua: run hyprctl reload)"))
+    variant = hypr_opt("input:kb_variant").get("str", "")
+    fcitx = [k for k in (hypr_json("devices").get("keyboards") or []) if "fcitx" in k.get("name", "")]
+    fc_pid = sh("pgrep", "-o", "fcitx5")
+    if fcitx:  # its virtual keyboard exists only while a text field is focused; then it shows the keymap it copied
+        fc_mac, fc_note = all("Macintosh" in k.get("active_keymap", "") for k in fcitx), "on the Mac keymap" if all("Macintosh" in k.get("active_keymap", "") for k in fcitx) else "still on the OLD keymap: restart it"
+    elif fc_pid:  # otherwise: was it (re)started after input.lua was last edited? it copies the layout at start
+        try:
+            started = time.time() - int(sh("ps", "-o", "etimes=", "-p", fc_pid))
+            fc_mac = started >= (HOME / ".config/hypr/input.lua").stat().st_mtime
+        except (ValueError, OSError):
+            fc_mac = True
+        fc_note = "started after the layout change" if fc_mac else "started BEFORE the layout change: restart it"
+    else:
+        fc_mac, fc_note = None, "not running"
+    acc_ok = 'kb_variant = "mac"' in i and variant == "mac" and fc_mac is not False
+    c["accents"] = ("ok" if acc_ok else "action", f"layout us({variant or 'default'}) · fcitx5 {fc_note}")
+    mk_file = (HOME / ".config/hypr/mackeys.lua").exists() and 'require("hypr.mackeys")' in read(HOME / ".config/hypr/hyprland.lua")
+    bound = sum(1 for b in (hypr_json("binds", default=[]) or []) if "⌘" in b.get("description", ""))
+    c["mackeys"] = ("ok" if mk_file and bound >= 13 else "action", f"mackeys.lua {'installed' if mk_file else 'not installed'} · {bound} ⌘ shortcuts bound")
+    pa = sh(str(HERE / "power" / "power-auto"), "--status").replace("\n", " · ")
+    pa_on = active("power-auto.service", True) and sh("systemctl", "--user", "is-enabled", "power-auto.service") == "enabled"
+    c["powerauto"] = ("ok" if pa_on else "action", f"power-auto.service {'running' if pa_on else 'not installed'} · {pa}")
+    try:
+        sl = json.loads(sh(str(HERE / "sleep" / "sleep-check"), "--json") or "null")
+    except Exception:
+        sl = None
+    c["sleep"] = (sl["status"], f"{sl['count']} suspends seen · {sl['verdict']}") if sl else ("info", "sleep-check could not read the journal")
     fn = read("/sys/module/hid_apple/parameters/fnmode").strip()
     conf = read("/etc/modprobe.d/hid_apple.conf").strip()
     c["fnmode"] = ("ok" if fn in ("1", "3") and "fnmode=3" in conf else "action", f"live {fn or '?'} · {conf or 'no config'}")
@@ -147,6 +198,28 @@ def checks():
     cam_dev = Path("/dev/video0").exists()
     c["camera"] = ("ok" if cam_mod and cam_dev else "action",
                    f"facetimehd {'loaded' if cam_mod else 'not loaded'} · {'/dev/video0' if cam_dev else 'no video device'}")
+    # --- auto appearance (opt-in), bar clock, optional ⌘ takeovers
+    ap_inst = (HOME / ".local/bin/auto-appearance").exists()
+    ap_on = sh("systemctl", "--user", "is-enabled", "auto-appearance.timer") == "enabled"
+    ap_status = sh(str(HOME / ".local/bin/auto-appearance"), "status").replace("\n", " · ") if ap_inst else ""
+    c["appearance"] = ("ok" if ap_on else "pending", (ap_status or "not installed") + ("" if ap_on else " (optional)"))
+    try:
+        clock = [w for w in json.loads(read(HOME / ".config/omarchy/shell.json"))["bar"]["layout"]["center"] if w.get("id") == "omarchy.clock"][0].get("format", "")
+    except Exception:
+        clock = ""
+    c["barclock"] = ("ok" if "d MMM" in clock or "MMM" in clock else "pending", f"clock format: {clock or 'unknown'}")
+    import kitconf
+    ex = kitconf.mackeys_extra()
+    c["mackeysextra"] = ("ok" if ex else "pending", f"⌘{' ⌘'.join(ex)} take over Super+key in apps" if ex else "none enabled (optional; Omarchy's own Super+W/T/F/S/L/G/P keep working)")
+    # --- backups
+    cfgs = sh("snapper", "list-configs")
+    snap_home = any(l.split()[0:1] == ["home"] for l in cfgs.splitlines())
+    tl = sh("systemctl", "is-enabled", "snapper-timeline.timer") == "enabled"
+    n_snap = len([l for l in sh("snapper", "-c", "home", "list", "--columns", "number").splitlines()[2:] if l.strip() not in ("", "0")]) if snap_home else 0
+    c["homesnap"] = ("ok" if snap_home and tl else "pending", (f"/home snapshots on, {n_snap} so far" if snap_home and tl else "no /home snapshots yet (needs sudo, see the command)"))
+    # whether a backup job exists is Pika's own state; the format is not read here, so installed is as far as this can honestly say
+    pika = bool(sh("pacman", "-Q", "pika-backup"))
+    c["pika"] = ("info" if pika else "pending", "Pika Backup is installed: open it to see the last backup and the drive" if pika else "Pika Backup not installed")
     c["helper"] = ("ok" if active("omarchy-kit.service", True) else "action", "omarchy-kit.service")
     return c
 
@@ -166,6 +239,20 @@ STATUS = [
   ("nvoff", "Idle NVIDIA GPU powered off", "GPU NVIDIA inactiva apagada", "Install the boot-time switch-off (reversible; see the GPU change below):", "Instalar el apagado al arrancar (reversible; ver el cambio de GPU abajo):", "sudo install -m755 ~/labspace/omarchy-kit/gpu/nvidia-off /usr/local/bin/ && sudo install -m644 ~/labspace/omarchy-kit/gpu/nvidia-off.service /etc/systemd/system/ && sudo systemctl enable nvidia-off.service"),
   ("camera", "FaceTime HD camera driver", "Driver de la cámara FaceTime HD", "Install the driver and load it:", "Instalar el driver y cargarlo:", "yay -S facetimehd-dkms facetimehd-data && sudo modprobe facetimehd"),
   ("gestures", "macOS-style gestures and natural scrolling", "Gestos estilo macOS y desplazamiento natural", "", "", ""),
+ ]),
+ ("Mac habits", "Hábitos de Mac", [
+  ("accents", "Accents on the right Option key (⌥e e = é, ⌥n n = ñ)", "Acentos en la tecla Option derecha (⌥e e = é, ⌥n n = ñ)", "Add kb_variant = \"mac\" to input.lua (see the Mac accents change below), reload, then restart fcitx5:", "Añade kb_variant = \"mac\" a input.lua (ver el cambio de acentos abajo), recarga y reinicia fcitx5:", "hyprctl reload && fcitx5 --disable notificationitem -r -d"),
+  ("mackeys", "⌘ shortcuts inside apps (⌘A, ⌘Z, ⌘R…)", "Atajos ⌘ dentro de las apps (⌘A, ⌘Z, ⌘R…)", "Install them (no root):", "Instalarlos (sin root):", "~/labspace/omarchy-kit/keys/install-mackeys"),
+  ("threefingers", "Three fingers: swipe spaces or drag (your choice)", "Tres dedos: cambiar de espacio o arrastrar (tú eliges)", "Reload Hyprland so the choice in input.lua takes effect:", "Recarga Hyprland para que la elección de input.lua surta efecto:", "hyprctl reload"),
+  ("powerauto", "Power profile follows the charger", "El perfil de energía sigue al cargador", "Install it (no root):", "Instalarlo (sin root):", "~/labspace/omarchy-kit/power/install-power-auto"),
+  ("sleep", "Sleep and wake with the lid", "Reposo y despertar con la tapa", "Close the lid for 30 seconds, open it, then check the result:", "Cierra la tapa 30 segundos, ábrela y revisa el resultado:", "~/labspace/omarchy-kit/sleep/sleep-check"),
+  ("barclock", "Menu-bar clock shows the date (Wed 7 Oct 15:08)", "El reloj de la barra muestra la fecha (mié 7 oct 15:08)", "Set it:", "Ponerlo:", "omarchy bar set omarchy.clock format \"ddd d MMM HH:mm\""),
+  ("mackeysextra", "⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P in apps (optional)", "⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P en apps (opcional)", "Your decision (see Open items): each one takes Super+key from an Omarchy action. To choose:", "Decisión tuya (ver Pendientes): cada una le quita Super+tecla a una acción de Omarchy. Para elegir:", "~/labspace/omarchy-kit/keys/mac-key-extras W T F S"),
+  ("appearance", "Auto appearance: light by day, dark at night (optional)", "Apariencia automática: clara de día, oscura de noche (opcional)", "Installed but off. Turn it on:", "Instalada pero apagada. Actívala:", "auto-appearance on"),
+ ]),
+ ("Backups", "Respaldos", [
+  ("homesnap", "Hourly snapshots of /home (like Time Machine's local snapshots)", "Instantáneas de /home cada hora (como las locales de Time Machine)", "Needs your password. Preview first with --dry-run, then:", "Pide tu contraseña. Mira antes con --dry-run y luego:", "sudo ~/labspace/omarchy-kit/backup/install-backups"),
+  ("pika", "A real backup of your files to an external drive (Pika Backup)", "Un respaldo real de tus archivos en un disco externo (Pika Backup)", "Installed by the command above; then open Pika Backup and choose the drive (that step needs you).", "Lo instala el comando de arriba; luego abre Pika Backup y elige el disco (ese paso te toca a ti).", ""),
  ]),
  ("Audio", "Audio", [
   ("rates", "Native sample rates (bit-perfect 44.1 kHz)", "Frecuencias nativas (44.1 kHz sin conversión)", "", "", ""),
@@ -201,8 +288,8 @@ LOG = [
   "Todo vive en ~/labspace/omarchy-kit: guía, páginas de teclado y trackpad, instalador de apps, ajuste de audio y pruebas de navegador. ~/labspace es el espacio de trabajo predeterminado (el comando `lab` inicia Claude ahí). ~/Work, el predeterminado de Omarchy, ahora es un enlace a ~/labspace, así que try (~/Work/tries) y el bin/ de mise siguen funcionando.",
   "python3 ~/labspace/omarchy-kit/build_cheatsheet.py   # rebuild all pages"),
  ("Learning portal", "Portal de aprendizaje",
-  "Omarchy Kit is a bilingual course built from this machine. Start, Learn (24 hands-on lessons that check your real desktop through the local service), From macOS (41 habits translated), Your MacBook (verified hardware status with live readings), Reference (all 367 Omarchy commands, the full menu with 'Show me' buttons, themes, glossary), plus the 3D keyboard and trackpad, Apps and this log. Shortcuts are read from your live config, so the pages follow your changes after a rebuild.",
-  "Omarchy Kit es un curso bilingüe hecho con esta máquina. Inicio, Aprender (24 lecciones prácticas que comprueban tu escritorio real vía el servicio local), Desde macOS (41 hábitos traducidos), Tu MacBook (estado verificado del hardware con lecturas en vivo), Referencia (los 367 comandos de Omarchy, el menú completo con botones 'Muéstrame', temas, glosario), más el teclado y trackpad 3D, Apps y esta bitácora. Los atajos se leen de tu configuración real, así que las páginas siguen tus cambios tras reconstruir.",
+  f"Omarchy Kit is a bilingual course built from this machine. Start, Learn ({N_LESSONS} hands-on lessons that check your real desktop through the local service), From macOS ({N_HABITS} habits translated), Your MacBook (verified hardware status with live readings), Reference (all 367 Omarchy commands, the full menu with 'Show me' buttons, themes, glossary), plus the 3D keyboard and trackpad, Apps and this log. Shortcuts are read from your live config, so the pages follow your changes after a rebuild.",
+  f"Omarchy Kit es un curso bilingüe hecho con esta máquina. Inicio, Aprender ({N_LESSONS} lecciones prácticas que comprueban tu escritorio real vía el servicio local), Desde macOS ({N_HABITS} hábitos traducidos), Tu MacBook (estado verificado del hardware con lecturas en vivo), Referencia (los 367 comandos de Omarchy, el menú completo con botones 'Muéstrame', temas, glosario), más el teclado y trackpad 3D, Apps y esta bitácora. Los atajos se leen de tu configuración real, así que las páginas siguen tus cambios tras reconstruir.",
   "python3 ~/labspace/omarchy-kit/build_cheatsheet.py   # rebuild every page"),
  ("Apps", "Apps",
   "Brave, Signal, Beeper, AnyType, Kagi (web app), Bitwarden, Telegram, Grayjay, QDirStat and Mullvad Browser, listed in apps.toml. Brave is the default browser. Kagi as Brave's search engine is a manual setting.",
@@ -213,9 +300,45 @@ LOG = [
   "Añadidos a ~/.config/hypr/bindings.lua: Beeper (Super+Shift+Ctrl+B), AnyType (Super+Shift+Ctrl+N), Kagi (Super+Shift+K), Telegram (Super+Shift+Ctrl+T), Grayjay (Super+Shift+Ctrl+J), Bitwarden (Super+Shift+Ctrl+P), Captura (Super+Alt+P, este teclado no tiene tecla Print), Omarchy Kit (Super+Shift+H). Hay copia del archivo original en omarchy-kit/.",
   "hyprctl reload && hyprctl configerrors"),
  ("Trackpad", "Trackpad",
-  "macOS-style gestures in ~/.config/hypr/input.lua: 3 or 4 fingers left/right switch spaces, 4 fingers up opens the Omarchy menu, 4 down toggles the scratchpad, 4-finger pinch opens the apps menu. Natural scrolling is on. Undo: restore input.lua.bak-2026-10-04.",
-  "Gestos estilo macOS en ~/.config/hypr/input.lua: 3 o 4 dedos izquierda/derecha cambian de espacio, 4 arriba abre el menú de Omarchy, 4 abajo el scratchpad, pellizco con 4 dedos abre el menú de apps. Desplazamiento natural activado. Deshacer: restaurar input.lua.bak-2026-10-04.",
+  "macOS-style gestures in ~/.config/hypr/input.lua: 3 or 4 fingers left/right switch spaces (three fingers can drag instead, see Three fingers), 4 fingers up opens the Omarchy menu, 4 down toggles the scratchpad, 4-finger pinch opens the apps menu. Natural scrolling is on. Undo: restore input.lua.bak-2026-10-04.",
+  "Gestos estilo macOS en ~/.config/hypr/input.lua: 3 o 4 dedos izquierda/derecha cambian de espacio (tres dedos pueden arrastrar en su lugar, ver Tres dedos), 4 arriba abre el menú de Omarchy, 4 abajo el scratchpad, pellizco con 4 dedos abre el menú de apps. Desplazamiento natural activado. Deshacer: restaurar input.lua.bak-2026-10-04.",
   ""),
+ ("Mac accents (right Option key)", "Acentos de Mac (tecla Option derecha)",
+  "Added kb_variant = \"mac\" to ~/.config/hypr/input.lua on 2026-10-07 (backup: input.lua.bak-2026-10-07). It selects the 'English (Macintosh, ABC, ANSI)' layout, so the right Option key (⌥) types accents as in macOS: ⌥e, ⌥u, ⌥i, ⌥` and ⌥n are dead keys (press ⌥ and the letter, release, then type the vowel), ⌥1 = ¡ and ⌥⇧/ = ¿. The left Option stays a plain Alt, so every Alt shortcut in Hyprland is unchanged, and Caps Lock stays the Compose key as a second way. The layout was checked key by key with libxkbcommon; the Learn lesson 'Typing Spanish' checks it with your own keys. fcitx5, the input method Omarchy runs, copies the keyboard layout only when it starts, so it was restarted once and picks the layout up at every login. Undo: delete the kb_variant line from input.lua, then hyprctl reload and restart fcitx5.",
+  "Se añadió kb_variant = \"mac\" a ~/.config/hypr/input.lua el 2026-10-07 (respaldo: input.lua.bak-2026-10-07). Elige la distribución 'English (Macintosh, ABC, ANSI)', así que la tecla Option derecha (⌥) escribe acentos como en macOS: ⌥e, ⌥u, ⌥i, ⌥` y ⌥n son teclas muertas (pulsa ⌥ y la letra, suelta y escribe la vocal), ⌥1 = ¡ y ⌥⇧/ = ¿. La Option izquierda sigue siendo Alt, así que los atajos con Alt de Hyprland no cambian, y Bloq Mayús sigue como tecla Compose, una segunda forma. La distribución se comprobó tecla por tecla con libxkbcommon; la lección 'Escribir en español' de Aprender la comprueba con tus propias teclas. fcitx5, el método de entrada que usa Omarchy, copia la distribución solo al arrancar, así que se reinició una vez y la toma en cada inicio de sesión. Deshacer: borra la línea kb_variant de input.lua, luego hyprctl reload y reinicia fcitx5.",
+  "hyprctl reload && fcitx5 --disable notificationitem -r -d   # apply a layout change"),
+ ("Mac ⌘ shortcuts inside apps", "Atajos ⌘ de Mac dentro de las apps",
+  "keys/mackeys.lua, installed as ~/.config/hypr/mackeys.lua and loaded from hyprland.lua (backup: hyprland.lua.bak-mackeys), catches Super+key and sends Ctrl+key to the focused app for 13 shortcuts: A (select all), Z and ⇧Z (undo, redo), R and ⇧R (reload, hard reload), N (new window), ⇧T (reopen closed tab), D (bookmark), B, I, U (bold, italic, underline), [ and ] (back, forward, sent as Alt+←/→). They appear in Super+K with ⌘ in the name. Only keys Omarchy does not use are mapped, so nothing Omarchy does was lost, and terminals are skipped on purpose (Ctrl+Z there stops a program). NOT on by default, because Omarchy already uses them: Super+W close window, T float, F full screen, S scratchpad, L layout, P pseudo, G group. So ⌘W, ⌘T, ⌘F, ⌘S, ⌘L, ⌘G and ⌘P stay Ctrl inside apps until you choose them (next entry). test/verify-mackeys.mjs checks every shortcut against a real Brave window, the terminal guard, and that no ⌘ chord collides with another binding (32 checks, including the optional takeovers below). Undo: install-mackeys --remove.",
+  "keys/mackeys.lua, instalado como ~/.config/hypr/mackeys.lua y cargado desde hyprland.lua (respaldo: hyprland.lua.bak-mackeys), captura Super+tecla y envía Ctrl+tecla a la app enfocada en 13 atajos: A (seleccionar todo), Z y ⇧Z (deshacer, rehacer), R y ⇧R (recargar, recarga completa), N (ventana nueva), ⇧T (reabrir pestaña cerrada), D (marcador), B, I, U (negrita, cursiva, subrayado), [ y ] (atrás, adelante, enviados como Alt+←/→). Aparecen en Super+K con ⌘ en el nombre. Solo se mapean teclas que Omarchy no usa, así que no se perdió nada de Omarchy, y las terminales se omiten a propósito (Ctrl+Z ahí detiene un programa). NO activados por defecto, porque Omarchy ya los usa: Super+W cerrar ventana, T flotar, F pantalla completa, S scratchpad, L diseño, P pseudo, G grupo. Por eso ⌘W, ⌘T, ⌘F, ⌘S, ⌘L, ⌘G y ⌘P siguen siendo Ctrl dentro de las apps hasta que los elijas (siguiente entrada). test/verify-mackeys.mjs comprueba cada atajo contra una ventana real de Brave, la protección de terminales y que ningún ⌘ choque con otro atajo (32 comprobaciones, incluidos los reemplazos opcionales de abajo). Deshacer: install-mackeys --remove.",
+  "~/labspace/omarchy-kit/keys/install-mackeys --remove   # undo"),
+ ("Three fingers: swipe or drag", "Tres dedos: deslizar o arrastrar",
+  "Three fingers can either switch spaces or drag, never both (libinput stops reporting three-finger swipes once three-finger drag is on; macOS makes you choose the same way). On 2026-10-07 drag was switched on, which also switched your three-finger space swipe off; you asked where it had gone, so the swipe was restored the same day and the choice became one word in ~/.config/hypr/input.lua: local THREE_FINGERS = \"swipe\" (the default) or \"drag\" (slide three fingers to select text and drag things without clicking, as with macOS Accessibility › Pointer Control › Trackpad Options › Three-finger drag; spaces then use four fingers only). Changing it reloads Hyprland and rebuilds the kit pages, so the Trackpad page, Mac page, lessons and this log describe whichever is on. A three-finger tap stays a middle click either way. Backup of the file before any of this: input.lua.bak-2026-10-07.",
+  "Tres dedos pueden cambiar de espacio o arrastrar, nunca ambos (libinput deja de reportar deslizamientos de tres dedos cuando el arrastre de tres dedos está activo; macOS también obliga a elegir). El 2026-10-07 se activó el arrastre, lo que también apagó tu cambio de espacio con tres dedos; preguntaste dónde había quedado, así que se restauró el mismo día y la elección pasó a ser una palabra en ~/.config/hypr/input.lua: local THREE_FINGERS = \"swipe\" (la predeterminada) o \"drag\" (desliza tres dedos para seleccionar texto y arrastrar cosas sin hacer clic, como en macOS Accesibilidad › Control del puntero › Opciones del trackpad › Arrastrar con tres dedos; los espacios usan entonces solo cuatro dedos). Al cambiarla se recarga Hyprland y se reconstruyen las páginas del kit, así que la página Trackpad, la de Mac, las lecciones y esta bitácora describen la opción activa. Un toque con tres dedos sigue siendo clic central en ambos casos. Respaldo del archivo antes de todo esto: input.lua.bak-2026-10-07.",
+  "~/labspace/omarchy-kit/trackpad/three-fingers drag   # or: swipe"),
+ ("Automatic power profile", "Perfil de energía automático",
+  "power/power-auto (installed to ~/.local/bin and run by the user service power-auto.service, 2026-10-07) watches the system's power-supply events: unplugging the charger sets Balanced, plugging it in sets Performance (it used to stay on Performance until changed by hand, which drains a 2014 battery and heats the machine). It acts only when the charger state changes, and once at login, so a profile you pick by hand stays until the next plug or unplug. Change the two profiles in ~/.config/omarchy-kit/power-auto.conf with AC_PROFILE= and BATTERY_PROFILE= (power-saver, balanced or performance). Tested with a simulated charger against the real power daemon (KIT_FAKE_AC=0 power-auto --once); a real unplug has not been tried yet. No root needed. Undo: install-power-auto --remove.",
+  "power/power-auto (instalado en ~/.local/bin y ejecutado por el servicio de usuario power-auto.service, 2026-10-07) vigila los eventos de alimentación del sistema: al desenchufar el cargador pone Equilibrado y al enchufarlo pone Rendimiento (antes se quedaba en Rendimiento hasta cambiarlo a mano, lo que gasta una batería de 2014 y calienta el equipo). Solo actúa cuando cambia el estado del cargador, y una vez al iniciar sesión, así que un perfil que elijas a mano se queda hasta el próximo enchufe o desenchufe. Cambia los dos perfiles en ~/.config/omarchy-kit/power-auto.conf con AC_PROFILE= y BATTERY_PROFILE= (power-saver, balanced o performance). Probado con un cargador simulado contra el servicio de energía real (KIT_FAKE_AC=0 power-auto --once); aún no se probó con un desenchufe real. No necesita root. Deshacer: install-power-auto --remove.",
+  "~/labspace/omarchy-kit/power/power-auto --status"),
+ ("Sleep and the lid", "Reposo y la tapa",
+  "sleep/sleep-check reads the system journal (no root) for the last 14 days: every suspend, how long it lasted, whether the lid was involved, and which devices may wake the machine. This MacBook has not suspended once since this install, and XHC1 (the USB controller) and LID0 are both allowed to wake it. The MacBookPro11 family is known to wake right after the lid closes when XHC1 may wake it. Test: close the lid for 30 seconds and open it; the status row above and the Your MacBook page then turn green or red from the real result. If it wakes by itself, the fix is to stop XHC1 from waking the machine (echo XHC1 | sudo tee /proc/acpi/wakeup, made permanent with a small systemd unit); that is deliberately not installed until the test shows it is needed. Nothing on the system was changed for this entry.",
+  "sleep/sleep-check lee el registro del sistema (sin root) de los últimos 14 días: cada suspensión, cuánto duró, si intervino la tapa y qué dispositivos pueden despertar el equipo. Esta MacBook no ha suspendido ni una vez desde esta instalación, y tanto XHC1 (el controlador USB) como LID0 pueden despertarla. La familia MacBookPro11 es conocida por despertar justo al cerrar la tapa cuando XHC1 puede despertarla. Prueba: cierra la tapa 30 segundos y ábrela; la fila de estado de arriba y la página Tu MacBook se ponen en verde o rojo según el resultado real. Si despierta sola, la solución es impedir que XHC1 la despierte (echo XHC1 | sudo tee /proc/acpi/wakeup, hecho permanente con una pequeña unidad de systemd); a propósito no se instala hasta que la prueba muestre que hace falta. No se cambió nada del sistema para esta entrada.",
+  "~/labspace/omarchy-kit/sleep/sleep-check"),
+ ("Auto appearance (light by day, dark at night)", "Apariencia automática (clara de día, oscura de noche)",
+  "appearance/auto-appearance, a small script plus a user timer (installed 2026-10-07, OFF), switches the Omarchy theme the way macOS 'Appearance: Auto' does: the white theme from 07:00 and your dark theme (retro-82) from 19:00. The timer checks every 10 minutes and switches only when the day/night period changes, so a theme you pick by hand stays until the next boundary. Settings (themes and times) are in ~/.config/omarchy-kit/appearance.conf; any theme from `omarchy theme list` works, and a period that crosses midnight is handled. Tested: the period logic for every hour including a wrap-around schedule, and one real round trip (Retro 82 → White → Retro 82). It is off because it would change your look twice a day without being asked. Turn on: auto-appearance on. Undo: auto-appearance off, or install-auto-appearance --remove.",
+  "appearance/auto-appearance, un pequeño script con un temporizador de usuario (instalado el 2026-10-07, APAGADO), cambia el tema de Omarchy como la 'Apariencia: Automática' de macOS: el tema white desde las 07:00 y tu tema oscuro (retro-82) desde las 19:00. El temporizador revisa cada 10 minutos y cambia solo cuando cambia el periodo día/noche, así que un tema que elijas a mano se queda hasta el próximo límite. Los ajustes (temas y horas) están en ~/.config/omarchy-kit/appearance.conf; sirve cualquier tema de `omarchy theme list` y se maneja un periodo que cruza la medianoche. Probado: la lógica de periodos para cada hora, incluido un horario que cruza la medianoche, y un ciclo real (Retro 82 → White → Retro 82). Está apagado porque cambiaría tu aspecto dos veces al día sin que lo pidieras. Activar: auto-appearance on. Deshacer: auto-appearance off, o install-auto-appearance --remove.",
+  "auto-appearance status   # then: auto-appearance on"),
+ ("Menu-bar clock with the date", "Reloj de la barra con la fecha",
+  "The bar clock now reads 'Wed 7 Oct 15:08' (omarchy bar set omarchy.clock format \"ddd d MMM HH:mm\"), like the macOS menu bar, which also shows the date. It was 'Wednesday 15:08' (24-hour kept, as you had it). Checked on a screenshot of the bar. Backup: ~/.config/omarchy/shell.json.bak-2026-10-07. Undo: omarchy bar set omarchy.clock format \"dddd HH:mm\".",
+  "El reloj de la barra ahora dice 'mié 7 oct 15:08' (omarchy bar set omarchy.clock format \"ddd d MMM HH:mm\"), como la barra de menús de macOS, que también muestra la fecha. Antes decía 'miércoles 15:08' (se mantiene el formato de 24 horas que tenías). Comprobado con una captura de la barra. Respaldo: ~/.config/omarchy/shell.json.bak-2026-10-07. Deshacer: omarchy bar set omarchy.clock format \"dddd HH:mm\".",
+  "omarchy bar set omarchy.clock format \"dddd HH:mm\"   # undo"),
+ ("Optional ⌘ takeovers (W T F S L G P)", "Reemplazos ⌘ opcionales (W T F S L G P)",
+  "keys/mackeys.lua can also give ⌘W, ⌘T, ⌘F, ⌘S, ⌘L, ⌘G and ⌘P their Mac meaning in apps, but Omarchy already uses Super+W, T, F, S, L, G and P (close window, float, full screen, scratchpad, layout, grouping, pseudo), so it is OFF until you choose, key by key: keys/mac-key-extras W T F S. For each key you turn on, in apps Super+key sends Ctrl+key; in terminals it keeps its Omarchy meaning; and the Omarchy action stays reachable in every window at Super+Alt+W (close), Super+Alt+T (float), Super+Alt+L (layout), Super+Ctrl+Alt+F (full screen), Super+Ctrl+Alt+S (scratchpad), Super+Ctrl+Alt+G (grouping), Super+Ctrl+Alt+P (pseudo). Tested against a real Brave window in both modes, plus the config-file path and a clean revert (test/verify-mackeys.mjs, 32 checks). Undo: keys/mac-key-extras none.",
+  "keys/mackeys.lua también puede dar a ⌘W, ⌘T, ⌘F, ⌘S, ⌘L, ⌘G y ⌘P su significado de Mac en las apps, pero Omarchy ya usa Super+W, T, F, S, L, G y P (cerrar ventana, flotar, pantalla completa, scratchpad, diseño, agrupar, pseudo), así que está APAGADO hasta que elijas, tecla por tecla: keys/mac-key-extras W T F S. Por cada tecla activada, en las apps Super+tecla envía Ctrl+tecla; en terminales conserva su significado de Omarchy; y la acción de Omarchy sigue disponible en cualquier ventana en Super+Alt+W (cerrar), Super+Alt+T (flotar), Super+Alt+L (diseño), Super+Ctrl+Alt+F (pantalla completa), Super+Ctrl+Alt+S (scratchpad), Super+Ctrl+Alt+G (agrupar), Super+Ctrl+Alt+P (pseudo). Probado con una ventana real de Brave en ambos modos, además de la ruta del archivo de configuración y una reversión limpia (test/verify-mackeys.mjs, 32 comprobaciones). Deshacer: keys/mac-key-extras none.",
+  "~/labspace/omarchy-kit/keys/mac-key-extras   # show / choose"),
+ ("Backups (prepared; needs your password)", "Respaldos (preparados; piden tu contraseña)",
+  "Nothing was changed on the system for this entry. backup/install-backups does two things, in one sudo command: (1) a snapper config for /home (it is its own btrfs subvolume, @home) with hourly snapshots kept for 6 hours, 7 days, 2 weeks and 1 month, readable by you without sudo, plus the timeline and cleanup timers (the root config keeps timeline snapshots off, so only /home is affected); (2) Pika Backup (a friendly borg GUI, extra repo, 0.8.4) for the real backup to an external drive, encrypted and scheduled; choosing the drive is the one step that needs you. Snapshots live on the same disk: they undo mistakes and deletions, not a dead disk. The script was checked with bash -n and --dry-run (it prints every command and changes nothing); it could not be run here because it needs root. Undo: sudo install-backups --remove (snapshots already taken stay until deleted).",
+  "No se cambió nada en el sistema para esta entrada. backup/install-backups hace dos cosas con un solo comando sudo: (1) una configuración de snapper para /home (es su propio subvolumen btrfs, @home) con instantáneas cada hora que se conservan 6 horas, 7 días, 2 semanas y 1 mes, legibles sin sudo, más los temporizadores de línea de tiempo y limpieza (la configuración de root mantiene apagadas las instantáneas por tiempo, así que solo afecta a /home); (2) Pika Backup (una interfaz amable de borg, repositorio extra, 0.8.4) para el respaldo real en un disco externo, cifrado y programado; elegir el disco es el único paso que te toca. Las instantáneas viven en el mismo disco: deshacen errores y borrados, no un disco dañado. El script se revisó con bash -n y --dry-run (imprime cada comando y no cambia nada); no se pudo ejecutar aquí porque necesita root. Deshacer: sudo install-backups --remove (las instantáneas ya hechas se quedan hasta borrarlas).",
+  "~/labspace/omarchy-kit/backup/install-backups --dry-run   # preview, no sudo"),
  ("Top row (F-keys)", "Fila superior (teclas F)",
   "/etc/modprobe.d/hid_apple.conf is set to fnmode=3 (auto): media keys first on this Apple keyboard, Fn for F1–F12. Omarchy's dictation key is now Fn+F9. Undo: set fnmode=2 and run sudo limine-mkinitcpio.",
   "/etc/modprobe.d/hid_apple.conf con fnmode=3 (auto): primero multimedia en este teclado Apple, Fn para F1–F12. El dictado de Omarchy ahora es Fn+F9. Deshacer: fnmode=2 y sudo limine-mkinitcpio.",
@@ -259,6 +382,9 @@ LOG = [
 ]
 
 ISSUES = [
+ ("Accents still use the old layout after editing input.lua", "Los acentos usan la distribución anterior tras editar input.lua",
+  "fcitx5, the input method Omarchy runs, copies the keyboard layout only when it starts. After changing kb_variant or kb_layout in input.lua and running hyprctl reload, restart it with: fcitx5 --disable notificationitem -r -d (or log out and in). Symptom: apps keep typing with the previous layout. The status row 'Accents on the right Option key' warns when this happens.",
+  "fcitx5, el método de entrada que usa Omarchy, copia la distribución del teclado solo al arrancar. Tras cambiar kb_variant o kb_layout en input.lua y correr hyprctl reload, reinícialo con: fcitx5 --disable notificationitem -r -d (o cierra y abre sesión). Síntoma: las apps siguen escribiendo con la distribución anterior. La fila de estado 'Acentos en la tecla Option derecha' avisa cuando pasa.")  ,
  ("Harmless graphics warning", "Advertencia gráfica inofensiva",
   "The kernel log may show an i915 'hsw_enable_pc8' warning. It's a known Intel Haswell power-saving message on 2014 MacBooks and the system keeps running.",
   "El registro del kernel puede mostrar una advertencia i915 'hsw_enable_pc8'. Es un mensaje conocido de ahorro de energía en Haswell (MacBook 2014); el sistema sigue funcionando."),
@@ -271,8 +397,61 @@ ISSUES = [
 ]
 
 
+# What is waiting, and on whom. kind: you = needs your hands · sudo = needs your password · decision = yours to make · optional
+TODO = [
+ ("you", "Close the lid once", "Cierra la tapa una vez",
+  "This MacBook has never suspended since the install, so sleep is untested. Close the lid for 30 seconds, open it, then run the command: the Sleep row above and the Your MacBook page turn green or red from the real result. If it wakes by itself, tell Claude: the fix (stop the USB controller XHC1 from waking it) is known and ready to write.",
+  "Esta MacBook no ha suspendido ni una vez desde la instalación, así que el reposo no está probado. Cierra la tapa 30 segundos, ábrela y corre el comando: la fila Reposo de arriba y la página Tu MacBook se ponen en verde o rojo según el resultado real. Si despierta sola, avisa a Claude: la solución (impedir que el controlador USB XHC1 la despierte) se conoce y está lista para escribirse.",
+  "~/labspace/omarchy-kit/sleep/sleep-check"),
+ ("you", "Feel the keyboard and trackpad changes", "Prueba con tus manos el teclado y el trackpad",
+  "Accents on the right Option key, the ⌘ shortcuts and the trackpad gestures were verified in software and in a real Brave window, not with physical fingers. The Learn lessons 'Typing Spanish', 'Your ⌘ shortcuts inside apps' and 'Trackpad gestures' check them with your own keys. If a key does the wrong thing, say which.",
+  "Los acentos en la tecla Option derecha, los atajos ⌘ y los gestos del trackpad se verificaron en software y en una ventana real de Brave, no con dedos de verdad. Las lecciones de Aprender 'Escribir en español', 'Tus atajos ⌘ dentro de las apps' y 'Gestos del trackpad' los comprueban con tus propias teclas. Si una tecla hace algo mal, di cuál.",
+  ""),
+ ("you", "Unplug the charger once", "Desenchufa el cargador una vez",
+  "The automatic power profile was tested against a simulated charger, not a real unplug. Unplug, wait two seconds, run the command (expect profile: balanced), plug in again (expect performance).",
+  "El perfil de energía automático se probó con un cargador simulado, no con un desenchufe real. Desenchufa, espera dos segundos, corre el comando (debe decir profile: balanced), vuelve a enchufar (debe decir performance).",
+  "~/labspace/omarchy-kit/power/power-auto --status"),
+ ("sudo", "Set up backups", "Configura los respaldos",
+  "One command (preview it first with --dry-run): hourly snapshots of /home and Pika Backup. Then open Pika Backup and pick an external drive for the real backup, since snapshots on the same disk do not survive a dead disk. Tip: leave ~/Games out of the backup if the library can be rebuilt.",
+  "Un comando (míralo antes con --dry-run): instantáneas de /home cada hora y Pika Backup. Luego abre Pika Backup y elige un disco externo para el respaldo real, porque las instantáneas en el mismo disco no sobreviven a un disco dañado. Consejo: deja ~/Games fuera del respaldo si la biblioteca se puede reconstruir.",
+  "sudo ~/labspace/omarchy-kit/backup/install-backups"),
+ ("decision", "Which ⌘ keys should replace Omarchy's Super keys in apps?", "¿Qué teclas ⌘ deben reemplazar a las Super de Omarchy en las apps?",
+  "Recommended: ⌘W, ⌘T, ⌘F and ⌘S (close tab, new tab, find, save: the four you would miss most). The price: in apps (never in terminals) Omarchy's close window, float toggle, full screen and scratchpad move to Super+Alt+W, Super+Alt+T, Super+Ctrl+Alt+F and Super+Ctrl+Alt+S, and your 4-finger-down gesture still toggles the scratchpad. ⌘L, ⌘G and ⌘P are rarer (address bar, find next, print) and cost the workspace layout, grouping and pseudo-tiling. Everything is built, tested and reversible: it only needs your choice.",
+  "Recomendado: ⌘W, ⌘T, ⌘F y ⌘S (cerrar pestaña, pestaña nueva, buscar, guardar: las cuatro que más echarías de menos). El precio: en las apps (nunca en terminales) cerrar ventana, alternar flotante, pantalla completa y scratchpad de Omarchy pasan a Super+Alt+W, Super+Alt+T, Super+Ctrl+Alt+F y Super+Ctrl+Alt+S, y tu gesto de 4 dedos hacia abajo sigue mostrando el scratchpad. ⌘L, ⌘G y ⌘P son menos frecuentes (barra de direcciones, buscar siguiente, imprimir) y cuestan el diseño del espacio, la agrupación y el pseudo-mosaico. Todo está construido, probado y es reversible: solo falta tu elección.",
+  "~/labspace/omarchy-kit/keys/mac-key-extras W T F S"),
+ ("optional", "Turn on Auto appearance", "Activa la apariencia automática",
+  "Light theme (white) from 07:00 and your dark theme from 19:00, like macOS Auto. Installed but off, because it changes your look twice a day. Change the themes or hours in ~/.config/omarchy-kit/appearance.conf first if you like.",
+  "Tema claro (white) desde las 07:00 y tu tema oscuro desde las 19:00, como la apariencia Automática de macOS. Instalada pero apagada, porque cambia tu aspecto dos veces al día. Si quieres, cambia antes los temas u horas en ~/.config/omarchy-kit/appearance.conf.",
+  "auto-appearance on"),
+ ("optional", "A Dock?", "¿Un Dock?",
+  "Not installed: a dock fights the tiling idea and the Omarchy menu already launches apps. If you miss seeing what is running at a glance, ask Claude to build and test one (nwg-dock-hyprland 0.4.11 is in the extra repo; installing needs sudo). Not built on a guess.",
+  "No instalado: un dock choca con la idea del mosaico y el menú de Omarchy ya abre apps. Si echas de menos ver de un vistazo lo que está abierto, pide a Claude que lo construya y pruebe (nwg-dock-hyprland 0.4.11 está en el repositorio extra; instalarlo requiere sudo). No se construyó a ciegas.",
+  ""),
+ ("you", "External display and SD card", "Monitor externo y tarjeta SD",
+  "Both are detected but untested (see Your MacBook). Plug a monitor in BEFORE logging in so Hyprland can use it; the NVIDIA GPU then stays on.",
+  "Ambos se detectan pero no se han probado (ver Tu MacBook). Conecta el monitor ANTES de iniciar sesión para que Hyprland lo use; la GPU NVIDIA se queda entonces encendida.",
+  ""),
+]
+
+# Looked at and deliberately left alone, so the work is not repeated.
+SKIPPED = [
+ ("System font (San Francisco look)", "Fuente del sistema (aspecto San Francisco)",
+  "Tested in a real Brave and reverted. GTK apps and system-ui pages already use Adwaita Sans (GNOME's UI font, derived from Inter, the closest free relative of San Francisco). The stack most sites use (-apple-system, BlinkMacSystemFont) falls through to Liberation Sans, and fontconfig cannot change that in Chromium: it ignores fontconfig substitutes that are not metric-compatible. The generic sans-serif is Omarchy's deliberate Liberation Sans default (/etc/fonts/conf.d/50-omarchy.conf), which its own tools may rely on, so it was not overridden. Nothing was installed.",
+  "Probado en un Brave real y revertido. Las apps GTK y las páginas con system-ui ya usan Adwaita Sans (la fuente de GNOME, derivada de Inter, el pariente libre más cercano de San Francisco). La pila que usan la mayoría de sitios (-apple-system, BlinkMacSystemFont) cae en Liberation Sans, y fontconfig no puede cambiarlo en Chromium: ignora sustitutos de fontconfig que no sean compatibles en métricas. El genérico sans-serif es el Liberation Sans que Omarchy elige a propósito (/etc/fonts/conf.d/50-omarchy.conf), del que sus herramientas pueden depender, así que no se sobrescribió. No se instaló nada."),
+ ("Optimized Battery Charging (80% limit)", "Carga optimizada de batería (límite del 80 %)",
+  "Not possible on this MacBook: the battery exposes no charge-limit control to Linux (no charge_control_end_threshold in /sys/class/power_supply/BAT0). The battery is already at about 75% of its original capacity.",
+  "No es posible en esta MacBook: la batería no expone a Linux ningún control de límite de carga (no hay charge_control_end_threshold en /sys/class/power_supply/BAT0). La batería ya conserva cerca del 75 % de su capacidad original."),
+ ("Press-and-hold accent picker", "Selector de acentos al mantener pulsada una tecla",
+  "Wayland has no equivalent for apps in general. The right Option key (⌥e e, ⌥n n) covers the same need, and Caps Lock is a second way (Compose).",
+  "Wayland no tiene un equivalente general para las apps. La tecla Option derecha (⌥e e, ⌥n n) cubre la misma necesidad, y Bloq Mayús es una segunda forma (Compose)."),
+ ("Keyboard repeat speed", "Velocidad de repetición del teclado",
+  "Currently 40 characters per second after 250 ms (Hyprland's input defaults). Not compared with your Mac's setting, which is not known here: tune repeat_rate and repeat_delay in input.lua if it feels different.",
+  "Ahora son 40 caracteres por segundo tras 250 ms (valores por defecto de Hyprland). No se comparó con el ajuste de tu Mac, que aquí no se conoce: ajusta repeat_rate y repeat_delay en input.lua si se siente distinto."),
+]
+
+
 def build():
-    data = {"checks": checks(), "status": STATUS, "log": LOG, "issues": ISSUES,
+    data = {"checks": checks(), "status": STATUS, "log": LOG, "issues": ISSUES, "todo": TODO, "skipped": SKIPPED,
             "built": sh("date", "+%Y-%m-%d %H:%M")}
     tpl = (HERE / "setup.template.html").read_text()
     out = tpl.replace("/*__DATA__*/{}", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))

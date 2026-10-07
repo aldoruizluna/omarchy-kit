@@ -50,7 +50,7 @@ try {
 
   console.log("learn: verification engine (synthetic desktop states)");
   await go("/learn#super"); await b.sleep(600);
-  c.ok(await b.eval(`document.querySelectorAll('#side a').length===24`), "24 lessons listed");
+  c.ok(await b.eval(`document.querySelectorAll('#side a').length===Portal.data.levels.reduce((n,l)=>n+l.lessons.length,0)`), "every lesson is listed", await b.eval(`document.querySelectorAll('#side a').length+' of '+Portal.data.levels.reduce((n,l)=>n+l.lessons.length,0)`));
   c.ok(await b.eval(`document.getElementById('liveNote').innerText.includes('Live mode')`), "live mode active when served by the helper");
   const unit = await b.eval(`(()=>{
     const base={ws:1,special:"",active:{addr:"a",floating:false,fullscreen:0,grouped:0},clients:[{addr:"a",class:"org.omarchy.terminal",ws:1}],theme:"Tokyo Night",volume:"0.5",shot:0};
@@ -78,14 +78,14 @@ try {
   c.ok(await b.eval(`JSON.parse(localStorage.getItem('kit-progress')).accents==='done'`), "progress saved");
   await b.shot(`${OUT}/02-learn-done.png`);
   await go("/"); await b.sleep(500);
-  c.ok(await b.eval(`document.getElementById('levels').innerText.includes('1/6')`), "Start page shows level progress (1/6 in Everyday tasks)", await b.eval(`document.getElementById('levels').innerText.replace(/\\n/g,' ')`));
+  c.ok(await b.eval(`document.getElementById('levels').innerText.includes('1/'+Portal.data.levels[2].lessons.length)`), "Start page shows level progress (1 done in Everyday tasks)", await b.eval(`document.getElementById('levels').innerText.replace(/\\n/g,' ')`));
   await go("/learn#spaces"); await b.sleep(600);
   c.ok(await b.eval(`document.querySelector('.step.watching')!==null`), "a desktop-verified step shows 'watching'");
   await b.shot(`${OUT}/03-learn-watching.png`);
 
   console.log("from macOS");
   await go("/mac");
-  c.ok(await b.eval(`document.querySelectorAll('.t').length===41`), "41 translations");
+  c.ok(await b.eval(`document.querySelectorAll('.t').length===Portal.data.mac.reduce((n,g)=>n+g[2].length,0)`), "every macOS translation is listed", await b.eval(`document.querySelectorAll('.t').length+' of '+Portal.data.mac.reduce((n,g)=>n+g[2].length,0)`));
   await b.eval(`(()=>{const i=document.getElementById('q');i.value='screenshot';i.dispatchEvent(new Event('input'))})()`);
   c.ok(await b.eval(`document.querySelectorAll('.t').length>=2&&document.querySelectorAll('.t').length<8`), "search narrows the list", await b.eval(`document.querySelectorAll('.t').length`));
   await b.eval(`(()=>{const i=document.getElementById('q');i.value='';i.dispatchEvent(new Event('input'))})()`);
@@ -100,6 +100,21 @@ try {
   c.ok(await b.eval(`(()=>{const r={bad:0,warn:1,ok:2};const v=[...document.querySelectorAll('.hw .dot')].map(d=>r[['bad','warn','ok'].find(k=>d.classList.contains(k))]);return v.every((x,i)=>i===0||v[i-1]<=x)})()`), "problems are listed first");
   c.ok(await b.eval(`[...document.querySelectorAll('.livebox')].some(l=>/Intel|NVIDIA/.test(l.innerText)&&l.innerText.includes('°C'))`), "live GPU/temperature readings shown", await b.eval(`[...document.querySelectorAll('.livebox')].map(l=>l.innerText).join(' | ')`));
   await b.shot(`${OUT}/05-macbook.png`);
+  c.ok(await b.eval(`[...document.querySelectorAll('.livebox')].some(l=>l.innerText.includes('Auto profile'))`), "battery box shows whether the power profile follows the charger");
+  c.ok(await b.eval(`[...document.querySelectorAll('.livebox')].some(l=>l.innerText.includes('Sleeps seen'))`), "sleep box shows the real suspend history");
+
+  console.log("setup log");
+  await go("/setup"); await b.sleep(600);
+  c.ok(await b.eval(`D.status.every(([,,rows])=>rows.every(r=>D.checks[r[0]]))`), "every status row has a live check (none stuck on 'manual check')", await b.eval(`JSON.stringify(D.status.flatMap(([,,rows])=>rows.map(r=>r[0])).filter(k=>!D.checks[k]))`));
+  c.ok(await b.eval(`(t=>t.includes('mac habits')&&t.includes('backups'))(document.getElementById('status').innerText.toLowerCase())`), "Mac habits and Backups groups are listed");
+  c.ok(await b.eval(`D.todo.length>=6&&document.querySelectorAll('#todo .card').length===D.todo.length&&[...document.querySelectorAll('#todo .badge')].length===D.todo.length`), "every open item is listed with who it waits on", await b.eval(`document.querySelectorAll('#todo .card').length+' of '+D.todo.length`));
+  c.ok(await b.eval(`document.querySelectorAll('#skipped .card').length===D.skipped.length&&D.skipped.length>=3`), "'looked at and left alone' is listed");
+  c.ok(await b.eval(`D.log.every(e=>e.length===5&&e[2]&&e[3])`), "every log entry has English and Spanish text");
+  c.ok(await b.eval(`D.todo.every(t=>t[3]&&t[4])&&D.skipped.every(t=>t[2]&&t[3])`), "every open item has English and Spanish text");
+  await b.eval(`document.getElementById('bLang').click()`); await b.sleep(200);
+  c.ok(await b.eval(`document.getElementById('todo').innerText.includes('Cierra la tapa')&&document.getElementById('skipped').innerText.includes('Fuente del sistema')`), "Spanish switch translates the new sections");
+  await b.eval(`document.getElementById('bLang').click()`); await b.sleep(200);
+  await b.shot(`${OUT}/05b-setup.png`);
 
   console.log("reference");
   await go("/reference");
@@ -110,7 +125,7 @@ try {
   await b.eval(`(()=>{const i=document.getElementById('cq');i.value='theme';i.dispatchEvent(new Event('input'))})()`);
   c.ok(await b.eval(`document.querySelectorAll('.cmdrow').length>3&&document.querySelectorAll('.cmdrow').length<60`), "command search works", await b.eval(`document.querySelectorAll('.cmdrow').length`));
   await b.eval(`document.querySelector('[data-tab=gloss]').click()`);
-  c.ok(await b.eval(`document.querySelectorAll('.gl dt').length===21`), "glossary has 21 terms");
+  c.ok(await b.eval(`document.querySelectorAll('.gl dt').length===Portal.data.glossary.length`), "every glossary term is listed", await b.eval(`document.querySelectorAll('.gl dt').length+' of '+Portal.data.glossary.length`));
   await b.eval(`document.querySelector('[data-tab=themes]').click()`);
   c.ok(await b.eval(`document.querySelectorAll('.theme').length===22&&document.querySelectorAll('.theme.cur').length===1`), "22 themes, current one highlighted");
   await b.eval(`document.querySelector('[data-tab=menu]').click()`); await b.shot(`${OUT}/06-reference.png`);

@@ -32,12 +32,23 @@ function live(kind) {
   if (!hw) return "";
   const L = (en, es) => (Portal.lang === "es" ? es : en);
   if (kind === "gpu") return `<div class="livebox"><span>${L("Screen driven by", "Pantalla controlada por")}: <b>${hw.gpu === "nvidia" ? "NVIDIA GT 750M ⚠" : hw.gpu === "intel" ? "Intel Iris Pro ✓" : "?"}</b></span><span>CPU <b>${hw.temps.cpu ?? "?"} °C</b></span>${hw.temps.gpu ? `<span>GPU <b>${hw.temps.gpu} °C</b></span>` : ""}<span>${L("Fans", "Ventiladores")} <b>${hw.fans.join(" / ")} RPM</b></span></div>`;
-  if (kind === "battery") return `<div class="livebox"><span>${L("Charge", "Carga")} <b>${hw.battery.pct}%</b> (${esc(hw.battery.status)})</span><span>${L("Health", "Salud")} <b>${hw.battery.health}%</b></span><span>${L("Cycles", "Ciclos")} <b>${esc(hw.battery.cycles)}</b></span><span>${L("Profile", "Perfil")} <b>${esc(hw.profile)}</b></span></div>`;
+  if (kind === "battery") return `<div class="livebox"><span>${L("Charge", "Carga")} <b>${hw.battery.pct}%</b> (${esc(hw.battery.status)})</span><span>${L("Health", "Salud")} <b>${hw.battery.health}%</b></span><span>${L("Cycles", "Ciclos")} <b>${esc(hw.battery.cycles)}</b></span><span>${L("Profile", "Perfil")} <b>${esc(hw.profile)}</b></span><span>${L("Auto profile", "Perfil automático")} <b>${hw.powerauto ? L("on", "activo") : L("off", "apagado")}</b></span></div>`;
+  if (kind === "sleep") {
+    const z = hw.sleep; if (!z) return "";
+    const last = z.cycles[z.cycles.length - 1];
+    const msg = z.status === "pending" ? L("Untested: close the lid for 30 s, open it, and this turns green", "Sin probar: cierra la tapa 30 s, ábrela y esto se pone en verde")
+      : z.status === "ok" ? L(`Last sleep ${(last.secs / 60).toFixed(1)} min, resumed fine`, `Último reposo ${(last.secs / 60).toFixed(1)} min, reanudó bien`)
+      : L(`Woke itself after ${Math.round(last.secs)} s`, `Despertó sola tras ${Math.round(last.secs)} s`);
+    return `<div class="livebox"><span>${L("Sleeps seen", "Reposos vistos")} <b>${z.count}</b></span><span>${esc(msg)}</span><span>${L("Can wake it", "Pueden despertarla")}: <b>${esc(z.wake_enabled.join(", ") || "—")}</b></span></div>`;
+  }
   if (kind === "thermal") return `<div class="livebox"><span>CPU <b>${hw.temps.cpu ?? "?"} °C</b></span><span>${L("Fans", "Ventiladores")} <b>${hw.fans.join(" / ")} RPM</b></span></div>`;
   return "";
 }
 function render() {
-  const items = [...D.hw].sort((a, b) => order[a.status] - order[b.status]);
+  // the sleep dot follows the real result from the system journal once there is one
+  const sleepDot = { ok: "ok", pending: "warn", action: "bad" };
+  const items = D.hw.map((h) => (h.live === "sleep" && hw && hw.sleep ? { ...h, status: sleepDot[hw.sleep.status] || h.status } : h))
+    .sort((a, b) => order[a.status] - order[b.status]);
   document.getElementById("list").innerHTML = items.map((h) => `<div class="hw"><i class="dot ${h.status}"></i><div>
     <h3>${esc(t(h))}</h3><p>${esc(t(h.body)).replace(/`([^`]+)`/g, "<code>$1</code>")}</p>
     ${h.k ? `<div class="row small">${Portal.bindHTML(h.k)} <span class="mut">${esc(h.k)}</span></div>` : ""}

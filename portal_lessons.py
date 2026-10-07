@@ -7,6 +7,12 @@ helper (/api/state) — so the lesson knows you actually did it. Check types (se
   toSpecial  focusChange  grouped  themeChanged  volumeChanged  newShot  typed{re}  manual
 """
 
+import kitconf
+
+DRAG = kitconf.three_fingers() == "drag"  # three fingers drag instead of swiping spaces (trackpad/three-fingers)
+FN = "4" if DRAG else "3"  # fingers for the space swipe the lessons teach
+
+
 def S(en, es, k=None, check="manual", menu=None, **kw):
     d = {"en": en, "es": es, "check": check}
     if k: d["k"] = k
@@ -36,7 +42,7 @@ LEVELS = [
            "es": "Los espacios 1–9 son escritorios separados, como los Spaces de Mission Control pero siempre presentes y numerados. Crea un hábito: navegador en 2, chat en 8, etc."},
    "steps": [S("Jump to space 2.", "Salta al espacio 2.", k="Switch to workspace 2", check="wsIs", ws=2),
              S("Come back to space 1.", "Vuelve al espacio 1.", k="Switch to workspace 1", check="wsIs", ws=1),
-             S("Now do it with your fingers: swipe left or right with 3 fingers on the trackpad.", "Ahora con los dedos: desliza a la izquierda o derecha con 3 dedos en el trackpad.", check="wsChange", gesture="3 ↔")]},
+             S(f"Now do it with your fingers: swipe left or right with {FN} fingers on the trackpad.", f"Ahora con los dedos: desliza a la izquierda o derecha con {FN} dedos en el trackpad.", check="wsChange", gesture=f"{FN} ↔")]},
   {"id": "move", "en": "Moving a window to another space", "es": "Mover una ventana a otro espacio",
    "why": {"en": "Rather than dragging windows between desktops, you send the focused window to a numbered space.",
            "es": "En lugar de arrastrar ventanas entre escritorios, envías la ventana enfocada a un espacio numerado."},
@@ -82,15 +88,21 @@ LEVELS = [
  ]},
  {"id": "l3", "en": "3 · Everyday tasks", "es": "3 · Tareas diarias", "lessons": [
   {"id": "accents", "en": "Typing Spanish: á é í ó ú ñ ¿ ¡", "es": "Escribir en español: á é í ó ú ñ ¿ ¡",
-   "why": {"en": "Instead of macOS's ⌥ keys, Omarchy turns Caps Lock into a Compose key. Press it, release, then type two characters: ' then a gives á, ~ then n gives ñ, ? then ? gives ¿, ! then ! gives ¡, \" then u gives ü, = then e gives €. For real Caps Lock, press both Shift keys.",
-           "es": "En vez de las teclas ⌥ de macOS, Omarchy convierte Bloq Mayús en una tecla Compose. Púlsala, suéltala y escribe dos caracteres: ' y a da á, ~ y n da ñ, ? y ? da ¿, ! y ! da ¡, \" y u da ü, = y e da €. Para el Bloq Mayús real pulsa ambos Shift."},
-   "steps": [S("In the box below, type: ¿Año? ¡Sí!", "En el recuadro de abajo escribe: ¿Año? ¡Sí!", check="typed", re="¿.*ñ.*\\?.*¡.*í", box=True)]},
+   "why": {"en": "Accents work like on your Mac, on the RIGHT Option key (⌥): press ⌥ and e together, release, then type the vowel: ⌥e then a gives á. ⌥n then n gives ñ, ⌥u then u gives ü, ⌥1 gives ¡, and ⌥ Shift / gives ¿. The left Option key stays Alt. A second way: Caps Lock is a Compose key (press it, release, then ' and a gives á). For real Caps Lock, press both Shift keys.",
+           "es": "Los acentos funcionan como en tu Mac, con la tecla Option (⌥) DERECHA: pulsa ⌥ y e juntas, suelta y escribe la vocal: ⌥e y luego a da á. ⌥n y luego n da ñ, ⌥u y luego u da ü, ⌥1 da ¡ y ⌥ Shift / da ¿. La tecla Option izquierda sigue siendo Alt. Una segunda forma: Bloq Mayús es una tecla Compose (púlsala, suéltala y escribe ' y a da á). Para el Bloq Mayús real pulsa ambos Shift."},
+   "steps": [S("In the box below, type: ¿Año? ¡Sí!   (right ⌥ Shift / for ¿, right ⌥ n then n for ñ, right ⌥ 1 for ¡, right ⌥ e then i for í)", "En el recuadro de abajo escribe: ¿Año? ¡Sí!   (⌥ derecho Shift / para ¿, ⌥ derecho n y luego n para ñ, ⌥ derecho 1 para ¡, ⌥ derecho e y luego i para í)", check="typed", re="¿.*ñ.*\\?.*¡.*í", box=True)]},
   {"id": "copy", "en": "Copy, paste and clipboard history", "es": "Copiar, pegar e historial del portapapeles",
    "why": {"en": "Super+C and Super+V copy and paste everywhere, terminals included, so your ⌘C/⌘V muscle memory keeps working. The clipboard manager remembers what you copied earlier.",
            "es": "Super+C y Super+V copian y pegan en todas partes, incluso en terminales, así que tu memoria de ⌘C/⌘V sigue sirviendo. El gestor de portapapeles recuerda lo que copiaste antes."},
    "steps": [S("Select this word: Omarchy, then copy it with the universal copy.", "Selecciona esta palabra: Omarchy, y cópiala con el copiar universal.", k="Universal copy"),
              S("Open the clipboard history and pick it again.", "Abre el historial del portapapeles y elígela de nuevo.", k="Clipboard manager"),
              S("Paste it into the box below.", "Pégala en el recuadro de abajo.", k="Universal paste", check="typed", re="Omarchy", box=True)]},
+  {"id": "cmdkeys", "en": "Your ⌘ shortcuts inside apps", "es": "Tus atajos ⌘ dentro de las apps",
+   "why": {"en": "Inside apps, your ⌘ key now sends Ctrl for the common Mac shortcuts: ⌘A select all, ⌘Z undo (⇧⌘Z redo), ⌘R reload, ⌘N new window, ⇧⌘T reopen a closed tab, ⌘D bookmark, ⌘B/⌘I/⌘U bold, italic, underline, ⌘[ and ⌘] back and forward. Terminals are skipped on purpose. ⌘W, ⌘T, ⌘F, ⌘S, ⌘L, ⌘G and ⌘P are opt-in, key by key, because Super+those keys already do Omarchy things (see From macOS).",
+           "es": "Dentro de las apps, tu tecla ⌘ ahora envía Ctrl para los atajos comunes de Mac: ⌘A seleccionar todo, ⌘Z deshacer (⇧⌘Z rehacer), ⌘R recargar, ⌘N ventana nueva, ⇧⌘T reabrir pestaña cerrada, ⌘D marcador, ⌘B/⌘I/⌘U negrita, cursiva y subrayado, ⌘[ y ⌘] atrás y adelante. Las terminales se omiten a propósito. ⌘W, ⌘T, ⌘F, ⌘S, ⌘L, ⌘G y ⌘P son opcionales, tecla por tecla, porque Super+esas teclas ya hacen cosas de Omarchy (ver Desde macOS)."},
+   "steps": [S("In the box below, type: casa. Then press Select all, and type: hogar. The box should end up holding only “hogar”.", "En el recuadro de abajo escribe: casa. Luego pulsa Seleccionar todo y escribe: hogar. El recuadro debe quedar solo con “hogar”.", k="Select all (⌘A)", check="typed", re="^hogar$", box=True),
+             S("Press Undo in the box: the previous text comes back.", "Pulsa Deshacer en el recuadro: vuelve el texto anterior.", k="Undo (⌘Z)"),
+             S("Press Reload: this page refreshes, like ⌘R in Safari. Then come back to the Learn page.", "Pulsa Recargar: esta página se actualiza, como ⌘R en Safari. Luego vuelve a la página Aprender.", k="Reload (⌘R)")]},
   {"id": "shots", "en": "Screenshots and screen recording", "es": "Capturas y grabación de pantalla",
    "why": {"en": "Your MacBook has no Print key, so you have a custom shortcut for screenshots, and the Capture menu has everything else: region, window, recording, text recognition (OCR), QR codes, color picker.",
            "es": "Tu MacBook no tiene tecla Print, así que tienes un atajo propio para capturas, y el menú Captura tiene todo lo demás: región, ventana, grabación, reconocimiento de texto (OCR), códigos QR, selector de color."},
@@ -132,11 +144,12 @@ LEVELS = [
    "steps": [S("Press F12 (volume up) or F11 (volume down).", "Pulsa F12 (subir volumen) o F11 (bajar volumen).", check="volumeChanged", keys="F11 / F12"),
              S("Press F5 and F6 to dim and brighten the keyboard backlight.", "Pulsa F5 y F6 para bajar y subir la luz del teclado.", keys="F5 / F6")]},
   {"id": "gestures", "en": "Trackpad gestures", "es": "Gestos del trackpad",
-   "why": {"en": "3 or 4 fingers sideways switch spaces; 4 up opens the Omarchy menu; 4 down shows the scratchpad; a 4-finger pinch opens the apps menu. Two fingers scroll naturally and two-finger click is right-click.",
-           "es": "3 o 4 dedos de lado cambian de espacio; 4 hacia arriba abre el menú de Omarchy; 4 hacia abajo muestra el scratchpad; pellizcar con 4 dedos abre el menú de apps. Dos dedos desplazan de forma natural y el clic con dos dedos es clic derecho."},
-   "steps": [S("Swipe with 3 fingers to change space.", "Desliza con 3 dedos para cambiar de espacio.", check="wsChange", gesture="3 ↔"),
-             S("Swipe up with 4 fingers to open the Omarchy menu (Esc closes it).", "Desliza hacia arriba con 4 dedos para abrir el menú de Omarchy (Esc lo cierra).", gesture="4 ↑"),
-             S("Swipe down with 4 fingers to show the scratchpad.", "Desliza hacia abajo con 4 dedos para mostrar el scratchpad.", check="special", v=True, gesture="4 ↓")]},
+   "why": {"en": ("4 fingers sideways switch spaces; " if DRAG else "3 or 4 fingers sideways switch spaces; ") + "4 up opens the Omarchy menu; 4 down shows the scratchpad; a 4-finger pinch opens the apps menu. " + ("Three fingers drag: slide them to select text or drag things, with no click. " if DRAG else "") + "Two fingers scroll naturally and two-finger click is right-click.",
+           "es": ("4 dedos de lado cambian de espacio; " if DRAG else "3 o 4 dedos de lado cambian de espacio; ") + "4 hacia arriba abre el menú de Omarchy; 4 hacia abajo muestra el scratchpad; pellizcar con 4 dedos abre el menú de apps. " + ("Tres dedos arrastran: deslízalos para seleccionar texto o arrastrar cosas, sin hacer clic. " if DRAG else "") + "Dos dedos desplazan de forma natural y el clic con dos dedos es clic derecho."},
+   "steps": [S(f"Swipe with {FN} fingers to change space.", f"Desliza con {FN} dedos para cambiar de espacio.", check="wsChange", gesture=f"{FN} ↔")]
+             + ([S("Select text on this page by sliding three fingers across it, with no click.", "Selecciona texto de esta página deslizando tres dedos sobre él, sin hacer clic.", gesture="3 drag")] if DRAG else [])
+             + [S("Swipe up with 4 fingers to open the Omarchy menu (Esc closes it).", "Desliza hacia arriba con 4 dedos para abrir el menú de Omarchy (Esc lo cierra).", gesture="4 ↑"),
+                S("Swipe down with 4 fingers to show the scratchpad.", "Desliza hacia abajo con 4 dedos para mostrar el scratchpad.", check="special", v=True, gesture="4 ↓")]},
   {"id": "health", "en": "Updates, snapshots and help", "es": "Actualizaciones, instantáneas y ayuda",
    "why": {"en": "Update weekly from the Update menu. Before big changes, take a snapshot, a restore point like Time Machine for the system. Super+K lists every shortcut, and this portal is one shortcut away.",
            "es": "Actualiza cada semana desde el menú Actualizar. Antes de cambios grandes toma una instantánea, un punto de restauración como Time Machine para el sistema. Super+K muestra todos los atajos y este portal está a un atajo."},

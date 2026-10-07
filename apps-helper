@@ -95,7 +95,22 @@ def hardware():
             "battery": {"pct": round(100 * int(read(bat + "/charge_now") or 0) / full) if full else int(read(bat + "/capacity") or 0),
                         "status": read(bat + "/status"),
                         "health": round(100 * full / design) if design else None, "cycles": read(bat + "/cycle_count")},
-            "profile": run_text("powerprofilesctl", "get")}
+            "profile": run_text("powerprofilesctl", "get"),
+            "powerauto": run_text("systemctl", "--user", "is-active", "power-auto.service") == "active",
+            "sleep": sleep_state()}
+
+
+_sleep = {"t": 0, "v": None}
+def sleep_state():
+    """Verdict of sleep/sleep-check (journal, no root); cached because /api/hw is polled every 5 s."""
+    import time
+    if time.time() - _sleep["t"] > 60:
+        try:
+            _sleep["v"] = json.loads(subprocess.run([str(HERE / "sleep" / "sleep-check"), "--json"], capture_output=True, text=True, timeout=20).stdout or "null")
+        except Exception:
+            _sleep["v"] = None
+        _sleep["t"] = time.time()
+    return _sleep["v"]
 
 
 def menu_ids():

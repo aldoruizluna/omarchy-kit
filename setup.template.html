@@ -57,11 +57,19 @@ kbd{display:inline-block;padding:0 6px;border:1px solid var(--line);border-botto
 <div class="summary" id="summary"></div>
 <div id="status"></div>
 
+<h2 data-en="Open items" data-es="Pendientes"></h2>
+<p class="hint" data-en="What is waiting, and on whom. Everything here was left for you on purpose: it needs your hands, your password, or your decision." data-es="Lo que está pendiente y de quién. Todo esto se dejó para ti a propósito: necesita tus manos, tu contraseña o tu decisión."></p>
+<div id="todo"></div>
+
 <h2 data-en="What was changed, and how to undo it" data-es="Qué se cambió y cómo deshacerlo"></h2>
 <div id="log"></div>
 
 <h2 data-en="Known issues" data-es="Problemas conocidos"></h2>
 <div id="issues"></div>
+
+<h2 data-en="Looked at and left alone" data-es="Revisado y dejado como está"></h2>
+<p class="hint" data-en="Ideas that were checked and deliberately not done, with the reason, so the work is not repeated." data-es="Ideas que se revisaron y a propósito no se hicieron, con la razón, para no repetir el trabajo."></p>
+<div id="skipped"></div>
 </div>
 <script>
 const D=/*__DATA__*/{};
@@ -83,6 +91,9 @@ function render(){
       return `<div class="row"><span class="badge ${st}">${t[st]}</span><span class="title">${esc(lang==="en"?ten:tes)}</span><span class="detail">${esc(detail)}</span>${todo?`<span class="todo">${esc(todo)}</span>`:""}${st==="ok"?"":cmdHTML(cmd)}</div>`}).join("")+`</div>`).join("");
   document.getElementById("summary").innerHTML=["ok","action","pending","info"].filter(k=>counts[k]).map(k=>`<span class="pill ${k}">${counts[k]} ${t[k]}</span>`).join("");
   document.getElementById("log").innerHTML=D.log.map(([en,es,pen,pes,cmd])=>`<div class="card log"><h4>${esc(lang==="en"?en:es)}</h4><p>${esc(lang==="en"?pen:pes)}</p>${cmdHTML(cmd)}</div>`).join("");
+  const K={you:{en:"needs you",es:"te toca",c:"action"},sudo:{en:"needs sudo",es:"pide sudo",c:"pending"},decision:{en:"your decision",es:"tu decisión",c:"info"},optional:{en:"optional",es:"opcional",c:"ok"}};
+  document.getElementById("todo").innerHTML=D.todo.map(([kind,en,es,pen,pes,cmd])=>`<div class="card log"><h4><span class="badge ${K[kind].c}">${K[kind][lang]}</span> ${esc(lang==="en"?en:es)}</h4><p>${esc(lang==="en"?pen:pes)}</p>${cmdHTML(cmd)}</div>`).join("");
+  document.getElementById("skipped").innerHTML=D.skipped.map(([en,es,pen,pes])=>`<div class="card log"><h4>${esc(lang==="en"?en:es)}</h4><p>${esc(lang==="en"?pen:pes)}</p></div>`).join("");
   document.getElementById("issues").innerHTML=D.issues.map(([en,es,pen,pes])=>`<div class="card log"><h4>${esc(lang==="en"?en:es)}</h4><p>${esc(lang==="en"?pen:pes)}</p></div>`).join("");
 }
 document.addEventListener("click",async e=>{const b=e.target.closest("[data-c]");if(!b)return;

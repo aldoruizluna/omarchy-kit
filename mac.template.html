@@ -17,7 +17,7 @@
 <div id="top"></div>
 <h1 data-en="Coming from macOS" data-es="Viniendo de macOS"></h1>
 <p class="lead" data-en="Every Mac habit, translated to your Omarchy MacBook. Search what you want to do, the way you'd have done it on a Mac." data-es="Cada hábito de Mac, traducido a tu MacBook con Omarchy. Busca lo que quieres hacer, como lo hacías en Mac."></p>
-<div class="callout"><b data-en="The one rule:" data-es="La única regla:"></b> <span data-en="where macOS used ⌘ for the system, Omarchy uses <kbd>Super</kbd>, which <b>is</b> your ⌘ key. Inside apps, Ctrl does what ⌘ did (Ctrl+C, Ctrl+T, Ctrl+F…), and <kbd>Super</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copy and paste everywhere." data-es="donde macOS usaba ⌘ para el sistema, Omarchy usa <kbd>Super</kbd>, que <b>es</b> tu tecla ⌘. Dentro de las apps, Ctrl hace lo que hacía ⌘ (Ctrl+C, Ctrl+T, Ctrl+F…), y <kbd>Super</kbd>+<kbd>C</kbd>/<kbd>V</kbd> copian y pegan en todas partes."></span></div>
+<div class="callout"><b data-en="The one rule:" data-es="La única regla:"></b> <span data-en="where macOS used ⌘ for the system, Omarchy uses <kbd>Super</kbd>, which <b>is</b> your ⌘ key. Inside apps, the common Mac shortcuts now work as you remember them (<kbd>Super</kbd>+<kbd>C</kbd>/<kbd>V</kbd>/<kbd>A</kbd>/<kbd>Z</kbd>/<kbd>R</kbd>…); for the few that Omarchy already uses (⌘W, ⌘T, ⌘F, ⌘S, ⌘L, ⌘G, ⌘P) Ctrl still does what ⌘ did unless you switch them on (see below)." data-es="donde macOS usaba ⌘ para el sistema, Omarchy usa <kbd>Super</kbd>, que <b>es</b> tu tecla ⌘. Dentro de las apps, los atajos comunes de Mac ya funcionan como los recuerdas (<kbd>Super</kbd>+<kbd>C</kbd>/<kbd>V</kbd>/<kbd>A</kbd>/<kbd>Z</kbd>/<kbd>R</kbd>…); en los pocos que Omarchy ya usa (⌘W, ⌘T, ⌘F, ⌘S, ⌘L, ⌘G, ⌘P) Ctrl sigue haciendo lo que hacía ⌘ a menos que los actives (ver abajo)."></span></div>
 <div class="row" style="margin:14px 0"><input type="search" id="q" style="flex:1 1 260px" aria-label="search"></div>
 <div class="tabs" id="how"></div>
 <div id="list"></div>
@@ -28,10 +28,11 @@
 const D = Portal.data, t = Portal.t, esc = Portal.esc;
 const HOW = { same: { en: "same habit", es: "mismo hábito" }, similar: { en: "same idea, new keys", es: "misma idea, otras teclas" }, different: { en: "new concept", es: "concepto nuevo" }, none: { en: "not available", es: "no disponible" } };
 let q = "", how = "all";
+const L = (x) => (typeof x === "string" ? x : t(x)); // "lit" is a plain string, or {en, es} when the words differ
 function omarchyCell(r) {
   const parts = (r.k || []).map((k) => `<div>${Portal.bindHTML(k)} <span class="small mut">${esc(k)}</span></div>`);
-  if (r.lit) parts.push(`<div class="lit">${esc(r.lit)}</div>`);
-  if (r.lit2) parts.push(`<div class="lit">${esc(r.lit2)}</div>`);
+  if (r.lit) parts.push(`<div class="lit">${esc(L(r.lit))}</div>`);
+  if (r.lit2) parts.push(`<div class="lit">${esc(L(r.lit2))}</div>`);
   if (r.gesture) parts.push(`<div><span class="gest">✋ ${esc(r.gesture)}</span></div>`);
   if (r.menu) parts.push(`<div>${Portal.menuBtn(r.menu)}</div>`);
   return parts.join("") || "—";
@@ -42,7 +43,7 @@ function render() {
     `<button data-how="${h}" aria-pressed="${how === h}">${h === "all" ? t({ en: "All", es: "Todo" }) : t(HOW[h])}</button>`).join("");
   let shown = 0;
   document.getElementById("list").innerHTML = D.mac.map(([cen, ces, rows]) => {
-    const rs = rows.filter((r) => (how === "all" || r.how === how) && (!q || [t(r.mac), r.mk, t(r.note), (r.k || []).join(" "), r.lit || "", cen, ces, r.mac.en, r.mac.es].join(" ").toLowerCase().includes(q)));
+    const rs = rows.filter((r) => (how === "all" || r.how === how) && (!q || [t(r.mac), r.mk, t(r.note), (r.k || []).join(" "), L(r.lit || ""), L(r.lit2 || ""), cen, ces, r.mac.en, r.mac.es].join(" ").toLowerCase().includes(q)));
     shown += rs.length;
     if (!rs.length) return "";
     return `<div class="cat"><h3>${esc(Portal.lang === "es" ? ces : cen)}</h3>` + rs.map((r) => `<div class="t">

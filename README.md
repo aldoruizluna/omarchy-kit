@@ -13,8 +13,8 @@ machine's real shortcuts, gestures, menus and hardware, and checks live that you
 | Page | What it does |
 |---|---|
 | **Start** | Your progress (XP, levels, streak, 15 badges), a live machine panel, and a gallery to switch the Omarchy theme |
-| **Learn** | 24 hands-on lessons, verified live against Hyprland (opening windows, switching spaces, the scratchpad…) |
-| **From macOS** | "How do I…?" for 41 Mac habits, translated to the shortcuts on *this* system |
+| **Learn** | 25 hands-on lessons, verified live against Hyprland (opening windows, switching spaces, the scratchpad…) |
+| **From macOS** | "How do I…?" for 50 Mac habits, translated to the shortcuts on *this* system |
 | **Your MacBook** | What works on 2014 MacBook hardware, with live readings and fixes |
 | **System** | Live graphs (2 s samples, 30 min history) of CPU temperature, fans, load, memory, network and battery, plus the busiest apps |
 | **Games** | Retro library status per console, disk budget, BIOS checklist, PS4 controller battery and hotkeys |
@@ -37,6 +37,34 @@ Across every page:
 - `gpu/`: keep the hot NVIDIA GT 750M **off** (`nvidia-off.service`) and the panel on Intel. Fans dropped from about 5,900 to about 2,200 RPM.
 - `audio/`: a measured speaker EQ in Omarchy's speaker-tuning layout, automatically bypassed for headphones.
 - The Setup log documents each change with its undo command.
+
+## Making it feel like a Mac
+
+For someone coming from macOS, on top of the gestures and top row the kit sets up:
+
+- **Accents like macOS.** `kb_variant = "mac"` (in `~/.config/hypr/input.lua`) makes the right Option key a dead-key
+  accent key: ⌥e then a gives á, ⌥n then n gives ñ, ⌥1 gives ¡, ⌥⇧/ gives ¿. The left Option stays Alt, so Hyprland's Alt
+  shortcuts are untouched. fcitx5 copies the layout only when it starts: after changing it run
+  `fcitx5 --disable notificationitem -r -d`.
+- **⌘ shortcuts inside apps** (`keys/`): `mackeys.lua` turns Super+A, Z, ⇧Z, R, ⇧R, N, ⇧T, D, B, I, U, [ and ] into the
+  Ctrl chord the app expects, skipping terminals. It only uses keys Omarchy leaves free (Super+W/T/F/S/L/P/G keep their
+  Omarchy meaning). `keys/install-mackeys` installs it and `--remove` undoes it; `test/verify-mackeys.mjs` checks every
+  shortcut against a real Brave window.
+- **Three fingers: your choice.** They switch spaces by default; `trackpad/three-fingers drag` turns them into a
+  three-finger drag (select and drag without clicking) with spaces on four fingers, as on a Mac that uses it.
+  libinput cannot do both, and macOS makes the same trade-off.
+- **Power profile follows the charger** (`power/`): Performance when plugged in, Balanced on battery, no root needed.
+- **Menu-bar clock with the date, and Auto appearance** (`appearance/`, off until you turn it on): light theme by day,
+  dark at night, switching only when the period changes so a hand-picked theme sticks.
+- **Opt-in ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P** (`keys/mac-key-extras`): Omarchy already uses those Super keys, so you choose key by key;
+  terminals always keep the Omarchy meaning.
+- **A Time Machine for your files** (`backup/install-backups`, needs sudo): hourly `/home` snapshots with snapper plus
+  Pika Backup for the real backup. Preview with `--dry-run`.
+- **Sleep that you can trust** (`sleep/sleep-check`): reads the journal and tells you whether closing the lid really
+  suspended and resumed, and warns about the known MacBookPro11 wake-on-USB problem.
+
+The full list, with how each piece was verified, the open decision and what is still waiting for a person, is in
+[docs/MAC-FEEL.md](docs/MAC-FEEL.md).
 
 These scripts are written for MacBookPro11,3. `gpu/nvidia-off` and `gpu/switch-to-intel` refuse to run on any other model; read the rest before running them on another machine.
 
