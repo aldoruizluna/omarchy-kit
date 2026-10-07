@@ -1,0 +1,47 @@
+#!/bin/bash
+# power-auto: switch the power profile when the charger is plugged in or unplugged, like macOS does.
+# On the charger -> performance, on battery -> balanced (override in ~/.config/omarchy-kit/power-auto.conf
+# with AC_PROFILE=... and BATTERY_PROFILE=..., any of: power-saver balanced performance).
+# It only acts when the charger state CHANGES (and once at start), so a profile you pick by hand on the
+# bar stays until the next plug or unplug.
+#   power-auto            watch for plug/unplug (what the user service runs)
+#   power-auto --once     apply the profile for the current state and exit
+#   power-auto --status   print the charger state and the active profile
+# Test without unplugging: KIT_FAKE_AC=0 power-auto --once   (1 = pretend it is plugged in)
+set -u
+AC_PROFILE=performance
+BATTERY_PROFILE=balanced
+conf=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy-kit/power-auto.conf
+[[ -r $conf ]] && . "$conf"
+
+ac_online() {
+  if [[ -n ${KIT_FAKE_AC:-} ]]; then [[ $KIT_FAKE_AC == 1 ]]; return; fi
+  local t
+  for t in /sys/class/power_supply/*/type; do
+    [[ $(<"$t") == Mains && $(<"${t%type}online") == 1 ]] && return 0
+  done
+  return 1
+}
+
+last=""
+sync_profile() {
+  local state want
+  if ac_online; then state=ac; want=$AC_PROFILE; else state=battery; want=$BATTERY_PROFILE; fi
+  [[ $state == "$last" ]] && return
+  last=$state
+  if [[ $(powerprofilesctl get) != "$want" ]]; then
+    powerprofilesctl set "$want" && echo "on $state: power profile -> $want"
+  else
+    echo "on $state: power profile already $want"
+  fi
+}
+
+case ${1:-} in
+  --status) ac_online && echo "charger: plugged in" || echo "charger: on battery"; echo "profile: $(powerprofilesctl get)"; exit 0 ;;
+  --once) sync_profile; exit 0 ;;
+esac
+
+sync_profile
+# every plug/unplug (and battery level change) is a power_supply udev event; sync_profile ignores
+# the ones that do not change the charger state
+while read -r _; do sleep 1; sync_profile; done < <(udevadm monitor --udev --subsystem-match=power_supply)

@@ -1,0 +1,10 @@
+[Unit]
+Description=Check whether it is time to switch between the light and dark theme
+
+[Timer]
+OnStartupSec=45s
+OnCalendar=*:0/10
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

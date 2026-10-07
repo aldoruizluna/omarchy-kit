@@ -1,0 +1,33 @@
+#!/bin/bash
+# Install auto appearance (no root). It is installed but OFF: turn it on with `auto-appearance on`.
+# Remove everything with: ./install-auto-appearance --remove
+set -euo pipefail
+cd "$(dirname "$0")"
+CFG=${XDG_CONFIG_HOME:-$HOME/.config}
+STATE=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-kit/appearance
+
+if [[ ${1:-} == --remove ]]; then
+  systemctl --user disable --now auto-appearance.timer 2>/dev/null || true
+  rm -f "$CFG/systemd/user/auto-appearance.service" "$CFG/systemd/user/auto-appearance.timer" "$HOME/.local/bin/auto-appearance" "$STATE"
+  systemctl --user daemon-reload
+  echo "removed (your settings file $CFG/omarchy-kit/appearance.conf was kept)"; exit 0
+fi
+
+install -Dm755 auto-appearance "$HOME/.local/bin/auto-appearance"
+install -Dm644 auto-appearance.service "$CFG/systemd/user/auto-appearance.service"
+install -Dm644 auto-appearance.timer "$CFG/systemd/user/auto-appearance.timer"
+if [[ ! -f $CFG/omarchy-kit/appearance.conf ]]; then
+  # the dark theme is the one you use now (if it is dark), so turning this on never changes your night look
+  cur=$(cd /usr/share/omarchy/themes 2>/dev/null && grep -l 'mode = "light"' */colors.toml 2>/dev/null | cut -d/ -f1 | grep -qx "$(omarchy theme current | tr 'A-Z ' 'a-z-')" && echo retro-82 || omarchy theme current | tr 'A-Z ' 'a-z-')
+  install -d "$CFG/omarchy-kit"
+  cat > "$CFG/omarchy-kit/appearance.conf" <<CONF
+# Auto appearance (omarchy-kit/appearance). See: omarchy theme list
+LIGHT_THEME=white
+DARK_THEME=${cur:-retro-82}
+LIGHT_FROM=07:00
+DARK_FROM=19:00
+CONF
+fi
+systemctl --user daemon-reload
+echo "installed, OFF. Settings: $CFG/omarchy-kit/appearance.conf"
+"$HOME/.local/bin/auto-appearance" status

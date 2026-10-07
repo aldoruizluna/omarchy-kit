@@ -1,0 +1,6 @@
+[Unit]
+Description=Switch the Omarchy theme between light (day) and dark (night)
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/bin/auto-appearance

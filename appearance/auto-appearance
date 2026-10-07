@@ -1,0 +1,133 @@
+#!/usr/bin/env python3
+"""auto-appearance: a light theme by day and a dark one by night, like macOS "Appearance: Auto".
+
+A user timer runs this every 10 minutes. It switches the Omarchy theme only when the day/night PERIOD changes
+(and once at the first run), so a theme you pick by hand stays until the next boundary, as on a Mac.
+
+  auto-appearance             apply the theme for the current period if the period changed
+  auto-appearance status      the schedule, the current period and whether the timer is on
+  auto-appearance light|dark  switch now; the schedule takes over again at the next boundary
+  auto-appearance on|off      turn the schedule on or off (the timer)
+  auto-appearance --dry-run   say what would happen, change nothing
+
+Settings: ~/.config/omarchy-kit/appearance.conf   LIGHT_THEME= DARK_THEME= LIGHT_FROM=07:00 DARK_FROM=19:00
+Test a time of day without waiting: KIT_FAKE_NOW=21:30 auto-appearance --dry-run
+"""
+import os, re, subprocess, sys
+from datetime import datetime
+from pathlib import Path
+
+CONF = Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "omarchy-kit" / "appearance.conf"
+STATE = Path(os.environ.get("XDG_STATE_HOME", Path.home() / ".local/state")) / "omarchy-kit" / "appearance"
+DEFAULTS = {"LIGHT_THEME": "white", "DARK_THEME": "retro-82", "LIGHT_FROM": "07:00", "DARK_FROM": "19:00"}
+TIMER = "auto-appearance.timer"
+
+
+def settings():
+    s = dict(DEFAULTS)
+    try:
+        for line in CONF.read_text().splitlines():
+            m = re.match(r'\s*([A-Z_]+)\s*=\s*"?([^"#\s]+)"?', line)
+            if m and m.group(1) in s:
+                s[m.group(1)] = m.group(2)
+    except OSError:
+        pass
+    return s
+
+
+def minutes(hhmm):
+    h, m = hhmm.split(":")
+    return int(h) * 60 + int(m)
+
+
+def now_minutes():
+    fake = os.environ.get("KIT_FAKE_NOW")
+    if fake:
+        return minutes(fake)
+    n = datetime.now()
+    return n.hour * 60 + n.minute
+
+
+def period(s, now):
+    lf, df = minutes(s["LIGHT_FROM"]), minutes(s["DARK_FROM"])
+    return "light" if (lf <= now < df if lf < df else not df <= now < lf) else "dark"
+
+
+def norm(name):
+    return re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+
+
+def run(*cmd):
+    return subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+
+
+def themes():
+    return {norm(t) for t in run("omarchy", "theme", "list").stdout.splitlines() if t.strip()}
+
+
+def current():
+    return norm(run("omarchy", "theme", "current").stdout)
+
+
+def timer_on():
+    return run("systemctl", "--user", "is-enabled", TIMER).stdout.strip() == "enabled"
+
+
+def switch(theme, dry):
+    if current() == theme:
+        print(f"theme is already {theme}")
+        return True
+    if theme not in themes():
+        print(f"theme '{theme}' does not exist (see: omarchy theme list); fix {CONF}", file=sys.stderr)
+        return False
+    if dry:
+        print(f"would switch the theme to {theme}")
+        return True
+    r = run("omarchy-theme-set", theme)
+    print(f"switched the theme to {theme}" if r.returncode == 0 else f"omarchy-theme-set failed: {r.stderr.strip()}")
+    return r.returncode == 0
+
+
+def remember(p):
+    STATE.parent.mkdir(parents=True, exist_ok=True)
+    STATE.write_text(p + "\n")
+
+
+def main(argv):
+    dry = "--dry-run" in argv
+    args = [a for a in argv if not a.startswith("--")]
+    s, cmd = settings(), (args[0] if args else "")
+    p = period(s, now_minutes())
+    if cmd in ("on", "off"):
+        r = run("systemctl", "--user", "enable" if cmd == "on" else "disable", "--now", TIMER)
+        if r.returncode:
+            print(r.stderr.strip() or "could not change the timer (is it installed? run install-auto-appearance)", file=sys.stderr)
+            return 1
+        print(f"auto appearance is {cmd}")
+        if cmd == "on":
+            return main(["--dry-run"] if dry else [])
+        return 0
+    if cmd == "status":
+        print(f"schedule: {s['LIGHT_THEME']} from {s['LIGHT_FROM']}, {s['DARK_THEME']} from {s['DARK_FROM']}")
+        print(f"now: {p} period · current theme: {current()} · schedule {'ON' if timer_on() else 'off'}")
+        return 0
+    if cmd in ("light", "dark"):
+        ok = switch(s["LIGHT_THEME" if cmd == "light" else "DARK_THEME"], dry)
+        if ok and not dry:
+            remember(p)  # a hand-picked theme holds until the period changes
+        return 0 if ok else 1
+    if cmd:
+        print(__doc__)
+        return 2
+    last = STATE.read_text().strip() if STATE.exists() else ""
+    if last == p:
+        print(f"{p} period, unchanged: nothing to do")
+        return 0
+    ok = switch(s["LIGHT_THEME" if p == "light" else "DARK_THEME"], dry)
+    if ok and not dry:
+        remember(p)
+    return 0 if ok else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

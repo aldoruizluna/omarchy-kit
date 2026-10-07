@@ -1,0 +1,48 @@
+#!/bin/bash
+# A Time Machine for your files, in two layers. Needs root, so run it yourself:
+#
+#     sudo ~/labspace/omarchy-kit/backup/install-backups          (preview first: add --dry-run, no sudo needed)
+#
+# 1. Hourly local snapshots of /home with snapper (Time Machine's "local snapshots"): the last 6 hours, 7 days,
+#    2 weeks and 1 month are kept, and you can browse or restore any file from them without sudo.
+#    They live on the SAME disk, so they protect against mistakes and bad deletes, NOT against a dead disk.
+# 2. Pika Backup (a friendly borg GUI): the real backup, to an external drive or a server, encrypted, scheduled.
+#    After this script, open "Pika Backup" and pick the drive; that one step needs you.
+#
+# Undo: sudo ./install-backups --remove      (keeps the snapshots already taken until you delete them)
+set -euo pipefail
+DRY=0; MODE=install
+for a in "$@"; do case $a in --dry-run) DRY=1 ;; --remove) MODE=remove ;; *) echo "usage: install-backups [--dry-run] [--remove]" >&2; exit 2 ;; esac; done
+
+run() { if ((DRY)); then echo "+ $*"; else "$@"; fi; }
+((DRY)) || [[ $EUID -eq 0 ]] || { echo "needs root: sudo $0 $*   (or --dry-run to preview)" >&2; exit 1; }
+WHO=${SUDO_USER:-${USER:-$(id -un)}}
+
+if [[ $MODE == remove ]]; then
+  run snapper -c home delete-config
+  run systemctl disable --now snapper-timeline.timer
+  ((DRY)) && echo "(dry run: nothing was changed)" || echo "removed the /home config. Pika Backup stays installed (sudo pacman -Rns pika-backup to remove it)."
+  exit 0
+fi
+
+# (command substitution, not `cmd | grep -q`: with pipefail the early-exiting grep can make the pipeline "fail")
+[[ $(findmnt -no FSTYPE /home) == btrfs ]] || { echo "/home is not on btrfs: snapshots are not possible here" >&2; exit 1; }
+configs=$(snapper list-configs 2>/dev/null || true)
+if grep -q '^home ' <<<"$configs"; then
+  echo "snapper already has a 'home' config; only refreshing its limits"
+else
+  run snapper -c home create-config /home
+fi
+# ALLOW_USERS + SYNC_ACL: you can list and browse snapshots (snapper -c home list) without sudo
+run snapper -c home set-config TIMELINE_CREATE=yes TIMELINE_CLEANUP=yes ALLOW_USERS="$WHO" SYNC_ACL=yes \
+  TIMELINE_LIMIT_HOURLY=6 TIMELINE_LIMIT_DAILY=7 TIMELINE_LIMIT_WEEKLY=2 TIMELINE_LIMIT_MONTHLY=1 TIMELINE_LIMIT_YEARLY=0 \
+  NUMBER_CLEANUP=yes NUMBER_LIMIT=5 NUMBER_LIMIT_IMPORTANT=3
+# the root config keeps TIMELINE_CREATE=no, so enabling the timeline timer only affects /home
+run systemctl enable --now snapper-timeline.timer snapper-cleanup.timer
+run pacman -S --needed --noconfirm pika-backup
+run snapper -c home create --description "first snapshot (install-backups)"
+echo
+((DRY)) && { echo "(dry run: nothing was changed)"; exit 0; }
+echo "Done. See your snapshots:  snapper -c home list"
+echo "Restore a file:            cp /home/.snapshots/<number>/snapshot/$WHO/<path> ~/<path>"
+echo "Next: open Pika Backup, choose an external drive, and pick what to back up (your home folder, minus ~/Games if you like)."

@@ -1,0 +1,22 @@
+#!/bin/bash
+# Install the automatic power profile (no root needed). Remove with: ./install-power-auto --remove
+set -euo pipefail
+cd "$(dirname "$0")"
+CFG=${XDG_CONFIG_HOME:-$HOME/.config}
+
+if [[ ${1:-} == --remove ]]; then
+  systemctl --user disable --now power-auto.service 2>/dev/null || true
+  rm -f "$CFG/systemd/user/power-auto.service" "$HOME/.local/bin/power-auto"
+  systemctl --user daemon-reload
+  echo "removed; the power profile stays whatever it is now (change it with Super+Ctrl+P)"
+  exit 0
+fi
+
+install -Dm755 power-auto "$HOME/.local/bin/power-auto"
+install -Dm644 power-auto.service "$CFG/systemd/user/power-auto.service"
+systemctl --user daemon-reload
+systemctl --user enable power-auto.service >/dev/null 2>&1
+systemctl --user restart power-auto.service
+sleep 1.5
+power-auto --status
+journalctl --user -u power-auto.service -n 3 --no-pager -o cat
