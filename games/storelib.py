@@ -16,6 +16,9 @@ Trust model (nothing here is trust-on-first-use):
   * Every downloaded file is checked against the snapshot's size, SHA-256 and SHA-1; a mismatch deletes it.
   * Network use: the configured snapshot source, and the artifact addresses inside a verified snapshot.
     Nothing else, no telemetry, nothing is uploaded.
+  * Your own backups (personallib): folders you register are scanned and recognised on this device only. A
+    commercial game you hold a recognised backup of shows "In your backups" and installs from that folder with no
+    network use at all. Locations and personal.sqlite are never exported, shared or sent anywhere.
 
 Standard library only; signatures are checked with the `openssl` command line tool.
 """
@@ -24,6 +27,8 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
 from compression import zstd
+
+import personallib as pl
 
 CLIENT_VERSION = "0.1.0"          # this client's version; a snapshot's minClient may not exceed it
 SCHEMA = 1
@@ -390,7 +395,8 @@ class SnapshotCache:
 # ---------------------------------------------------------------- the store
 class Store:
     def __init__(self, *, games, roms, key_path, config_path, systems, budget_check=None, budget_info=None,
-                 free_bytes=None, after_change=None, log=print, client_version=CLIENT_VERSION, now=time.time):
+                 free_bytes=None, after_change=None, log=print, client_version=CLIENT_VERSION, now=time.time,
+                 locations_path=None, rdb_dir=None, mounts=None):
         """systems: {libretro db name: {"folder": ..., "exts": [...]}}.
         budget_check(extra_bytes) -> None when the library still fits, else a sentence.
         after_change(folders) runs the kit's scan/ES-DE steps; it is not called by the single-item methods."""
@@ -404,6 +410,11 @@ class Store:
         self.log, self.client_version, self.now = log, client_version, now
         self.cache = SnapshotCache(self.games / ".cache" / "store")
         self.manifest_path = self.games / ".kit-store.json"
+        # your own backups: local configuration and a local database, nothing else
+        self.locations_path = Path(locations_path) if locations_path else self.config_path.with_name("store-locations.json")
+        self.personal_path = self.cache.root / "personal.sqlite"
+        self.rdb_dir = Path(rdb_dir) if rdb_dir else pl.DEFAULT_RDB_DIR
+        self.mounts = mounts
 
     # ---- configuration and the cached snapshot
     def source(self, override=None):
@@ -532,16 +543,18 @@ class Store:
         hint = ("  Did you mean: " + ", ".join(e["slug"] for e in near)) if near else ""
         raise StoreError(f"nothing named {ref!r} in this catalog.{hint}")
 
-    def list_lines(self, entries):
+    def list_lines(self, entries, backup_ids=()):
         installed = self.manifest()
         lines = []
         for e in entries:
             mark = "✓" if e["id"] in installed else " "
             lic = (e.get("license") or {}).get("spdx") or ((e.get("license") or {}).get("kind") or "")
+            if e["id"] in backup_ids:
+                lic = "In your backups"
             lines.append(f"{mark} {e['slug']:<38.38} {e['mode']:<5} {e['platformKey']:<42.42} {lic}")
         return lines
 
-    def info_lines(self, e):
+    def info_lines(self, e, groups=()):
         out = [f"{e['title']}  [{e['id']}]", f"  slug       {e['slug']}", f"  platform   {e['platformKey']}   kind: {e['kind']}   mode: {e['mode']}"]
         art, lic = e.get("artifact"), e.get("license")
         if lic:
@@ -554,7 +567,13 @@ class Store:
                     f"  sha1       {art['sha1']}", f"  source     {art['url']}"]
             if e["mode"] == "link":
                 out.append("  note       link mode: the file comes from its source's own site, not from the store.")
-        if e["mode"] == "guide":
+        if e["mode"] == "guide" and groups:
+            out.append("  In your backups: you hold a recognised copy of this game (it was not downloaded, and the store offers no file).")
+            for i, g in enumerate(groups, 1):
+                locs = sorted({r["location"] for r in g["items"]})
+                out.append(f"  backup {i:<3}  {g['name']}  ({len(g['items'])} file{'s' if len(g['items']) != 1 else ''} in {', '.join(Path(x).name for x in locs)})")
+            out.append(f"  install    kit-games store get {e['slug']}" + (" --which N" if len(groups) > 1 else "") + "   (copies it from your folder; --link makes a link instead)")
+        elif e["mode"] == "guide":
             out.append("  No file is offered for this title: it is a commercial game. The store lists where to dump or buy your own copy.")
             for r in e.get("routes", []):
                 out.append(f"  {r['kind']:<10} {r.get('label', '')}  {r['url']}")
@@ -564,13 +583,17 @@ class Store:
         return out
 
     # ---- get
-    def get(self, ref, platform=None):
+    def get(self, ref, platform=None, which=None, link=False):
         snap = self.require()
         e = self.resolve(snap, ref, platform)
         if e["mode"] == "guide":
+            groups = self.backup_groups(snap).get(e["id"])
+            if groups:
+                return self._install_personal(e, snap, groups, which, link)
             routes = "".join(f"\n  {r['kind']}: {r.get('label', '')} {r['url']}" for r in e.get("routes", []))
             raise StoreError(f"{e['title']} is a commercial game: the store never offers a file for it. "
-                             f"It lists where to dump or buy your own copy.{routes}")
+                             f"It lists where to dump or buy your own copy.{routes}\n"
+                             "  If you already own a backup of it, register its folder (`store locations add`) and run `store scan`.")
         art = e["artifact"]
         system = self.systems.get(e["platformKey"])
         if not system:
@@ -752,7 +775,9 @@ class Store:
         removed, notes = [], []
         tomb = {t["id"]: t for t in snap.tombstones}
         for key in list(manifest):
-            if key in tomb:
+            if key in tomb and manifest[key].get("source") == "personal":
+                notes.append(f"{manifest[key]['title']} was withdrawn from the catalog, but you installed it from your own backup, so it stays.")
+            elif key in tomb:
                 rec = self._remove_key(key, manifest)
                 removed.append((rec, tomb[key]["reason"]))
             elif key not in snap.by_id:
@@ -763,7 +788,7 @@ class Store:
 
     def _write_credits(self, folder, manifest):
         path = self.roms / folder / "STORE-CREDITS.md"
-        rows = sorted((m for m in manifest.values() if m["folder"] == folder), key=lambda m: m["title"].lower())
+        rows = sorted((m for m in manifest.values() if m["folder"] == folder and m.get("source") != "personal"), key=lambda m: m["title"].lower())
         if not rows:
             path.unlink(missing_ok=True)
             return
@@ -776,11 +801,11 @@ class Store:
         path.write_text("\n".join(lines) + "\n")
 
     # ---- batch helpers that run the kit's scan/ES-DE steps once
-    def get_many(self, refs, platform=None):
+    def get_many(self, refs, platform=None, which=None, link=False):
         results, folders = [], set()
         for ref in refs:
             try:
-                r = self.get(ref, platform)
+                r = self.get(ref, platform, which, link)
                 results.append((ref, r, None))
                 if r["status"] == "installed":
                     folders.add(r["folder"])
@@ -809,6 +834,207 @@ class Store:
             self.after_change({r["folder"] for r, _ in removed})
         return removed, notes
 
+    # ---- your own backups (ADR 0006 on the client): local configuration, local scan, local database
+    def locations(self):
+        return pl.Locations(self.locations_path)
+
+    def add_location(self, raw, label=None):
+        try:
+            return self.locations().add(raw, label, mounts=self.mounts, library_dirs=[self.roms, self.cache.root], now=self.now)
+        except pl.PersonalError as e:
+            raise StoreError(str(e)) from None
+
+    def remove_location(self, raw):
+        """Forget a location and every row recognised from it. The files themselves are never touched."""
+        try:
+            loc = self.locations().remove(raw)
+            rows = pl.PersonalDB(self.personal_path).forget_location(loc["path"])
+        except pl.PersonalError as e:
+            raise StoreError(str(e)) from None
+        return loc, rows
+
+    def _guide_keys(self, snap):
+        by_key, by_igdb = {}, {}
+        for e in snap.entries:
+            if e["mode"] != "guide":
+                continue
+            by_key.setdefault((e["platformKey"], pl.norm_title(e["title"])), []).append(e)
+            if isinstance(e.get("igdbId"), int):
+                by_igdb.setdefault((e["platformKey"], e["igdbId"]), []).append(e)
+        return by_key, by_igdb
+
+    def _igdb_lookup(self):
+        """db, canonical name -> the IGDB id of the one catalog guide entry it matches, else None."""
+        try:
+            snap = self.current()
+        except StoreError:
+            snap = None
+        if snap is None:
+            return None
+        by_key, _ = self._guide_keys(snap)
+        def lookup(db, name):
+            cands = by_key.get((db, pl.norm_title(name))) or []
+            return cands[0]["igdbId"] if len(cands) == 1 and isinstance(cands[0].get("igdbId"), int) else None
+        return lookup
+
+    def personal_db(self):
+        return pl.PersonalDB(self.personal_path)
+
+    def scan_backups(self, only=None):
+        """Recognise the files in your locations against the libretro databases on this machine. On demand only."""
+        locs = self.locations().all()
+        if not locs:
+            raise StoreError("no locations yet: add the folder that holds your backups with `kit-games store locations add <folder>`")
+        if only and not any(only in (x["path"], x.get("label")) for x in locs):
+            raise StoreError(f"{only!r} is not one of your locations (see `store locations list`)")
+        index = pl.RdbIndex(self.rdb_dir)
+        exts_by_db = {db: {x.lower() for x in s["exts"]} for db, s in self.systems.items()}
+        loaded = [db for db in exts_by_db if index.add_db(db)]
+        if not loaded:
+            raise StoreError(f"no libretro databases for this library's systems in {self.rdb_dir} (is libretro-database installed?)")
+        exts_by_db = {db: exts_by_db[db] for db in loaded}
+        try:
+            return pl.scan_locations(self.personal_path, locs, index, exts_by_db, self._igdb_lookup(), log=self.log, now=self.now, only=only)
+        except pl.PersonalError as e:
+            raise StoreError(str(e)) from None
+
+    def backup_groups(self, snap):
+        """{guide entry id: [{"name", "platform", "items": [rows]}]} for commercial games you hold a recognised copy of.
+
+        Matching is by IGDB id when the scan found one, else by platform plus the title without its dump tags.
+        An entry or a title that is not unique is left unmatched: nothing is guessed."""
+        try:
+            rows = pl.PersonalDB(self.personal_path).identified()
+        except pl.PersonalError:
+            return {}
+        if not rows:
+            return {}
+        by_key, by_igdb = self._guide_keys(snap)
+        found = {}
+        for r in rows:
+            cands = by_igdb.get((r["platform_key"], r["igdb_id"])) if r["igdb_id"] else None
+            if not cands or len(cands) != 1:
+                cands = by_key.get((r["platform_key"], r["match_key"]))
+            if not cands or len(cands) != 1:
+                continue
+            found.setdefault(cands[0]["id"], {}).setdefault(r["canonical_name"], []).append(r)
+        return {eid: [{"name": n, "platform": rs[0]["platform_key"], "items": rs} for n, rs in sorted(g.items())] for eid, g in found.items()}
+
+    def _verify_backup(self, row):
+        """The file must still be the dump that was recognised: same size, same hashes. Otherwise rescan."""
+        p = Path(row["path"])
+        try:
+            st = p.stat()
+        except OSError:
+            raise StoreError(f"{p} is gone or its drive is not mounted: mount it and run `store scan`") from None
+        if row["member"]:
+            one = pl.zip_single_member(p)
+            if not one:
+                raise StoreError(f"{p} changed since the last scan: run `store scan`")
+            got = pl.zip_member_variants(p, one[0], one[1])
+        else:
+            got = pl.file_variants(p, p.suffix.lower().lstrip("."), st.st_size)
+        if not any(v[1] == row["sha1"] for v in got):
+            raise StoreError(f"{p} changed since the last scan (its checksum no longer matches): run `store scan`")
+
+    def _pick_group(self, e, groups, which):
+        if len(groups) == 1 and which is None:
+            return groups[0]
+        listing = "".join(f"\n  {i}. {g['name']}" for i, g in enumerate(groups, 1))
+        if which is None:
+            raise StoreError(f"{e['title']}: several different dumps are in your backups, and the store will not pick one for you:{listing}\n"
+                             "  choose with --which N")
+        if str(which).isdigit() and 1 <= int(which) <= len(groups):
+            return groups[int(which) - 1]
+        hit = [g for g in groups if str(which).lower() in g["name"].lower()]
+        if len(hit) == 1:
+            return hit[0]
+        raise StoreError(f"--which {which!r} does not pick exactly one of:{listing}")
+
+    def _group_files(self, group):
+        items = group["items"]
+        sheets = [r for r in items if Path(r["path"]).suffix.lower() in pl.SHEET_EXTS]
+        if sheets:
+            if len(sheets) > 1:
+                raise StoreError(f"{group['name']}: more than one disc sheet matches it; not guessing which to install")
+            sheet = Path(sheets[0]["path"])
+            return [sheet, *pl.disc_members(sheet)]
+        if len(items) == 1:
+            return [Path(items[0]["path"])]
+        raise StoreError(f"{group['name']}: {len(items)} files match it but none is a disc sheet (.cue/.gdi), so the store cannot tell what to install")
+
+    def _install_personal(self, e, snap, groups, which, link):
+        system = self.systems.get(e["platformKey"])
+        if not system:
+            raise StoreError(f"this library has no folder for {e['platformKey']} (see games/systems.toml), so {e['title']} cannot be installed")
+        group = self._pick_group(e, groups, which)
+        manifest = self.manifest()
+        have = manifest.get(e["id"])
+        if have and have.get("source") == "personal" and have["files"] and all(os.path.lexists(self.roms / f) for f in have["files"]):
+            return {"status": "already", "entry": e, "files": have["files"]}
+        files = self._group_files(group)
+        for r in group["items"]:
+            self._verify_backup(r)
+        folder, ident, exts = system["folder"], e["id"], {x.lower() for x in system["exts"]}
+        primary_row = group["items"][0]
+        extract = bool(primary_row["member"]) and "zip" not in exts and len(files) == 1
+        if extract:
+            with zipfile.ZipFile(files[0]) as zf:
+                size = zf.getinfo(primary_row["member"]).file_size
+        else:
+            size = sum(f.stat().st_size for f in files)
+        problem = self.budget_check(size)
+        if problem:
+            raise StoreError(f"not installing {e['title']}: {problem}")
+        if not link and self.free_bytes() < size + 100 * 1024 * 1024:
+            raise StoreError(f"not installing {e['title']}: only {human(self.free_bytes())} of disk is free")
+        dest_dir = self.roms / folder
+        base = re.sub(r'[&*/:`<>?\\|"]', "_", group["name"])
+        plan = []   # (source, dest name)
+        for i, f in enumerate(files):
+            if i == 0:
+                suffix = (Path(primary_row["member"]).suffix if extract else f.suffix).lower()
+                plan.append((f, base + suffix))
+            else:
+                plan.append((f, f.name))   # tracks keep the names the sheet refers to
+        owned = set(have["files"]) if have else set()
+        for src, name in plan:
+            out = dest_dir / name
+            if os.path.lexists(out) and f"{folder}/{name}" not in owned:
+                raise StoreError(f"{folder}/{name} already exists and was not installed by the store; not overwriting it")
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        placed = []
+        try:
+            for src, name in plan:
+                out = dest_dir / name
+                tmp = out.with_name("." + out.name + ".part")
+                tmp.unlink(missing_ok=True)
+                if extract:
+                    with zipfile.ZipFile(src) as zf, zf.open(primary_row["member"]) as m, open(tmp, "wb") as dst:
+                        shutil.copyfileobj(m, dst)
+                elif link:
+                    os.symlink(src.resolve(), tmp)
+                else:
+                    shutil.copyfile(src, tmp)
+                    if tmp.stat().st_size != src.stat().st_size:
+                        raise StoreError(f"{name}: the copy is not the same size as the original; nothing installed")
+                os.replace(tmp, out)
+                placed.append(out)
+        except BaseException:
+            for out in placed:
+                out.unlink(missing_ok=True)
+            raise
+        rels = [f"{folder}/{name}" for _, name in plan]
+        manifest[e["id"]] = {
+            "id": e["id"], "slug": e["slug"], "title": e["title"], "platformKey": e["platformKey"], "folder": folder, "mode": "guide",
+            "source": "personal", "linked": bool(link and not extract), "canonicalName": group["name"], "snapshot": snap.version["version"],
+            "files": rels, "size": size, "sha1": primary_row["sha1"], "sha256": None,
+            "installedAt": time.strftime("%Y-%m-%dT%H:%M:%S%z", time.localtime(self.now())),
+        }
+        self._save_manifest(manifest)
+        self._write_credits(folder, manifest)
+        return {"status": "installed", "entry": e, "files": rels, "folder": folder, "source": "personal", "linked": bool(link and not extract)}
+
     # ---- health
     def health(self):
         out = {"key": self.key_path.exists(), "client": self.client_version, "source": None, "snapshot": None, "problem": None}
@@ -833,6 +1059,11 @@ class Store:
         out["installed"] = len(m)
         out["installed_bytes"] = sum(r["size"] for r in m.values())
         out["budget"] = self.budget_info()
+        try:
+            n = pl.PersonalDB(self.personal_path).counts()
+            out["backups"] = {"locations": len(self.locations().all()), **n}
+        except pl.PersonalError:
+            out["backups"] = {"locations": 0, "identified": 0, "unidentified": 0}
         return out
 
     def health_lines(self):
@@ -848,6 +1079,8 @@ class Store:
         else:
             out.append("snapshot          none yet" + (f" ({h['problem']})" if h["problem"] else ""))
         out.append(f"installed         {h['installed']} titles, {human(h['installed_bytes'])}")
+        b2 = h["backups"]
+        out.append(f"your backups      {b2['locations']} locations, {b2['identified']} recognised files, {b2['unidentified']} unidentified (counts only; nothing leaves this machine)")
         b = h["budget"]
         if b and b.get("cap"):
             out.append(f"library budget    {human(b['used'])} of {human(b['cap'])}")
