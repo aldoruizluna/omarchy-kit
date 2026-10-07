@@ -21,10 +21,16 @@
                       write ~/Games/telesia/library.json for Telesia's import (RetroArch playlist items with
                       clean titles + playtime from RetroArch's runtime logs); --upload sends it when
                       TELESIA_TOKEN (a Janua bearer) is set
+  kit-games store <action>
+                      a store of free games from a signed catalog snapshot: refresh [--from SOURCE] [--accept-drops],
+                      list [--platform P] [--mode host|link|guide] [--installed], search Q, info REF, get REF...,
+                      remove REF..., sync, health. Needs the publisher's public key in
+                      ~/.config/omarchy-kit/store-publisher.pem; commercial games are guide entries, never files
 
-Systems, cores and allocations live in systems.toml next to this script. ROMs are never downloaded by
-this tool: put your own dumps in ~/Games/roms/<folder>, named the No-Intro/Redump way
-("Title (Region).ext") so playlists and box art match.
+Systems, cores and allocations live in systems.toml next to this script. Commercial ROMs are never
+downloaded by this tool: put your own dumps in ~/Games/roms/<folder>, named the No-Intro/Redump way
+("Title (Region).ext") so playlists and box art match. `store` only installs games a catalog marks as
+free to download (homebrew, freeware), verified against the catalog's checksums.
 """
 import json, os, re, shutil, subprocess, sys, tomllib, urllib.error, urllib.parse, urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -690,6 +696,122 @@ def cmd_dolphin():
     return 0
 
 
+# ---------------------------------------------------------------- store (signed catalog snapshots)
+STORE_KEY = Path.home() / ".config/omarchy-kit/store-publisher.pem"
+STORE_CONFIG = Path.home() / ".config/omarchy-kit/store.toml"
+
+
+def store_client():
+    """The store library wired to this kit: the same budget as `ingest`, then the same scan and ES-DE steps."""
+    sys.path.insert(0, str(HERE))
+    import storelib
+
+    def budget_check(extra):
+        cap = (budget_cap() or {}).get("cap_bytes")
+        if cap and library_bytes() + extra > cap:
+            return f"it would exceed the {cap / GB:.0f} GB library budget ({human(library_bytes())} used; see `kit-games budget`)"
+
+    def budget_info():
+        cap = (budget_cap() or {}).get("cap_bytes")
+        return {"cap": cap, "used": library_bytes()} if cap else None
+
+    def after_change(folders):
+        print("Updating the library (playlists, ES-DE)…")
+        try:
+            cmd_scan(); cmd_esde()
+        except Exception as e:
+            print(f"Could not update the library automatically ({e}); run `kit-games scan` and `kit-games esde`.")
+
+    systems = {s["db"]: {"folder": s["folder"], "exts": s["exts"]} for s in SYSTEMS}
+    return storelib, storelib.Store(games=GAMES, roms=ROMS, key_path=STORE_KEY, config_path=STORE_CONFIG, systems=systems,
+                                    budget_check=budget_check, budget_info=budget_info, after_change=after_change)
+
+
+def cmd_store():
+    import argparse
+    ap = argparse.ArgumentParser(prog="kit-games store", description="Free games from a signed catalog snapshot.")
+    sub = ap.add_subparsers(dest="action", required=True)
+    p = sub.add_parser("refresh", help="fetch, verify and install the newest snapshot")
+    p.add_argument("--from", dest="source", metavar="SOURCE", help="a folder or https address holding version.json and catalog.sqlite.zst "
+                   "(default: [store] source in ~/.config/omarchy-kit/store.toml)")
+    p.add_argument("--accept-drops", action="store_true", help="install even if the snapshot drops entries without tombstones")
+    p = sub.add_parser("list", help="entries in the snapshot")
+    p.add_argument("--platform"); p.add_argument("--mode", choices=("host", "link", "guide")); p.add_argument("--installed", action="store_true")
+    p = sub.add_parser("search", help="search titles, slugs and credits"); p.add_argument("query", nargs="+")
+    p = sub.add_parser("info", help="license, credits, checksums and source of one entry"); p.add_argument("ref"); p.add_argument("--platform")
+    p = sub.add_parser("get", help="download, verify and install free games"); p.add_argument("refs", nargs="+", metavar="REF"); p.add_argument("--platform")
+    p = sub.add_parser("remove", help="delete games the store installed (saves are kept)"); p.add_argument("refs", nargs="+", metavar="REF")
+    sub.add_parser("sync", help="remove installed games whose entries were tombstoned")
+    sub.add_parser("health", help="key, snapshot age, counts, installs and budget")
+    a = ap.parse_args(sys.argv[2:])
+    lib, store = store_client()
+    try:
+        return store_run(a, lib, store)
+    except lib.DroppedEntries as e:
+        print(f"!! {e}")
+        return 1
+    except lib.StoreError as e:
+        print(f"store: {e}")
+        return 1
+
+
+def store_run(a, lib, store):
+    if a.action == "refresh":
+        r = store.refresh(a.source, a.accept_drops)
+        if r["status"] == "current":
+            print(f"Already up to date (snapshot {r['version']}).")
+        else:
+            print(f"Snapshot {r['version']} verified and installed: {r['entries']} entries ({r['added']} new), {r['tombstones']} tombstones"
+                  + (f"; replaces {r['previous']}" if r["previous"] else "") + ".")
+        removed, notes = store.sync_and_apply()
+        for rec, why in removed: print(f"Removed {rec['title']}: it was withdrawn from the catalog ({why}).")
+        for n in notes: print(f"Note: {n}")
+        return 0
+    if a.action == "sync":
+        removed, notes = store.sync_and_apply()
+        for rec, why in removed: print(f"Removed {rec['title']}: it was withdrawn from the catalog ({why}).")
+        for n in notes: print(f"Note: {n}")
+        if not removed and not notes: print("Nothing to remove: every installed game is still in the catalog.")
+        return 0
+    if a.action == "health":
+        print("\n".join(store.health_lines()))
+        return 0
+    if a.action == "remove":
+        bad = 0
+        for ref, rec, err in store.remove_many(a.refs):
+            print(f"Removed {rec['title']} ({len(rec['files'])} files); saves were not touched." if rec else f"! {ref}: {err}")
+            bad += err is not None
+        return 1 if bad else 0
+    snap = store.require()
+    if a.action == "list":
+        rows = store.list_entries(snap, a.platform, a.mode)
+        if a.installed:
+            have = store.manifest()
+            rows = [e for e in rows if e["id"] in have]
+        print("\n".join(store.list_lines(rows)) or "No entries match.")
+        print(f"\n{len(rows)} entries (snapshot {snap.version['version']}). ✓ = installed.")
+        return 0
+    if a.action == "search":
+        rows = store.search(snap, " ".join(a.query))
+        print("\n".join(store.list_lines(rows)) or "No entries match.")
+        return 0
+    if a.action == "info":
+        print("\n".join(store.info_lines(store.resolve(snap, a.ref, a.platform))))
+        return 0
+    if a.action == "get":
+        bad = 0
+        for ref, r, err in store.get_many(a.refs, a.platform):
+            if err:
+                print(f"! {ref}: {err}"); bad += 1
+            elif r["status"] == "already":
+                print(f"= {r['entry']['title']} is already installed ({', '.join(r['files'])}).")
+            else:
+                e = r["entry"]
+                print(f"✓ {e['title']} → {', '.join(r['files'][:3])}{' …' if len(r['files']) > 3 else ''}")
+                print(f"  license {e['license'].get('spdx') or e['license']['kind']} · {e['license']['attribution']}")
+        return 1 if bad else 0
+
+
 # ---------------------------------------------------------------- BIOS
 def bios_report():
     """One row per console from systems.toml [[bios]]; a row is satisfied when any of its files exists."""
@@ -716,7 +838,7 @@ def main():
     if cmd == "status": print(json.dumps(status())); return 0
     fn = {"init": cmd_init, "scan": cmd_scan, "art": cmd_art, "budget": cmd_budget, "bios": cmd_bios,
           "ingest": cmd_ingest, "export-telesia": cmd_export_telesia, "cabinet": cmd_cabinet, "esde": cmd_esde,
-          "dolphin": cmd_dolphin}.get(cmd)
+          "dolphin": cmd_dolphin, "store": cmd_store}.get(cmd)
     if not fn: print(__doc__); return 2
     return fn() or 0
 
