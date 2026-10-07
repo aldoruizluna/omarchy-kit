@@ -101,8 +101,14 @@ Free games to start with, all from their official sources:
 Games you own: dump them yourself and run `kit-games ingest`. [docs/DUMPING-GUIDE.md](docs/DUMPING-GUIDE.md) lists the
 right tool per console (GB Operator, OSCR, redumper, CleanRip, DreamShell) with steps.
 
-Planned, not built yet: a store page over these and more free or purchased sources, with provenance for every
-game. See [docs/GAME-STORE-ROADMAP.md](docs/GAME-STORE-ROADMAP.md).
+A store client reads a **signed catalog snapshot** that a publisher hosts: `kit-games store refresh --from <folder or
+https address>` fetches it and trusts it only if the checksum matches, the ECDSA P-256 signature verifies with a publisher
+public key you saved in `~/.config/omarchy-kit/store-publisher.pem` (never trust-on-first-use), and the version is newer than
+yours. `list`, `search` and `info` browse it, `get` installs free games (checked against the library budget and the catalog's
+checksums, with license and credit shown), `remove` and `sync` take them out again (saves are kept), and commercial games
+appear only as guides, never as files. Nothing is uploaded. Built and tested; not yet run on this machine's real library
+(no publisher key here). Still planned: a `/store` page and personal backup locations. See
+[docs/GAME-STORE-ROADMAP.md](docs/GAME-STORE-ROADMAP.md).
 
 ```bash
 games/kit-games init     # folders, budget, Dolphin Sys data
@@ -114,6 +120,8 @@ games/kit-games ingest   # identify your own dumps in ~/Games/inbox, rename, com
 games/kit-games esde     # ES-DE frontend over the library (official AppImage in ~/.local/opt/es-de)
 games/kit-games cabinet  # RetroFE config (RetroFE 0.10.31 renders black on Hyprland/Mesa 26; ES-DE is the frontend)
 games/kit-games export-telesia [--upload]   # library + playtime for Telesia's RetroArch import
+games/kit-games store refresh --from SOURCE # fetch, verify (pinned publisher key) and install a signed catalog snapshot
+games/kit-games store list|search|info|get|remove|sync|health   # browse it, install free games, withdraw tombstoned ones
 ```
 
 ## Run it
@@ -150,6 +158,8 @@ user = "username"
 node test/verify-portal.mjs      # all pages, lessons engine, palette, System page
 node test/verify-keyboard.mjs
 node test/verify-trackpad.mjs
+python3 test/test_store.py        # store client: signatures, rollback, checksums, tombstones (stdlib + openssl, no network)
+node test/verify-store-page.mjs  # the Games page's store section in EN and ES, served from this checkout
 CDP_ATTACH=9334 node test/verify-portal.mjs   # drive a real, GPU-accelerated Brave instead of headless Chromium
 ```
 

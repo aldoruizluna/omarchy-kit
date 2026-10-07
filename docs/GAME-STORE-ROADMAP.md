@@ -5,6 +5,15 @@
 > start (or be handed off) without re-doing the research. Written 2026-10-05; facts marked *verified* were
 > checked on that date.
 
+> **Update 2026-10-07:** a first slice is built and tested: `kit-games store` (refresh, list, search, info, get, remove,
+> sync, health) in `games/storelib.py`. Its shape differs from §5.1–5.2: the catalog is built by a **publisher**
+> and shipped as a signed snapshot (`version.json` + a zstd SQLite file, ECDSA P-256); the kit verifies it with a
+> public key the user pinned and installs from it, instead of running adapters itself. `~/Games/.kit-store.json`
+> is therefore the manifest of what the store installed, not the catalog. Built: browsing, `get` for plain ROMs,
+> MAME zips and ScummVM archives (budget-checked, checksum-verified), `remove`, tombstone `sync`, `health`.
+> Not built: RVZ/CHD conversion on `get`, the `/store` portal page and API (phase 4), art fetching on `get`,
+> personal backup locations, and a run against this machine's real library (no publisher key is installed here).
+
 **Resumen (ES):** Plan para una "tienda" de juegos dentro de Omarchy Kit: un catálogo con carátulas por consola,
 un botón "Obtener" que descarga, archiva y agrega el juego a ES-DE, siempre dentro del presupuesto de disco.
 Solo usa fuentes con derecho claro a distribuir (homebrew, freeware, contenido libre de libretro, itch.io
