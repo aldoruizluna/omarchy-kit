@@ -30,6 +30,16 @@ try {
   const note = await b.eval(`[...document.querySelectorAll('p.small.mut')].map(p => p.innerText).find(t => t.includes('Nothing is uploaded')) || ''`);
   c.ok(note.includes("Nothing is uploaded") && note.includes("guide"), "privacy and guide-only note is shown", note.slice(0, 80));
 
+  console.log("Your own backups (English)");
+  c.ok(await b.eval(`[...document.querySelectorAll('h2')].some(h => h.textContent === 'Your own backups')`), "backups heading is shown");
+  const brows = await b.eval(`document.querySelectorAll('#backupCmds tr').length`);
+  c.ok(brows === 8, "backups table lists the 7 commands plus its header", `rows=${brows}`);
+  const bk = await text("#backups");
+  for (const need of ["store locations add", "store scan", "unidentified", "In your backups", "--which", "--link", "refused"])
+    c.ok(bk.includes(need), `backups text mentions "${need}"`);
+  const stays = await b.eval(`[...document.querySelectorAll('p.small.mut')].map(p => p.innerText).find(t => t.includes('Stays on this machine')) || ''`);
+  c.ok(stays.includes("no way to export, share or import") && stays.includes("personal.sqlite") && stays.includes("Nothing is uploaded"), "the page says plainly that nothing is shared", stays.slice(0, 80));
+
   console.log("Spanish");
   await b.eval(`document.getElementById('bLang').click()`); await b.sleep(250);
   c.ok(await b.eval(`[...document.querySelectorAll('h2')].some(h => h.textContent === 'Tienda de juegos libres')`), "heading switches to Spanish");
@@ -38,6 +48,12 @@ try {
     c.ok(es.includes(need), `Spanish text mentions "${need}"`);
   c.ok(await b.eval(`[...document.querySelectorAll('p.small.mut')].some(p => p.innerText.includes('Nada se sube'))`), "Spanish privacy note is shown");
   c.ok(!(await text("#store")).includes("Nothing is uploaded"), "no English left in the store card after switching");
+  c.ok(await b.eval(`[...document.querySelectorAll('h2')].some(h => h.textContent === 'Tus propios respaldos')`), "backups heading switches to Spanish");
+  const bes = await text("#backups");
+  for (const need of ["store locations add", "sin identificar", "En tus respaldos", "--which", "Se rechazan"])
+    c.ok(bes.includes(need), `Spanish backups text mentions "${need}"`);
+  c.ok(await b.eval(`[...document.querySelectorAll('p.small.mut')].some(p => p.innerText.includes('No sale de esta máquina') && p.innerText.includes('a propósito no hay forma de exportar'))`), "Spanish says plainly that nothing is shared");
+  c.ok(!bes.includes("Register the folder") && !bes.includes("Nothing is uploaded"), "no English left in the backups card after switching");
   await b.eval(`document.getElementById('bLang').click()`);
 
   console.log("hygiene");
