@@ -737,11 +737,22 @@ def cmd_store():
     p.add_argument("--accept-drops", action="store_true", help="install even if the snapshot drops entries without tombstones")
     p = sub.add_parser("list", help="entries in the snapshot")
     p.add_argument("--platform"); p.add_argument("--mode", choices=("host", "link", "guide")); p.add_argument("--installed", action="store_true")
+    p.add_argument("--backups", action="store_true", help="only commercial games you hold a recognised backup of")
     p = sub.add_parser("search", help="search titles, slugs and credits"); p.add_argument("query", nargs="+")
     p = sub.add_parser("info", help="license, credits, checksums and source of one entry"); p.add_argument("ref"); p.add_argument("--platform")
-    p = sub.add_parser("get", help="download, verify and install free games"); p.add_argument("refs", nargs="+", metavar="REF"); p.add_argument("--platform")
+    p = sub.add_parser("get", help="download and install free games, or install a game from your own backups")
+    p.add_argument("refs", nargs="+", metavar="REF"); p.add_argument("--platform")
+    p.add_argument("--which", help="when several different dumps of a game are in your backups: the number or part of the name to install")
+    p.add_argument("--link", action="store_true", help="for a game from your backups: link to the file in your folder instead of copying it")
     p = sub.add_parser("remove", help="delete games the store installed (saves are kept)"); p.add_argument("refs", nargs="+", metavar="REF")
     sub.add_parser("sync", help="remove installed games whose entries were tombstoned")
+    p = sub.add_parser("locations", help="the folders that hold your own backups (local configuration; nothing is uploaded)")
+    ls = p.add_subparsers(dest="loc_action", required=True)
+    q = ls.add_parser("add", help="register a folder, drive or mounted share"); q.add_argument("path"); q.add_argument("--label")
+    ls.add_parser("list", help="show your locations")
+    q = ls.add_parser("remove", help="forget a location and what was recognised in it (your files are not touched)"); q.add_argument("path", metavar="PATH_OR_LABEL")
+    p = sub.add_parser("scan", help="recognise the files in your locations, on this machine only"); p.add_argument("--location", metavar="PATH_OR_LABEL")
+    p = sub.add_parser("backups", help="what was recognised in your locations"); p.add_argument("--unidentified", action="store_true", help="list the files nothing matched")
     sub.add_parser("health", help="key, snapshot age, counts, installs and budget")
     a = ap.parse_args(sys.argv[2:])
     lib, store = store_client()
@@ -782,25 +793,35 @@ def store_run(a, lib, store):
             print(f"Removed {rec['title']} ({len(rec['files'])} files); saves were not touched." if rec else f"! {ref}: {err}")
             bad += err is not None
         return 1 if bad else 0
+    if a.action == "locations":
+        return locations_run(a, store)
+    if a.action == "scan":
+        return scan_run(a, store)
+    if a.action == "backups":
+        return backups_run(a, store)
     snap = store.require()
+    groups = store.backup_groups(snap)
     if a.action == "list":
         rows = store.list_entries(snap, a.platform, a.mode)
         if a.installed:
             have = store.manifest()
             rows = [e for e in rows if e["id"] in have]
-        print("\n".join(store.list_lines(rows)) or "No entries match.")
+        if a.backups:
+            rows = [e for e in rows if e["id"] in groups]
+        print("\n".join(store.list_lines(rows, set(groups))) or "No entries match.")
         print(f"\n{len(rows)} entries (snapshot {snap.version['version']}). ✓ = installed.")
         return 0
     if a.action == "search":
         rows = store.search(snap, " ".join(a.query))
-        print("\n".join(store.list_lines(rows)) or "No entries match.")
+        print("\n".join(store.list_lines(rows, set(groups))) or "No entries match.")
         return 0
     if a.action == "info":
-        print("\n".join(store.info_lines(store.resolve(snap, a.ref, a.platform))))
+        e = store.resolve(snap, a.ref, a.platform)
+        print("\n".join(store.info_lines(e, groups.get(e["id"], ()))))
         return 0
     if a.action == "get":
         bad = 0
-        for ref, r, err in store.get_many(a.refs, a.platform):
+        for ref, r, err in store.get_many(a.refs, a.platform, a.which, a.link):
             if err:
                 print(f"! {ref}: {err}"); bad += 1
             elif r["status"] == "already":
@@ -808,8 +829,60 @@ def store_run(a, lib, store):
             else:
                 e = r["entry"]
                 print(f"✓ {e['title']} → {', '.join(r['files'][:3])}{' …' if len(r['files']) > 3 else ''}")
-                print(f"  license {e['license'].get('spdx') or e['license']['kind']} · {e['license']['attribution']}")
+                if r.get("source") == "personal":
+                    print(f"  from your own backup ({'linked' if r.get('linked') else 'copied'}); nothing was downloaded")
+                else:
+                    print(f"  license {e['license'].get('spdx') or e['license']['kind']} · {e['license']['attribution']}")
         return 1 if bad else 0
+
+
+def locations_run(a, store):
+    if a.loc_action == "add":
+        loc = store.add_location(a.path, a.label)
+        print(f"Added {loc['label']}: {loc['path']} ({loc['kind']}).")
+        print("It is local configuration only. Run `kit-games store scan` to recognise what is in it; nothing is uploaded or shared.")
+        return 0
+    if a.loc_action == "list":
+        locs = store.locations().all()
+        if not locs:
+            print("No locations yet. Add the folder that holds your own backups: kit-games store locations add <folder>")
+            return 0
+        for x in locs:
+            print(f"{x.get('label', ''):<20.20} {x.get('kind', ''):<9} {x['path']}")
+        return 0
+    loc, rows = store.remove_location(a.path)
+    print(f"Removed {loc.get('label', loc['path'])} and the {rows} files recognised in it. Your files were not touched.")
+    return 0
+
+
+def scan_run(a, store):
+    r = store.scan_backups(a.location)
+    for x in r["locations"]:
+        print(f"✓ {x['label']}: {x['files']} files looked at, {x['identified']} recognised, {x['unidentified']} unidentified")
+    print(f"\nRecognised {r['identified']}, unidentified {r['unidentified']} (hashed {r['hashed']}, unchanged {r['reused']}, no longer there {r['removed']}).")
+    print("Done on this machine: no hash, path or file list was sent anywhere. See what matched: kit-games store backups")
+    return 0
+
+
+def backups_run(a, store):
+    pdb = store.personal_db()
+    if a.unidentified:
+        rows = pdb.unidentified()
+        for r in rows:
+            print(f"? {r['path']}  ({r['note'] or 'no match'})")
+        print(f"\n{len(rows)} files nothing matched. A modified dump, a homebrew the databases do not list, a compressed container, or an unsupported format.")
+        return 0
+    try:
+        groups = store.backup_groups(store.current()) if store.current() else {}
+    except Exception:
+        groups = {}
+    slug_of = {g["name"]: store.current().by_id[eid]["slug"] for eid, gs in groups.items() for g in gs} if groups else {}
+    rows = pdb.identified()
+    for r in rows:
+        tag = f"  → store: {slug_of[r['canonical_name']]}" if r["canonical_name"] in slug_of else ""
+        print(f"{r['platform_key']:<42.42} {r['canonical_name']}{tag}")
+    print(f"\n{len(rows)} recognised files. Nothing here is shared; `store get <name>` installs a commercial game you hold from your own folder.")
+    return 0
 
 
 # ---------------------------------------------------------------- BIOS
