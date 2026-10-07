@@ -79,8 +79,11 @@ public key you saved in `~/.config/omarchy-kit/store-publisher.pem` (never trust
 yours. `list`, `search` and `info` browse it, `get` installs free games (checked against the library budget and the catalog's
 checksums, with license and credit shown), `remove` and `sync` take them out again (saves are kept), and commercial games
 appear only as guides, never as files. Nothing is uploaded. Built and tested; not yet run on this machine's real library
-(no publisher key here). Still planned: a `/store` page and personal backup locations. See
-[docs/GAME-STORE-ROADMAP.md](docs/GAME-STORE-ROADMAP.md).
+(no publisher key here). **Your own backups:** `store locations add <folder>` registers a folder that holds backups of games you
+own, `store scan` recognises its files on this machine against the libretro databases RetroArch already uses (nothing is
+sent anywhere), and a commercial catalog entry you hold a recognised copy of shows *In your backups* and installs from your
+folder with `store get`. Locations and the results are local files that cannot be exported or shared. Built and tested; not
+yet run on a real backup folder. Still planned: a `/store` page. See [docs/GAME-STORE-ROADMAP.md](docs/GAME-STORE-ROADMAP.md).
 
 ```bash
 games/kit-games init     # folders, budget, Dolphin Sys data
@@ -94,6 +97,7 @@ games/kit-games cabinet  # RetroFE config (RetroFE 0.10.31 renders black on Hypr
 games/kit-games export-telesia [--upload]   # library + playtime for Telesia's RetroArch import
 games/kit-games store refresh --from SOURCE # fetch, verify (pinned publisher key) and install a signed catalog snapshot
 games/kit-games store list|search|info|get|remove|sync|health   # browse it, install free games, withdraw tombstoned ones
+games/kit-games store locations add|list|remove, store scan|backups   # your own backups: recognised locally, installed from your folder
 ```
 
 ## Run it
@@ -131,6 +135,7 @@ node test/verify-portal.mjs      # all pages, lessons engine, palette, System pa
 node test/verify-keyboard.mjs
 node test/verify-trackpad.mjs
 python3 test/test_store.py        # store client: signatures, rollback, checksums, tombstones (stdlib + openssl, no network)
+python3 test/test_personal.py     # your own backups: locations, .rdb reader, scan, merge, install (sockets blocked)
 node test/verify-store-page.mjs  # the Games page's store section in EN and ES, served from this checkout
 CDP_ATTACH=9334 node test/verify-portal.mjs   # drive a real, GPU-accelerated Brave instead of headless Chromium
 ```

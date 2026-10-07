@@ -12,7 +12,17 @@
 > is therefore the manifest of what the store installed, not the catalog. Built: browsing, `get` for plain ROMs,
 > MAME zips and ScummVM archives (budget-checked, checksum-verified), `remove`, tombstone `sync`, `health`.
 > Not built: RVZ/CHD conversion on `get`, the `/store` portal page and API (phase 4), art fetching on `get`,
-> personal backup locations, and a run against this machine's real library (no publisher key is installed here).
+> and a run against this machine's real library (no publisher key is installed here).
+>
+> **Update 2026-10-07 (later): personal backup locations are built and tested** in `games/personallib.py`:
+> `store locations add|list|remove`, `store scan`, `store backups`, `store list --backups`, and `store get --which --link`.
+> Locations are local folders (or shares already mounted as paths) kept in `~/.config/omarchy-kit/store-locations.json`; a
+> scan hashes files on this machine and recognises them against the libretro `.rdb` databases already on disk (read
+> in-process, no network), writing `~/Games/.cache/store/personal.sqlite`. A commercial (guide) entry with a recognised copy
+> shows *In your backups* and installs from the user's folder; nothing is uploaded, and exporting or sharing locations is
+> intentionally absent. Not built: remote locations with credentials (WebDAV/S3), disc serial reads, recognition of
+> CHD/RVZ/7z containers and multi-file arcade sets, filesystem watching (scans run on demand only), and a run on a real
+> backup folder.
 
 **Resumen (ES):** Plan para una "tienda" de juegos dentro de Omarchy Kit: un catálogo con carátulas por consola,
 un botón "Obtener" que descarga, archiva y agrega el juego a ES-DE, siempre dentro del presupuesto de disco.
