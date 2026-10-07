@@ -553,7 +553,7 @@ class Store:
             out += [f"  file       {art['filename']}  ({art['format']}, {human(art['size'])})", f"  sha256     {art['sha256']}",
                     f"  sha1       {art['sha1']}", f"  source     {art['url']}"]
             if e["mode"] == "link":
-                out.append("  note       link mode: the file comes from its author's own site, not from the store.")
+                out.append("  note       link mode: the file comes from its source's own site, not from the store.")
         if e["mode"] == "guide":
             out.append("  No file is offered for this title: it is a commercial game. The store lists where to dump or buy your own copy.")
             for r in e.get("routes", []):
