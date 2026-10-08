@@ -1,5 +1,6 @@
 import { launch, checker } from "./cdp.mjs";
 import { mkdirSync } from "node:fs";
+if ((process.argv[2] || "").startsWith("-")) { console.log("usage: node test/verify-trackpad.mjs [output-folder]   (drives the running portal in a browser; see README)"); process.exit(["-h", "--help"].includes(process.argv[2]) ? 0 : 2); }
 const OUT = process.argv[2] || "/tmp/tpshots"; mkdirSync(OUT, { recursive: true });
 const URL = process.env.BASE ? process.env.BASE + "/trackpad" : "file://" + process.cwd().replace(/\/test$/, "") + "/trackpad.html";
 const c = checker("trackpad.html"); const b = await launch({ width: 1280, height: 1000 });
@@ -72,9 +73,9 @@ try {
   const r0 = await b.eval(`({rx,rz})`); await b.drag(st.x, st.y, st.x + 180, st.y - 60);
   const r1 = await b.eval(`({rx,rz})`);
   c.ok(r1.rz > r0.rz + 10 && r1.rx > r0.rx + 8, "drag outside the pad rotates the model", JSON.stringify({ r0, r1 }));
-  for (let i = 0; i < 3; i++) await b.wheel(640, 500, -300);
+  for (let i = 0; i < 3; i++) await b.wheel(st.x, st.y, -300);   // the point inside the stage that the drag used, not a fixed pixel
   c.ok(await b.eval(`zoom`) > 1.1, "wheel zooms", await b.eval(`zoom`));
-  await b.dblclick(640, 560); await b.sleep(700);
+  await b.dblclick(st.x, st.y); await b.sleep(700);
   c.ok(await b.eval(`rx===38&&rz===0&&zoom===1`), "double-click resets");
   for (const v of ["top", "low"]) { await b.eval(`document.querySelector('[data-view="${v}"]').click()`); await b.sleep(700); await b.shot(`${OUT}/05-view-${v}.png`); }
   await b.eval(`document.querySelector('[data-view="tilt"]').click()`); await b.sleep(600);

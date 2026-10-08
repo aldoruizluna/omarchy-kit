@@ -2,6 +2,7 @@
 // Never clicks "Show me" (that would open the real Omarchy menu on the user's screen).
 import { launch, checker } from "./cdp.mjs";
 import { mkdirSync } from "node:fs";
+if ((process.argv[2] || "").startsWith("-")) { console.log("usage: node test/verify-portal.mjs [output-folder]   (drives the running portal in a browser; see README)"); process.exit(["-h", "--help"].includes(process.argv[2]) ? 0 : 2); }
 const OUT = process.argv[2] || "/tmp/portalshots"; mkdirSync(OUT, { recursive: true });
 const BASE = process.env.BASE || "http://127.0.0.1:8787";
 const c = checker("portal"); const b = await launch({ width: 1280, height: 1000 });
@@ -14,6 +15,8 @@ try {
     const cur = await b.eval(`document.querySelector('#top a[aria-current=page]')?.getAttribute('href')`);
     const themed = await b.eval(`getComputedStyle(document.documentElement).getPropertyValue('--acc-fill').trim()!=='' && !!document.querySelector('.kit-search')`);
     c.ok(n === 12 && cur === p && themed && b.errors.length === before, `${p}: 12 nav links, '${p}' marked current, Omarchy theme + search button, no errors`, `links=${n} current=${cur} themed=${themed} errors=${b.errors.slice(before).join(" | ")}`);
+    const lm = await b.eval(`(()=>{const a=document.querySelector('a.kit-skip');const m=document.querySelector('main,[role=main]');return !!a&&!!m&&a.getAttribute('href')==='#'+m.id&&document.body.firstElementChild===a})()`);
+    c.ok(lm, `${p}: skip link first in the page, pointing at a main landmark`);
   }
   console.log("Ctrl+K palette, XP, System page");
   await go("/keyboard");
@@ -44,7 +47,7 @@ try {
   console.log("start page");
   await b.eval(`localStorage.removeItem('kit-progress')`); await go("/"); await b.sleep(1200);
   c.ok(await b.eval(`document.querySelectorAll('#nowList dt').length>=5`), "live 'your machine' panel filled", await b.eval(`document.getElementById('nowList').innerText.slice(0,120)`));
-  c.ok(await b.eval(`document.querySelectorAll('#levels .level').length===5`), "5 levels in the learning path");
+  c.ok(await b.eval(`document.querySelectorAll('#levels .level').length===6`), "6 levels in the learning path");
   c.ok(await b.eval(`document.getElementById('ctaBtn').textContent.includes('first lesson')`), "fresh visitor is invited to the first lesson");
   await b.shot(`${OUT}/01-start.png`);
 
@@ -113,6 +116,8 @@ try {
   c.ok(await b.eval(`D.todo.every(t=>t[3]&&t[4])&&D.skipped.every(t=>t[2]&&t[3])`), "every open item has English and Spanish text");
   await b.eval(`document.getElementById('bLang').click()`); await b.sleep(200);
   c.ok(await b.eval(`document.getElementById('todo').innerText.includes('Mide cuánta batería')&&document.getElementById('skipped').innerText.includes('Fuente del sistema')`), "Spanish switch translates the new sections");
+  c.ok(await b.eval(`(()=>{const keys=D.status.flatMap(([,,rows])=>rows.map(r=>r[0]));const els=[...document.querySelectorAll('#status .row .detail')];return keys.length===els.length&&keys.every((k,i)=>els[i].textContent===(D.checks[k][2]||D.checks[k][1]))})()`), "Spanish mode shows the Spanish live-check text (English only where it is just a name or number)");
+  c.ok(await b.eval(`Object.values(D.checks).filter(v=>v[2]).length>=30`), "at least 30 live checks carry Spanish text");
   await b.eval(`document.getElementById('bLang').click()`); await b.sleep(200);
   await b.shot(`${OUT}/05b-setup.png`);
 

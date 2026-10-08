@@ -1,0 +1,47 @@
+#!/bin/bash
+# test/run-all: every automated check of the kit in one command.
+#
+#   test/run-all            lint + hermetic tests + browser suites (needs the portal service on 127.0.0.1:8787 and chromium)
+#   test/run-all --fast     lint + hermetic tests only (no browser, no live service; safe anywhere, finishes in about 30 s)
+#   CDP_ATTACH=9334 test/run-all   drive a real GPU Brave for the browser suites, as CLAUDE.md describes
+#
+# Exit status is 0 only if everything that ran passed; a summary of failed steps is printed at the end.
+set -u
+cd "$(dirname "$(readlink -f "$0")")/.."
+export PYTHONDONTWRITEBYTECODE=1
+failed=()
+step() { local name=$1; shift; echo; echo "=== $name"; "$@" || failed+=("$name"); }
+
+# 1. syntax lint of everything executable (no shellcheck/ruff needed)
+lint_sh() { local rc=0 f; while IFS= read -r f; do bash -n "$f" || rc=1; done < <(git ls-files -z -- '*' | xargs -0 -I{} sh -c 'head -c 20 "{}" 2>/dev/null | grep -q "^#!.*\(bash\|/sh\)" && echo "{}"'); return $rc; }
+lint_py() { python3 -I - <<'EOF'
+import ast, subprocess, sys
+bad = 0
+for f in subprocess.run(["git", "ls-files"], capture_output=True, text=True).stdout.split():
+    try: head = open(f, "rb").read(80)
+    except OSError: continue
+    if f.endswith(".py") or head.startswith(b"#!") and b"python" in head.split(b"\n")[0]:
+        try: ast.parse(open(f).read(), f)
+        except SyntaxError as e: print("SYNTAX", f, e); bad = 1
+sys.exit(bad)
+EOF
+}
+step "bash -n (all shell scripts)" lint_sh
+step "python syntax (all modules and scripts)" lint_py
+
+# 2. hermetic tests: temp dirs, fakes in PATH, no root, no network, no running service
+step "python unittest (store, personal library, sleep/power/themes)" python3 -B -m unittest discover -s test -p 'test_*.py'
+
+# 3. browser suites against the live service
+if [[ ${1:-} != --fast ]]; then
+  if curl -fsS --max-time 3 -o /dev/null http://127.0.0.1:8787/; then
+    for t in test/verify-*.mjs; do step "node $t" node "$t"; done
+  else
+    echo; echo "=== browser suites SKIPPED: the portal is not answering on 127.0.0.1:8787 (systemctl --user start omarchy-kit)"
+    failed+=("browser suites (service down)")
+  fi
+fi
+
+echo
+if ((${#failed[@]})); then echo "FAILED: ${failed[*]}"; exit 1; fi
+echo "all checks passed"

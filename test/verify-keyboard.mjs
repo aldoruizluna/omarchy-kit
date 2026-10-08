@@ -1,5 +1,6 @@
 import { launch, checker } from "./cdp.mjs";
 import { mkdirSync } from "node:fs";
+if ((process.argv[2] || "").startsWith("-")) { console.log("usage: node test/verify-keyboard.mjs [output-folder]   (drives the running portal in a browser; see README)"); process.exit(["-h", "--help"].includes(process.argv[2]) ? 0 : 2); }
 const OUT = process.argv[2] || "/tmp/kbshots"; mkdirSync(OUT, { recursive: true });
 const URL = process.env.BASE ? process.env.BASE + "/keyboard" : "file://" + process.cwd().replace(/\/test$/, "") + "/keyboard.html";
 const c = checker("keyboard.html"); const b = await launch({ width: 1280, height: 1000 });
