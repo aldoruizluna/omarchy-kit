@@ -23,6 +23,20 @@
   const today = () => new Date().toLocaleDateString("en-CA");
   const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // ------------------------------------------------------------- landmarks and skip link (every page)
+  function landmarks() {
+    const main = document.querySelector("main") || document.querySelector(".wrap") || document.querySelector("body > div");
+    if (!main || document.querySelector(".kit-skip")) return;
+    if (!document.querySelector("main") && !main.getAttribute("role")) main.setAttribute("role", "main");
+    if (!main.id) main.id = "kit-main";
+    main.setAttribute("tabindex", "-1");   // so the skip link can move keyboard focus, not just the scroll position
+    const a = document.createElement("a");
+    a.className = "kit-skip"; a.href = "#" + main.id;
+    a.dataset.en = "Skip to content"; a.dataset.es = "Saltar al contenido"; a.textContent = t({ en: a.dataset.en, es: a.dataset.es });
+    document.body.prepend(a);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", landmarks); else landmarks();
+
   // ------------------------------------------------------------- toasts
   K.toast = (title, sub, big) => {
     let box = document.querySelector(".kit-toasts");
@@ -69,8 +83,9 @@
   }
 
   // ------------------------------------------------------------- progress, XP, streak, badges
-  const RANKS = [[0, "Newcomer", "Recién llegado"], [80, "Apprentice", "Aprendiz"], [220, "Tiler", "Acomodador"],
-    [420, "Power user", "Experto"], [650, "Omarchist", "Omarchista"]];
+  // thresholds sit on the XP the whole path offers (10 per step, 30 per lesson, 25 per badge: about 2,300), so the top rank needs nearly all of it
+  const RANKS = [[0, "Newcomer", "Recién llegado"], [150, "Apprentice", "Aprendiz"], [500, "Tiler", "Acomodador"],
+    [1000, "Power user", "Experto"], [1800, "Omarchist", "Omarchista"]];
   const act = () => store.get("kit-activity", { days: [], pages: [], palette: 0, themes: 0, night: false });
   const saveAct = (a) => store.set("kit-activity", a);
   K.activity = act;

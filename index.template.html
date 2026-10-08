@@ -59,6 +59,7 @@
       <a href="mac.html" data-nav="/mac"><button data-en="I'm coming from macOS" data-es="Vengo de macOS"></button></a>
     </div>
     <p class="small mut" style="margin-top:10px" data-en="Open this portal from anywhere with <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>. On your MacBook, <kbd>Super</kbd> is the <b>⌘ command</b> key." data-es="Abre este portal desde cualquier lugar con <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>H</kbd>. En tu MacBook, <kbd>Super</kbd> es la tecla <b>⌘ comando</b>."></p>
+    <p class="small mut" style="margin-top:6px" data-en="The first level takes about 15 minutes. Stuck? <kbd>Super</kbd>+<kbd>K</kbd> lists every shortcut. Everything the kit changed on your Mac can be undone: see the <a href='setup.html' data-nav='/setup'>Setup log</a>." data-es="El primer nivel toma unos 15 minutos. ¿Atorado? <kbd>Super</kbd>+<kbd>K</kbd> lista todos los atajos. Todo lo que el kit cambió en tu Mac se puede deshacer: mira la <a href='setup.html' data-nav='/setup'>Bitácora</a>."></p>
   </div>
   <div class="card now">
     <div><span class="live-dot" id="dot"></span><b data-en="Your machine, right now" data-es="Tu máquina, ahora mismo"></b></div>
@@ -137,7 +138,7 @@ async function now() {
 // ---- temperature sparkline (last 10 minutes from the System page's sampler)
 async function spark() {
   const svg = document.getElementById("spark"); if (!Portal.live) { svg.style.display = "none"; return; }
-  let r; try { r = await (await fetch("/api/live", { cache: "no-store" })).json(); } catch (e) { return; }
+  let r; try { r = await (await fetch("/api/live?snap=0&since=" + (Date.now() / 1000 - 600), { cache: "no-store" })).json(); } catch (e) { return; }
   const pts = r.samples.filter((s) => s.temp != null && s.t > Date.now() / 1000 - 600);
   const W = svg.clientWidth || 300, H = 42; svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
   if (pts.length < 2) { svg.innerHTML = ""; return; }

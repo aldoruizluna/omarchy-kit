@@ -19,7 +19,7 @@
 @keyframes ring{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--acc) 50%,transparent)}70%{box-shadow:0 0 0 9px transparent}100%{box-shadow:none}}
 .step .keys{margin:6px 0}
 .step .st{font-size:.82rem;margin-top:4px}
-.step.locked{opacity:.45}
+.step.locked{opacity:.72}
 .box{margin-top:8px}
 .celebrate{display:none;text-align:center;padding:18px}
 .celebrate.on{display:block;animation:pop .4s ease-out}
@@ -116,7 +116,7 @@ function stepHTML(st, i) {
     <div>${esc(t(st))}</div>
     ${keys || st.gesture || st.menu || st.cmd ? `<div class="keys row">${keys}${st.gesture ? `<span class="gest">✋ ${esc(st.gesture)}</span>` : ""}${st.menu ? Portal.menuBtn(st.menu) : ""}${st.cmd ? `<code>${esc(st.cmd)}</code>${Portal.copyBtn(st.cmd)}` : ""}</div>` : ""}
     ${st.box && i === stepIdx ? `<input type="text" class="box" id="box" autocomplete="off" placeholder="${t({ en: "Type here…", es: "Escribe aquí…" })}">` : ""}
-    <div class="st">${status}${i === stepIdx ? ` <button class="copy" onclick="complete()">${AUTO(st) || st.check === "typed" ? t({ en: "Skip, I did it", es: "Saltar, ya lo hice" }) : t({ en: "Done ✓", es: "Hecho ✓" })}</button>` : ""}</div>
+    <div class="st">${status}${i === stepIdx ? ` <button class="copy" onclick="complete()">${AUTO(st) || st.check === "typed" ? t({ en: "Mark it done", es: "Marcar como hecho" }) : t({ en: "Done ✓", es: "Hecho ✓" })}</button>` : ""}</div>
   </div></div>`;
 }
 function render() {

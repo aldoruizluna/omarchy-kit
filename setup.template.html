@@ -35,6 +35,7 @@ code{background:var(--kbd);padding:3px 8px;border-radius:5px;font:.82rem ui-mono
 .access{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
 .access div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
 .access b{display:block;margin-bottom:2px}
+.readme{padding:12px 16px;margin:10px 0}.readme p{margin:6px 0}.legend{list-style:none;margin:6px 0;padding:0;display:grid;gap:6px}.legend li{display:flex;gap:10px;align-items:baseline}.legend .badge{flex:none}
 kbd{display:inline-block;padding:0 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:5px;background:var(--kbd);font:600 .8rem ui-monospace,monospace}
 </style>
 <meta name="kit-token" content=""><link rel="stylesheet" href="theme.css"><link rel="stylesheet" href="kit.css"><script src="kit.js" defer></script></head>
@@ -43,6 +44,19 @@ kbd{display:inline-block;padding:0 6px;border:1px solid var(--line);border-botto
 <div id="top"></div>
 <script src="portal-nav.js"></script>
 <p class="hint" id="built"></p>
+<div class="card readme">
+<b data-en="How to read this page" data-es="Cómo leer esta página"></b>
+<p data-en="This is the logbook of this MacBook: what is set up, whether it works right now, and how to undo each change. You do not need to read it all, and nothing here is permanent. Status is re-checked live every time you open the page."
+   data-es="Esta es la bitácora de esta MacBook: qué está configurado, si funciona ahora mismo y cómo deshacer cada cambio. No hace falta leerla toda y nada aquí es permanente. El estado se verifica en vivo cada vez que abres la página."></p>
+<ul class="legend">
+  <li><span class="badge ok" data-en="done" data-es="listo"></span> <span data-en="working as intended; nothing to do." data-es="funciona como debe; no hay nada que hacer."></span></li>
+  <li><span class="badge action" data-en="needs action" data-es="requiere acción"></span> <span data-en="something is off or not installed yet; the row says what, and gives the command." data-es="algo está mal o aún sin instalar; la fila dice qué y da el comando."></span></li>
+  <li><span class="badge pending" data-en="pending" data-es="pendiente"></span> <span data-en="optional, or waiting for something (a drive, a decision)." data-es="opcional, o esperando algo (un disco, una decisión)."></span></li>
+  <li><span class="badge info" data-en="manual check" data-es="revisión manual"></span> <span data-en="only you can confirm it, or it needs a password to read." data-es="solo tú puedes confirmarlo, o requiere contraseña para leerlo."></span></li>
+</ul>
+<p class="hint" data-en="Every change in 'What was changed' ends with the exact command that undoes it. The 'Field notes' (docs/FIELD-NOTES.md) list the hard-won rules for this machine."
+   data-es="Cada cambio en «Qué se cambió» termina con el comando exacto que lo deshace. Las «Notas de campo» (docs/FIELD-NOTES.md) reúnen las reglas aprendidas con esfuerzo en esta máquina."></p>
+</div>
 
 <h2 data-en="Opening Omarchy Kit" data-es="Cómo abrir Omarchy Kit"></h2>
 <div class="access">
@@ -86,7 +100,7 @@ function render(){
   document.getElementById("built").textContent=`${t.built}: ${D.built}`;
   const counts={ok:0,action:0,pending:0,info:0};
   document.getElementById("status").innerHTML=D.status.map(([en,es,rows])=>`<h3>${lang==="en"?en:es}</h3><div class="card">`+rows.map(([key,ten,tes,den,des,cmd])=>{
-      const [st,detail]=D.checks[key]||["info",""];counts[st]++;
+      const [st,liveEn,liveEs]=D.checks[key]||["info",""];counts[st]++;const detail=(lang==="es"&&liveEs)?liveEs:liveEn;
       const todo=st==="ok"?"":(lang==="en"?den:des);
       return `<div class="row"><span class="badge ${st}">${t[st]}</span><span class="title">${esc(lang==="en"?ten:tes)}</span><span class="detail">${esc(detail)}</span>${todo?`<span class="todo">${esc(todo)}</span>`:""}${st==="ok"?"":cmdHTML(cmd)}</div>`}).join("")+`</div>`).join("");
   document.getElementById("summary").innerHTML=["ok","action","pending","info"].filter(k=>counts[k]).map(k=>`<span class="pill ${k}">${counts[k]} ${t[k]}</span>`).join("");

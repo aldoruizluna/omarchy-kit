@@ -71,11 +71,12 @@ def checks():
         from install_status import installed
         apps = load()
         missing = [a["name"] for a in apps if not installed(a)]
-        c["apps"] = ("ok" if not missing else "action", f"{len(apps) - len(missing)}/{len(apps)}" + (f" — missing: {', '.join(missing)}" if missing else ""))
+        c["apps"] = ("ok" if not missing else "action", f"{len(apps) - len(missing)}/{len(apps)}" + (f" — missing: {', '.join(missing)}" if missing else ""),
+                     f"{len(apps) - len(missing)}/{len(apps)}" + (f" — faltan: {', '.join(missing)}" if missing else ""))
     except Exception as e:
-        c["apps"] = ("info", f"could not check ({e})")
+        c["apps"] = ("info", f"could not check ({e})", f"no se pudo comprobar ({e})")
     br = sh("xdg-settings", "get", "default-web-browser")
-    c["browser"] = ("ok" if br.startswith("brave") else "action", br or "unknown")
+    c["browser"] = ("ok" if br.startswith("brave") else "action", br or "unknown", br or "desconocido")
     b = read(HOME / ".config/hypr/bindings.lua")
     names = ["Beeper", "Anytype", "Kagi", "Screenshot", "Telegram", "Grayjay", "Bitwarden", "Omarchy Kit"]
     have = [n for n in names if f'"{n}"' in b]
@@ -87,29 +88,33 @@ def checks():
     drag_live = hypr_opt("input:touchpad:drag_3fg").get("int")
     c["threefingers"] = ("ok" if drag_live == (1 if tf == "drag" else 0) else "action",
                          f"three fingers: {'drag (select and drag without clicking), spaces on four fingers' if tf == 'drag' else 'swipe between spaces'} · live drag_3fg {drag_live if drag_live is not None else '?'}"
-                         + ("" if drag_live == (1 if tf == "drag" else 0) else " (does not match input.lua: run hyprctl reload)"))
+                         + ("" if drag_live == (1 if tf == "drag" else 0) else " (does not match input.lua: run hyprctl reload)"),
+                         f"tres dedos: {'arrastrar (seleccionar y arrastrar sin hacer clic), espacios con cuatro dedos' if tf == 'drag' else 'deslizar entre espacios'} · drag_3fg en vivo {drag_live if drag_live is not None else '?'}"
+                         + ("" if drag_live == (1 if tf == "drag" else 0) else " (no coincide con input.lua: ejecuta hyprctl reload)"))
     variant = hypr_opt("input:kb_variant").get("str", "")
     fcitx = [k for k in (hypr_json("devices").get("keyboards") or []) if "fcitx" in k.get("name", "")]
     fc_pid = sh("pgrep", "-o", "fcitx5")
     if fcitx:  # its virtual keyboard exists only while a text field is focused; then it shows the keymap it copied
-        fc_mac, fc_note = all("Macintosh" in k.get("active_keymap", "") for k in fcitx), "on the Mac keymap" if all("Macintosh" in k.get("active_keymap", "") for k in fcitx) else "still on the OLD keymap: restart it"
+        fc_mac = all("Macintosh" in k.get("active_keymap", "") for k in fcitx)
+        fc_note, fc_note_es = ("on the Mac keymap", "con la distribución Mac") if fc_mac else ("still on the OLD keymap: restart it", "aún con la distribución VIEJA: reinícialo")
     elif fc_pid:  # otherwise: was it (re)started after input.lua was last edited? it copies the layout at start
         try:
             started = time.time() - int(sh("ps", "-o", "etimes=", "-p", fc_pid))
             fc_mac = started >= (HOME / ".config/hypr/input.lua").stat().st_mtime
         except (ValueError, OSError):
             fc_mac = True
-        fc_note = "started after the layout change" if fc_mac else "started BEFORE the layout change: restart it"
+        fc_note, fc_note_es = ("started after the layout change", "iniciado después del cambio de distribución") if fc_mac else ("started BEFORE the layout change: restart it", "iniciado ANTES del cambio de distribución: reinícialo")
     else:
-        fc_mac, fc_note = None, "not running"
+        fc_mac, fc_note, fc_note_es = None, "not running", "no está en marcha"
     acc_ok = 'kb_variant = "mac"' in i and variant == "mac" and fc_mac is not False
-    c["accents"] = ("ok" if acc_ok else "action", f"layout us({variant or 'default'}) · fcitx5 {fc_note}")
+    c["accents"] = ("ok" if acc_ok else "action", f"layout us({variant or 'default'}) · fcitx5 {fc_note}", f"distribución us({variant or 'por defecto'}) · fcitx5 {fc_note_es}")
     mk_file = (HOME / ".config/hypr/mackeys.lua").exists() and 'require("hypr.mackeys")' in read(HOME / ".config/hypr/hyprland.lua")
     bound = sum(1 for b in (hypr_json("binds", default=[]) or []) if "⌘" in b.get("description", ""))
-    c["mackeys"] = ("ok" if mk_file and bound >= 13 else "action", f"mackeys.lua {'installed' if mk_file else 'not installed'} · {bound} ⌘ shortcuts bound")
+    c["mackeys"] = ("ok" if mk_file and bound >= 13 else "action", f"mackeys.lua {'installed' if mk_file else 'not installed'} · {bound} ⌘ shortcuts bound",
+                       f"mackeys.lua {'instalado' if mk_file else 'sin instalar'} · {bound} atajos ⌘ enlazados")
     pa = sh(str(HERE / "power" / "power-auto"), "--status").replace("\n", " · ")
     pa_on = active("power-auto.service", True) and sh("systemctl", "--user", "is-enabled", "power-auto.service") == "enabled"
-    c["powerauto"] = ("ok" if pa_on else "action", f"power-auto.service {'running' if pa_on else 'not installed'} · {pa}")
+    c["powerauto"] = ("ok" if pa_on else "action", f"power-auto.service {'running' if pa_on else 'not installed'} · {pa}", f"power-auto.service {'en marcha' if pa_on else 'sin instalar'} · {pa}")
     try:
         sl = json.loads(sh(str(HERE / "sleep" / "sleep-check"), "--json") or "null")
     except Exception:
@@ -118,60 +123,75 @@ def checks():
     sleep_mode = ms.split("[")[1].split("]")[0] if "[" in ms and "]" in ms else "?"
     sleep_saved = Path("/etc/tmpfiles.d/mem-sleep-s2idle.conf").exists()
     mode_note = f"mode {sleep_mode}" + ("" if sleep_saved else ", not saved for the next boot")
-    c["sleep"] = (sl["status"] if sleep_mode == "s2idle" and sleep_saved else "action", f"{sl['count']} suspends seen · {mode_note} · {sl['verdict']}") if sl else ("info", "sleep-check could not read the journal")
+    mode_note_es = f"modo {sleep_mode}" + ("" if sleep_saved else ", sin guardar para el próximo arranque")
+    c["sleep"] = ((sl["status"] if sleep_mode == "s2idle" and sleep_saved else "action", f"{sl['count']} suspends seen · {mode_note} · {sl['verdict']}",
+                   f"{sl['count']} suspensiones vistas · {mode_note_es} · {sl.get('verdict_es', sl['verdict'])}") if sl
+                  else ("info", "sleep-check could not read the journal", "sleep-check no pudo leer el journal"))
     bl = Path("/usr/lib/systemd/system-sleep/battery-log").exists()
     hm = read("/etc/systemd/sleep.conf.d/10-hibernate-shutdown.conf")
-    c["hibmode"] = ("ok", "hibernate ends with a plain power-off (tested: it stays off until the power button)") if "HibernateMode=shutdown" in hm else ("action", "default mode: on this Mac it restarts itself right after saving")
+    c["hibmode"] = (("ok", "hibernate ends with a plain power-off (tested: it stays off until the power button)", "hibernar termina con un apagado normal (probado: se queda apagada hasta pulsar el botón de encendido)")
+                    if "HibernateMode=shutdown" in hm else ("action", "default mode: on this Mac it restarts itself right after saving", "modo por defecto: en esta Mac se vuelve a encender sola justo después de guardar"))
     wf_conf = Path("/etc/NetworkManager/conf.d/wifi-powersave.conf").exists()
     wf_if = next((q.parent.name for q in Path("/sys/class/net").glob("*/wireless")), "")
     wf_on = "Power save: on" in (sh("iw", "dev", wf_if, "get", "power_save") if wf_if else "")
-    c["wifips"] = ("ok", "on, and saved so NetworkManager applies it at every connection") if wf_conf and wf_on else ("action", f"{'saved but not active right now' if wf_conf else 'off: the Wi-Fi card never dozes (costs about 0.9 W)'}")
+    c["wifips"] = (("ok", "on, and saved so NetworkManager applies it at every connection", "activado y guardado: NetworkManager lo aplica en cada conexión") if wf_conf and wf_on else
+                   ("action", f"{'saved but not active right now' if wf_conf else 'off: the Wi-Fi card never dozes (costs about 0.9 W)'}",
+                    f"{'guardado pero no activo ahora mismo' if wf_conf else 'apagado: la tarjeta Wi-Fi nunca duerme (cuesta unos 0,9 W)'}"))
     nl_conf = HOME / ".config/systemd/user/omarchy-sleep-lock.service.d/10-hibernate-no-lock.conf"
     nl_shim = HOME / ".local/share/omarchy-kit/sleep-lock-shim/bin/omarchy-system-sleep-lock"
     mon_refs = set(re.findall(r"OMARCHY_PATH/bin/([A-Za-z0-9_.-]+)", read("/usr/share/omarchy/bin/omarchy-system-sleep-monitor")))
     if not (nl_conf.exists() and nl_shim.exists()):
-        c["hibnolock"] = ("action", "not installed: after a hibernate you also type the lock-screen password")
+        c["hibnolock"] = ("action", "not installed: after a hibernate you also type the lock-screen password", "sin instalar: tras hibernar también escribes la contraseña del bloqueo de pantalla")
     elif not mon_refs <= {"omarchy-system-sleep-lock", "omarchy-system-sleep-monitor"} or not Path("/usr/share/omarchy/bin/omarchy-system-sleep-lock").exists():
-        c["hibnolock"] = ("action", "Omarchy's sleep monitor changed since this was installed: remove it (--remove) and ask Claude to update the shim")
+        c["hibnolock"] = ("action", "Omarchy's sleep monitor changed since this was installed: remove it (--remove) and ask Claude to update the shim",
+                          "el monitor de reposo de Omarchy cambió desde que se instaló esto: quítalo (--remove) y pídele a Claude que actualice el shim")
     else:
-        c["hibnolock"] = ("ok", "a plain hibernate skips the lock screen (one password); every other sleep still locks")
+        c["hibnolock"] = ("ok", "a plain hibernate skips the lock screen (one password); every other sleep still locks",
+                          "una hibernación simple omite el bloqueo de pantalla (una contraseña); cualquier otro reposo sigue bloqueando")
     kit_slugs = sorted(q.name for q in (HERE / "themes").iterdir() if (q / "colors.toml").exists()) if (HERE / "themes").exists() else []
     have = [t for t in kit_slugs if (HOME / ".config/omarchy/themes" / t / ".omarchy-kit").exists()]
-    c["kitthemes"] = ("ok", f"all {len(kit_slugs)} installed: pick one in the Omarchy menu or with omarchy theme set") if kit_slugs and len(have) == len(kit_slugs) else ("action", f"{len(have)} of {len(kit_slugs)} installed: run themes/install-themes")
-    c["sleepbattery"] = ("ok" if bl else "action", "hook installed: sleep-check shows what each sleep cost" if bl else "not installed: sleep cost cannot be measured yet")
+    c["kitthemes"] = (("ok", f"all {len(kit_slugs)} installed: pick one in the Omarchy menu or with omarchy theme set",
+                       f"los {len(kit_slugs)} instalados: elige uno en el menú de Omarchy o con omarchy theme set") if kit_slugs and len(have) == len(kit_slugs)
+                      else ("action", f"{len(have)} of {len(kit_slugs)} installed: run themes/install-themes", f"{len(have)} de {len(kit_slugs)} instalados: ejecuta themes/install-themes"))
+    c["sleepbattery"] = ("ok" if bl else "action", "hook installed: sleep-check shows what each sleep cost" if bl else "not installed: sleep cost cannot be measured yet",
+                         "gancho instalado: sleep-check muestra lo que costó cada reposo" if bl else "sin instalar: aún no se puede medir lo que cuesta el reposo")
     fn = read("/sys/module/hid_apple/parameters/fnmode").strip()
     conf = read("/etc/modprobe.d/hid_apple.conf").strip()
-    c["fnmode"] = ("ok" if fn in ("1", "3") and "fnmode=3" in conf else "action", f"live {fn or '?'} · {conf or 'no config'}")
+    c["fnmode"] = ("ok" if fn in ("1", "3") and "fnmode=3" in conf else "action", f"live {fn or '?'} · {conf or 'no config'}", f"en vivo {fn or '?'} · {conf or 'sin configuración'}")
     rates = (HOME / ".config/pipewire/pipewire.conf.d/10-hifi-rates.conf").exists()
     resample = (HOME / ".config/pipewire/client.conf.d/10-resample.conf").exists() and (HOME / ".config/pipewire/pipewire-pulse.conf.d/10-resample.conf").exists()
     c["rates"] = ("ok" if rates else "action", "10-hifi-rates.conf")
     c["resample"] = ("ok" if resample else "action", "10-resample.conf ×2")
     rt = "RR" in sh("bash", "-c", "ps -eLo cls,comm | awk '$2==\"data-loop.0\"{print $1}' | sort -u")
-    c["rtkit"] = ("ok" if sh("pacman", "-Q", "rtkit") and rt else "action", "rtkit installed, audio threads SCHED_RR" if rt else "not realtime")
+    c["rtkit"] = ("ok" if sh("pacman", "-Q", "rtkit") and rt else "action", "rtkit installed, audio threads SCHED_RR" if rt else "not realtime",
+                  "rtkit instalado, hilos de audio en SCHED_RR" if rt else "sin tiempo real")
     eq, fol = active("omarchy-speaker-tuning.service", True), active("speaker-eq-follow.service", True)
     ra = Path.home() / ".config/retroarch/retroarch.cfg"
     racfg = read(ra) if ra.exists() else ""
     glob_preset = read(Path.home() / ".config/retroarch/config/global.slangp")
     if not racfg:
-        c["retro"] = ("pending", "RetroArch not installed (Omarchy menu → Install → Gaming → RetroArch)")
+        c["retro"] = ("pending", "RetroArch not installed (Omarchy menu → Install → Gaming → RetroArch)", "RetroArch sin instalar (menú de Omarchy → Instalar → Juegos → RetroArch)")
     else:
         tuned = 'video_driver = "glcore"' in racfg and "zfast-crt" in glob_preset
-        c["retro"] = ("ok" if tuned else "action", ("OpenGL · zfast-crt (3D) / crt-hyllian-fast (2D) · saves in ~/Games" if tuned else "Omarchy defaults: Vulkan + crt-royale (45 fps here)"))
+        c["retro"] = ("ok" if tuned else "action", ("OpenGL · zfast-crt (3D) / crt-hyllian-fast (2D) · saves in ~/Games" if tuned else "Omarchy defaults: Vulkan + crt-royale (45 fps here)"),
+                      ("OpenGL · zfast-crt (3D) / crt-hyllian-fast (2D) · partidas guardadas en ~/Games" if tuned else "valores de Omarchy: Vulkan + crt-royale (45 fps aquí)"))
     gfx = read(Path.home() / ".config/dolphin-emu/GFX.ini")
     if not sh("pacman", "-Q", "dolphin-emu"):
-        c["gamecube"] = ("pending", "Dolphin not installed")
+        c["gamecube"] = ("pending", "Dolphin not installed", "Dolphin sin instalar")
     else:
         tuned = "ShaderCompilationMode = 2" in gfx and "InternalResolution = 2" in gfx
-        c["gamecube"] = ("ok" if tuned else "action", "Dolphin: OpenGL · 2x · hybrid ubershaders · 60 fps measured" if tuned else "Dolphin defaults (not tuned for this GPU)")
+        c["gamecube"] = ("ok" if tuned else "action", "Dolphin: OpenGL · 2x · hybrid ubershaders · 60 fps measured" if tuned else "Dolphin defaults (not tuned for this GPU)",
+                         "Dolphin: OpenGL · 2x · ubershaders híbridos · 60 fps medidos" if tuned else "valores de Dolphin (sin ajustar para esta GPU)")
     try:
         lib = json.loads(sh(str(HERE / "games" / "kit-games"), "status") or "null")
     except Exception:
         lib = None
     if lib and lib.get("cap"):
         c["library"] = ("ok" if lib["used"] <= lib["cap"] else "action",
-                        f"{lib['games']} games · {lib['used'] / 1e9:.1f} of {lib['cap'] / 1e9:.0f} GB budget (half the free disk)")
+                        f"{lib['games']} games · {lib['used'] / 1e9:.1f} of {lib['cap'] / 1e9:.0f} GB budget (half the free disk)",
+                        f"{lib['games']} juegos · {lib['used'] / 1e9:.1f} de {lib['cap'] / 1e9:.0f} GB de presupuesto (la mitad del disco libre)")
     else:
-        c["library"] = ("pending", "run games/kit-games init")
+        c["library"] = ("pending", "run games/kit-games init", "ejecuta games/kit-games init")
     # Free games store: report what is on disk (the signature is checked when the store is used, not here).
     key = (HOME / ".config/omarchy-kit/store-publisher.pem").exists()
     try:
@@ -180,11 +200,12 @@ def checks():
     except Exception:
         snap, installed = None, 0
     if snap and key:
-        c["store"] = ("ok", f"snapshot {snap['version']} cached · {installed} installed (checked when used: kit-games store health)")
+        c["store"] = ("ok", f"snapshot {snap['version']} cached · {installed} installed (checked when used: kit-games store health)",
+                      f"instantánea {snap['version']} en caché · {installed} instalados (se verifica al usarla: kit-games store health)")
     elif key:
-        c["store"] = ("pending", "publisher key pinned; fetch a catalog: kit-games store refresh --from <source>")
+        c["store"] = ("pending", "publisher key pinned; fetch a catalog: kit-games store refresh --from <source>", "clave del editor fijada; descarga un catálogo: kit-games store refresh --from <origen>")
     else:
-        c["store"] = ("pending", "built and tested; needs a publisher key and a snapshot source")
+        c["store"] = ("pending", "built and tested; needs a publisher key and a snapshot source", "construida y probada; necesita una clave de editor y un origen de instantáneas")
     # Your own backups: counts only, read straight from the local files the client keeps.
     try:
         import sqlite3
@@ -197,38 +218,44 @@ def checks():
     except Exception:
         locs = ident = unid = 0
     if locs and (ident or unid):
-        c["backups"] = ("ok", f"{locs} locations · {ident} recognised · {unid} unidentified (counts only; nothing leaves this machine)")
+        c["backups"] = ("ok", f"{locs} locations · {ident} recognised · {unid} unidentified (counts only; nothing leaves this machine)",
+                        f"{locs} ubicaciones · {ident} reconocidos · {unid} sin identificar (solo cuentas; nada sale de esta máquina)")
     elif locs:
-        c["backups"] = ("pending", f"{locs} locations registered; recognise what is in them: kit-games store scan")
+        c["backups"] = ("pending", f"{locs} locations registered; recognise what is in them: kit-games store scan", f"{locs} ubicaciones registradas; reconoce lo que contienen: kit-games store scan")
     else:
-        c["backups"] = ("pending", "built and tested; add the folder that holds your own backups: kit-games store locations add <folder>")
+        c["backups"] = ("pending", "built and tested; add the folder that holds your own backups: kit-games store locations add <folder>",
+                        "construida y probada; añade la carpeta con tus respaldos: kit-games store locations add <carpeta>")
     ply = read("/etc/plymouth/plymouthd.conf")
     simpledrm = "UseSimpledrm=1" in ply
     splash = sh("omarchy-plymouth-current")
     c["bootlook"] = ("ok" if simpledrm and splash.lower() not in ("", "default") else "pending",
-                     f"splash theme: {splash or 'unknown'} · early splash {'on' if simpledrm else 'off'}")
+                     f"splash theme: {splash or 'unknown'} · early splash {'on' if simpledrm else 'off'}",
+                     f"tema del splash: {splash or 'desconocido'} · splash temprano {'activado' if simpledrm else 'desactivado'}")
     pad = any("Wireless Controller" in l or "DualShock" in l for l in read("/proc/bus/input/devices").splitlines() if l.startswith("N: Name"))
-    c["ds4"] = ("ok" if pad else "pending", "PS4 controller connected" if pad else "not connected right now")
-    c["eq"] = ("ok" if eq and fol else "action", f"tuning {'active' if eq else 'inactive'} · headphone watcher {'active' if fol else 'inactive'}")
+    c["ds4"] = ("ok" if pad else "pending", "PS4 controller connected" if pad else "not connected right now", "control de PS4 conectado" if pad else "no conectado ahora mismo")
+    c["eq"] = ("ok" if eq and fol else "action", f"tuning {'active' if eq else 'inactive'} · headphone watcher {'active' if fol else 'inactive'}",
+               f"ajuste {'activo' if eq else 'inactivo'} · vigilante de audífonos {'activo' if fol else 'inactivo'}")
     ts_state = ""
     try:
         ts_state = json.loads(sh("tailscale", "status", "--json") or "{}").get("BackendState", "")
     except Exception:
         pass
     c["tailscale"] = ("ok" if ts_state == "Running" else "action" if active("tailscaled") else "pending",
-                      f"tailscaled {'active' if active('tailscaled') else 'inactive'} · {ts_state or 'unknown'}")
-    c["ssh"] = ("ok" if active("sshd") else "pending", "sshd " + ("active" if active("sshd") else "not set up"))
-    c["fido2"] = ("ok" if Path("/etc/fido2/fido2").exists() else "pending", "registered" if Path("/etc/fido2/fido2").exists() else "no key registered")
+                      f"tailscaled {'active' if active('tailscaled') else 'inactive'} · {ts_state or 'unknown'}",
+                      f"tailscaled {'activo' if active('tailscaled') else 'inactivo'} · {ts_state or 'desconocido'}")
+    c["ssh"] = ("ok" if active("sshd") else "pending", "sshd " + ("active" if active("sshd") else "not set up"), "sshd " + ("activo" if active("sshd") else "sin configurar"))
+    c["fido2"] = ("ok" if Path("/etc/fido2/fido2").exists() else "pending", "registered" if Path("/etc/fido2/fido2").exists() else "no key registered",
+                  "registrada" if Path("/etc/fido2/fido2").exists() else "ninguna llave registrada")
     try:
         u = pwd.getpwnam(CO_USER)
         wheel = CO_USER in grp.getgrnam("wheel").gr_mem
         mode = stat.S_IMODE(os.stat(u.pw_dir).st_mode)
         c["coadmin"] = ("ok" if wheel and mode == 0o700 else "action", f"{u.pw_gecos} · {'wheel' if wheel else 'NOT in wheel'} · home {oct(mode)[2:]}")
     except KeyError:
-        c["coadmin"] = ("pending", "account not created yet")
+        c["coadmin"] = ("pending", "account not created yet", "cuenta aún sin crear")
     al = Path("/etc/sddm.conf.d/autologin.conf").exists()
-    c["autologin"] = ("pending" if al else "ok", "auto-login still on" if al else "login screen at boot")
-    c["luks"] = ("info", "needs root to read: sudo cryptsetup luksDump /dev/sda2 | grep -A1 Keyslots")
+    c["autologin"] = ("pending" if al else "ok", "auto-login still on" if al else "login screen at boot", "el inicio automático sigue activo" if al else "pantalla de inicio de sesión al arrancar")
+    c["luks"] = ("info", "needs root to read: sudo cryptsetup luksDump /dev/sda2 | grep -A1 Keyslots", "requiere root para leerlo: sudo cryptsetup luksDump /dev/sda2 | grep -A1 Keyslots")
     import glob
     panel = os.path.realpath((glob.glob("/sys/class/drm/card*-eDP-1") or [""])[0])
     gpp = Path("/sys/firmware/efi/efivars/gpu-power-prefs-fa4ce28d-b62f-4c99-9cc3-6815686e30f9")
@@ -239,7 +266,9 @@ def checks():
         pref = 1
     c["gpu"] = ("ok" if on_intel else "action",
                 f"screen on {'Intel' if on_intel else 'NVIDIA'} · firmware boot GPU: {'Intel' if pref == 1 else 'NVIDIA (default)' if pref is None else 'NVIDIA'}"
-                + (" · reboot pending" if pref == 1 and not on_intel else ""))
+                + (" · reboot pending" if pref == 1 and not on_intel else ""),
+                f"pantalla en {'Intel' if on_intel else 'NVIDIA'} · GPU de arranque del firmware: {'Intel' if pref == 1 else 'NVIDIA (por defecto)' if pref is None else 'NVIDIA'}"
+                + (" · reinicio pendiente" if pref == 1 and not on_intel else ""))
     # sysfs power_state can read D0 after sleep while the card is off; nvidia-off saves vga_switcheroo's real state
     sw = read("/run/nvidia-off.status")
     nv = read("/sys/bus/pci/devices/0000:01:00.0/power_state").strip()
@@ -247,35 +276,41 @@ def checks():
     nv_src = "vga_switcheroo" if sw else nv or "?"
     nv_unit = sh("systemctl", "is-enabled", "nvidia-off.service") == "enabled"
     c["nvoff"] = ("ok" if nv_unit and nv_off else "action" if not nv_unit else "info",
-                  f"NVIDIA GPU {'off' if nv_off else 'on'} ({nv_src}) · nvidia-off.service {'enabled' if nv_unit else 'not installed'}")
+                  f"NVIDIA GPU {'off' if nv_off else 'on'} ({nv_src}) · nvidia-off.service {'enabled' if nv_unit else 'not installed'}",
+                  f"GPU NVIDIA {'apagada' if nv_off else 'encendida'} ({nv_src}) · nvidia-off.service {'habilitado' if nv_unit else 'sin instalar'}")
     cam_mod = Path("/sys/module/facetimehd").exists()
     cam_dev = Path("/dev/video0").exists()
     tb_dom = Path("/sys/bus/thunderbolt/devices/domain0").exists()
-    c["thunderbolt"] = ("ok", "controller present (Thunderbolt ports and Mini DisplayPort video available)") if tb_dom else ("action", "controller not present: a power test on 2026-10-07 left it off, a reboot brings it back")
+    c["thunderbolt"] = (("ok", "controller present (Thunderbolt ports and Mini DisplayPort video available)", "controlador presente (puertos Thunderbolt y video por Mini DisplayPort disponibles)") if tb_dom else
+                        ("action", "controller not present: a power test on 2026-10-07 left it off, a reboot brings it back", "controlador ausente: una prueba de energía el 2026-10-07 lo dejó apagado, un reinicio lo recupera"))
     c["camera"] = ("ok" if cam_mod and cam_dev else "action",
-                   f"facetimehd {'loaded' if cam_mod else 'not loaded'} · {'/dev/video0' if cam_dev else 'no video device'}")
+                   f"facetimehd {'loaded' if cam_mod else 'not loaded'} · {'/dev/video0' if cam_dev else 'no video device'}",
+                   f"facetimehd {'cargado' if cam_mod else 'sin cargar'} · {'/dev/video0' if cam_dev else 'sin dispositivo de video'}")
     # --- auto appearance (opt-in), bar clock, optional ⌘ takeovers
     ap_inst = (HOME / ".local/bin/auto-appearance").exists()
     ap_on = sh("systemctl", "--user", "is-enabled", "auto-appearance.timer") == "enabled"
     ap_status = sh(str(HOME / ".local/bin/auto-appearance"), "status").replace("\n", " · ") if ap_inst else ""
-    c["appearance"] = ("ok" if ap_on else "pending", (ap_status or "not installed") + ("" if ap_on else " (optional)"))
+    c["appearance"] = ("ok" if ap_on else "pending", (ap_status or "not installed") + ("" if ap_on else " (optional)"), (ap_status or "sin instalar") + ("" if ap_on else " (opcional)"))
     try:
         clock = [w for w in json.loads(read(HOME / ".config/omarchy/shell.json"))["bar"]["layout"]["center"] if w.get("id") == "omarchy.clock"][0].get("format", "")
     except Exception:
         clock = ""
-    c["barclock"] = ("ok" if "d MMM" in clock or "MMM" in clock else "pending", f"clock format: {clock or 'unknown'}")
+    c["barclock"] = ("ok" if "d MMM" in clock or "MMM" in clock else "pending", f"clock format: {clock or 'unknown'}", f"formato del reloj: {clock or 'desconocido'}")
     import kitconf
     ex = kitconf.mackeys_extra()
-    c["mackeysextra"] = ("ok" if ex else "pending", f"⌘{' ⌘'.join(ex)} take over Super+key in apps" if ex else "none enabled (optional; Omarchy's own Super+W/T/F/S/L/G/P keep working)")
+    c["mackeysextra"] = ("ok" if ex else "pending", f"⌘{' ⌘'.join(ex)} take over Super+key in apps" if ex else "none enabled (optional; Omarchy's own Super+W/T/F/S/L/G/P keep working)",
+                         f"⌘{' ⌘'.join(ex)} reemplazan a Super+tecla en las apps" if ex else "ninguno activado (opcional; los Super+W/T/F/S/L/G/P de Omarchy siguen funcionando)")
     # --- backups
     cfgs = sh("snapper", "list-configs")
     snap_home = any(l.split()[0:1] == ["home"] for l in cfgs.splitlines())
     tl = sh("systemctl", "is-enabled", "snapper-timeline.timer") == "enabled"
     n_snap = len([l for l in sh("snapper", "-c", "home", "list", "--columns", "number").splitlines()[2:] if l.strip() not in ("", "0")]) if snap_home else 0
-    c["homesnap"] = ("ok" if snap_home and tl else "pending", (f"/home snapshots on, {n_snap} so far" if snap_home and tl else "no /home snapshots yet (needs sudo, see the command)"))
+    c["homesnap"] = ("ok" if snap_home and tl else "pending", (f"/home snapshots on, {n_snap} so far" if snap_home and tl else "no /home snapshots yet (needs sudo, see the command)"),
+                      (f"instantáneas de /home activas, {n_snap} hasta ahora" if snap_home and tl else "aún sin instantáneas de /home (requiere sudo, mira el comando)"))
     # whether a backup job exists is Pika's own state; the format is not read here, so installed is as far as this can honestly say
     pika = bool(sh("pacman", "-Q", "pika-backup"))
-    c["pika"] = ("info" if pika else "pending", "Pika Backup is installed: open it to see the last backup and the drive" if pika else "Pika Backup not installed")
+    c["pika"] = ("info" if pika else "pending", "Pika Backup is installed: open it to see the last backup and the drive" if pika else "Pika Backup not installed",
+                 "Pika Backup está instalado: ábrelo para ver el último respaldo y el disco" if pika else "Pika Backup sin instalar")
     c["helper"] = ("ok" if active("omarchy-kit.service", True) else "action", "omarchy-kit.service")
     return c
 
@@ -388,12 +423,12 @@ LOG = [
   "Descubierto el 2026-10-07 con las primeras pruebas reales de la tapa: el reposo profundo (S3) de esta MacBook nunca despierta al abrir la tapa. La pantalla siguió negra hasta pulsar una tecla o el botón de encendido, en dos pruebas, incluso permitiendo que el controlador (EC) despertara el equipo; cerrar una tapa que ya estaba abierta sí lo despertó, así que el hardware ve la tapa y la decisión de despertar está en el firmware propio del EC, que Linux no puede cambiar. El reposo ligero (s2idle) mantiene el sistema funcionando en un reposo ligero, así que el evento de la tapa se atiende como cualquier otro: en la prueba, se abrió la tapa y el equipo estaba funcionando otra vez 1,3 segundos después. Cambio: sleep/install-s2idle (se ejecuta con sudo) escribe /etc/tmpfiles.d/mem-sleep-s2idle.conf, una regla que pone /sys/power/mem_sleep en s2idle al inicio de cada arranque; sin parámetro de kernel ni cambio del cargador de arranque. Costo: en s2idle la CPU queda en reposo ligero en lugar de apagarse, así que una MacBook con la tapa cerrada gasta más batería que con el reposo profundo; mídelo lejos del cargador (ver Pendientes) y avisa a Claude si es demasiado (siguiente opción: suspender-y-luego-hibernar). Deshacer: sudo ~/labspace/omarchy-kit/sleep/install-s2idle --remove. sleep/sleep-check lee el registro del sistema (sin root) de los últimos 14 días: cada suspensión, su modo (profundo o s2idle), cuánto duró, si intervino la tapa y qué dispositivos pueden despertar el equipo, y marca el reposo profundo como el modo que falla en esta Mac.",
   "~/labspace/omarchy-kit/sleep/sleep-check"),
  ("Hibernate that stays off", "Hibernación que se queda apagada",
-  "First hibernate test (2026-10-07): it saved the 6.7 GB memory image and restored the session correctly, but with systemd's default mode (platform, the firmware's own ACPI S4) the Mac switched itself back on within seconds, with nobody touching it. A laptop that restarts itself in a bag defeats the purpose of hibernating. Change: sleep/install-hibernate-mode (run with sudo) writes /etc/systemd/sleep.conf.d/10-hibernate-shutdown.conf with HibernateMode=shutdown: the same image is saved, then the Mac powers off like a normal shutdown. Retest the same day: it stayed off until the power button was pressed, then the disk passphrase and the lock-screen password brought the session back, windows intact (sleep-check lists the hibernate; the kernel log shows the restore). Two passwords are by design: the disk passphrase is needed before anything can be read, and Omarchy locks the screen before every sleep. Saving takes about 30 seconds. Undo: sudo ~/labspace/omarchy-kit/sleep/install-hibernate-mode --remove.",
-  "Primera prueba de hibernación (2026-10-07): guardó la imagen de memoria de 6,7 GB y restauró bien la sesión, pero con el modo por defecto de systemd (platform, el ACPI S4 propio del firmware) la Mac se volvió a encender sola a los pocos segundos, sin que nadie la tocara. Una laptop que se reinicia sola en una mochila anula el sentido de hibernar. Cambio: sleep/install-hibernate-mode (se ejecuta con sudo) escribe /etc/systemd/sleep.conf.d/10-hibernate-shutdown.conf con HibernateMode=shutdown: se guarda la misma imagen y luego la Mac se apaga como en un apagado normal. Nueva prueba el mismo día: se quedó apagada hasta pulsar el botón de encendido, y luego la contraseña del disco y la de la pantalla de bloqueo devolvieron la sesión con las ventanas intactas (sleep-check lista la hibernación; el registro del kernel muestra la restauración). Las dos contraseñas son por diseño: la del disco hace falta antes de poder leer nada, y Omarchy bloquea la pantalla antes de cada reposo. Guardar tarda unos 30 segundos. Deshacer: sudo ~/labspace/omarchy-kit/sleep/install-hibernate-mode --remove.",
+  "First hibernate test (2026-10-07): it saved the 6.7 GB memory image and restored the session correctly, but with systemd's default mode (platform, the firmware's own ACPI S4) the Mac switched itself back on within seconds, with nobody touching it. A laptop that restarts itself in a bag defeats the purpose of hibernating. Change: sleep/install-hibernate-mode (run with sudo) writes /etc/systemd/sleep.conf.d/10-hibernate-shutdown.conf with HibernateMode=shutdown: the same image is saved, then the Mac powers off like a normal shutdown. Retest the same day: it stayed off until the power button was pressed, then the disk passphrase and the lock-screen password brought the session back, windows intact (sleep-check lists the hibernate; the kernel log shows the restore). At first two passwords were by design (changed for a plain hibernate: see the next record): the disk passphrase is needed before anything can be read, and Omarchy locks the screen before every sleep. Saving takes about 30 seconds. Undo: sudo ~/labspace/omarchy-kit/sleep/install-hibernate-mode --remove.",
+  "Primera prueba de hibernación (2026-10-07): guardó la imagen de memoria de 6,7 GB y restauró bien la sesión, pero con el modo por defecto de systemd (platform, el ACPI S4 propio del firmware) la Mac se volvió a encender sola a los pocos segundos, sin que nadie la tocara. Una laptop que se reinicia sola en una mochila anula el sentido de hibernar. Cambio: sleep/install-hibernate-mode (se ejecuta con sudo) escribe /etc/systemd/sleep.conf.d/10-hibernate-shutdown.conf con HibernateMode=shutdown: se guarda la misma imagen y luego la Mac se apaga como en un apagado normal. Nueva prueba el mismo día: se quedó apagada hasta pulsar el botón de encendido, y luego la contraseña del disco y la de la pantalla de bloqueo devolvieron la sesión con las ventanas intactas (sleep-check lista la hibernación; el registro del kernel muestra la restauración). Al principio las dos contraseñas eran por diseño (se cambió para la hibernación simple: ver el registro siguiente): la del disco hace falta antes de poder leer nada, y Omarchy bloquea la pantalla antes de cada reposo. Guardar tarda unos 30 segundos. Deshacer: sudo ~/labspace/omarchy-kit/sleep/install-hibernate-mode --remove.",
   "~/labspace/omarchy-kit/sleep/sleep-check"),
  ("No lock screen before a plain hibernate", "Sin pantalla de bloqueo antes de una hibernación simple",
-  "You asked to type only one password when coming back from hibernate. Omarchy locks the screen before every sleep and its lock has no unlock command, so the only way is not to lock before a plain hibernate. The disk passphrase typed at start-up already protects the saved image, and on a cold boot Omarchy already logs you straight in after it. Change (done by you, 2026-10-07, no root): sleep/install-hibernate-nolock points Omarchy's sleep monitor service (omarchy-sleep-lock, through a user drop-in that sets OMARCHY_PATH for that one service) at ~/.local/share/omarchy-kit/sleep-lock-shim, which holds a symlink to the real monitor and sleep/sleep-lock-policy. The policy skips the lock only when logind's newest 'The system will ... now!' line is exactly 'hibernate now!'; suspend, hybrid, suspend-then-hibernate, any doubt or error run Omarchy's real lock as before (9 decision cases tested). No Omarchy file was edited, so updates do not undo it; the status row turns red if a future Omarchy changes the monitor. Verified: closing the lid still locks (lock secure in 0.55 s, before the machine slept); a hibernate at 19:24 logged 'plain hibernate: not locking', saved, powered off, and after the disk passphrase the session came back with no lock screen. Risks you accepted: for the roughly 30 seconds the image takes to save, the screen is unlocked; and if a hibernate ever fails and the machine stays on, it stays unlocked. Habit warning: do not type your password after the restore, it would land in the focused window. Not covered: the automatic 'light sleep then hibernate' lid plan still needs two passwords, because the lock is already on from its first phase. Undo: ~/labspace/omarchy-kit/sleep/install-hibernate-nolock --remove.",
-  "Pediste escribir una sola contraseña al volver de hibernar. Omarchy bloquea la pantalla antes de cada reposo y su bloqueo no tiene comando para desbloquear, así que la única forma es no bloquear antes de una hibernación simple. La contraseña del disco que escribes al arrancar ya protege la imagen guardada, y en un arranque en frío Omarchy ya te deja entrar directo después de ella. Cambio (lo hiciste tú, 2026-10-07, sin root): sleep/install-hibernate-nolock apunta el servicio del monitor de reposo de Omarchy (omarchy-sleep-lock, con un complemento de usuario que fija OMARCHY_PATH solo para ese servicio) a ~/.local/share/omarchy-kit/sleep-lock-shim, que contiene un enlace al monitor real y a sleep/sleep-lock-policy. La política omite el bloqueo solo cuando la última línea 'The system will ... now!' de logind es exactamente 'hibernate now!'; suspensión, híbrido, suspender-y-hibernar, cualquier duda o error ejecutan el bloqueo real de Omarchy como antes (9 casos de decisión probados). No se editó ningún archivo de Omarchy, así que las actualizaciones no lo deshacen; la fila de estado se pone en rojo si una versión futura de Omarchy cambia el monitor. Verificado: cerrar la tapa sigue bloqueando (bloqueo seguro en 0,55 s, antes de dormir); una hibernación a las 19:24 registró 'plain hibernate: not locking', guardó, se apagó, y tras la contraseña del disco la sesión volvió sin pantalla de bloqueo. Riesgos que aceptaste: durante los unos 30 segundos que tarda en guardarse la imagen la pantalla está desbloqueada; y si una hibernación llegara a fallar y el equipo siguiera encendido, quedaría desbloqueado. Aviso de costumbre: no escribas tu contraseña tras la restauración, caería en la ventana con el foco. No cubierto: el plan automático de 'reposo ligero y luego hibernar' con la tapa sigue pidiendo dos contraseñas, porque el bloqueo ya está puesto desde su primera fase. Deshacer: ~/labspace/omarchy-kit/sleep/install-hibernate-nolock --remove.",
+  "You asked to type only one password when coming back from hibernate. Omarchy locks the screen before every sleep and its lock has no unlock command, so the only way is not to lock before a plain hibernate. The disk passphrase typed at start-up already protects the saved image, and on a cold boot Omarchy already logs you straight in after it. Change (done by you, 2026-10-07, no root): sleep/install-hibernate-nolock points Omarchy's sleep monitor service (omarchy-sleep-lock, through a user drop-in that sets OMARCHY_PATH for that one service) at ~/.local/share/omarchy-kit/sleep-lock-shim, which holds a symlink to the real monitor and sleep/sleep-lock-policy. The policy skips the lock only when logind's newest 'The system will ... now!' line is exactly 'hibernate now!'; suspend, hybrid, suspend-then-hibernate, any doubt or error run Omarchy's real lock as before (9 decision cases tested). No Omarchy file was edited, so updates do not undo it; the status row turns amber (\"needs action\") if a future Omarchy changes the monitor. Verified: closing the lid still locks (lock secure in 0.55 s, before the machine slept); a hibernate at 19:24 logged 'plain hibernate: not locking', saved, powered off, and after the disk passphrase the session came back with no lock screen. Risks you accepted: for the roughly 30 seconds the image takes to save, the screen is unlocked; and if a hibernate ever fails and the machine stays on, it stays unlocked. Habit warning: do not type your password after the restore, it would land in the focused window. Not covered: the automatic 'light sleep then hibernate' lid plan still needs two passwords, because the lock is already on from its first phase. Undo: ~/labspace/omarchy-kit/sleep/install-hibernate-nolock --remove.",
+  "Pediste escribir una sola contraseña al volver de hibernar. Omarchy bloquea la pantalla antes de cada reposo y su bloqueo no tiene comando para desbloquear, así que la única forma es no bloquear antes de una hibernación simple. La contraseña del disco que escribes al arrancar ya protege la imagen guardada, y en un arranque en frío Omarchy ya te deja entrar directo después de ella. Cambio (lo hiciste tú, 2026-10-07, sin root): sleep/install-hibernate-nolock apunta el servicio del monitor de reposo de Omarchy (omarchy-sleep-lock, con un complemento de usuario que fija OMARCHY_PATH solo para ese servicio) a ~/.local/share/omarchy-kit/sleep-lock-shim, que contiene un enlace al monitor real y a sleep/sleep-lock-policy. La política omite el bloqueo solo cuando la última línea 'The system will ... now!' de logind es exactamente 'hibernate now!'; suspensión, híbrido, suspender-y-hibernar, cualquier duda o error ejecutan el bloqueo real de Omarchy como antes (9 casos de decisión probados). No se editó ningún archivo de Omarchy, así que las actualizaciones no lo deshacen; la fila de estado pasa a ámbar («requiere acción») si una versión futura de Omarchy cambia el monitor. Verificado: cerrar la tapa sigue bloqueando (bloqueo seguro en 0,55 s, antes de dormir); una hibernación a las 19:24 registró 'plain hibernate: not locking', guardó, se apagó, y tras la contraseña del disco la sesión volvió sin pantalla de bloqueo. Riesgos que aceptaste: durante los 30 segundos, más o menos, que tarda en guardarse la imagen la pantalla está desbloqueada; y si una hibernación llegara a fallar y el equipo siguiera encendido, quedaría desbloqueado. Aviso de costumbre: no escribas tu contraseña tras la restauración, caería en la ventana con el foco. No cubierto: el plan automático de 'reposo ligero y luego hibernar' con la tapa sigue pidiendo dos contraseñas, porque el bloqueo ya está puesto desde su primera fase. Deshacer: ~/labspace/omarchy-kit/sleep/install-hibernate-nolock --remove.",
   "~/labspace/omarchy-kit/sleep/sleep-check"),
  ("Six themes of our own: Kawaii Bow, Mecha Unit, Solarpunk", "Seis temas propios: Kawaii Bow, Mecha Unit, Solarpunk",
   "Asked for on 2026-10-07: full themes around three muses. A search of Omarchy's community gallery (117 themes) found no Hello Kitty, Evangelion or solarpunk theme, so we made them: Kawaii Bow and Kawaii Bow Night, Mecha Unit and Mecha Unit Red, Solarpunk and Solarpunk Dusk. Each is inspired in the second degree: open-source themes and palette projects that are themselves inspired by the muse were studied (name, URL, licence and the idea taken are credited in each theme's THEME.md), nothing was copied, the palettes were re-derived and all art was generated for the kit, so no official artwork, logo or character likeness is included and no brand is cited as a source. Each has five wallpapers at 2880x1800, a preview and a contrast table (text 10.8:1 to 17.8:1; every ANSI colour at least 4.5:1). Verified by applying each to the live desktop with a screenshot (no Hyprland errors), then restoring the previous theme. Install: themes/install-themes (no root; copies to ~/.config/omarchy/themes and marks the copy so it never touches anyone else's themes; switches nothing). Try: omarchy theme set \"Kawaii Bow\" (or the menu or the portal's picker). Undo: themes/install-themes --remove. Details: docs/THEMES.md. Open: the licence for the original art, and whether to keep two credit rows whose source names contain the franchise's words.",
@@ -404,8 +439,8 @@ LOG = [
   "Medido con power-lab el 2026-10-07 (con batería, terminal inactiva): dejar que la tarjeta Wi-Fi duerma entre paquetes baja el consumo unos 0,9 W, igual en dos pruebas distintas (prueba suelta -0,94 W, prueba acumulativa -0,9 W). Cambio: power/install-wifi-powersave (se ejecuta con sudo) escribe /etc/NetworkManager/conf.d/wifi-powersave.conf con wifi.powersave = 3 (activar), que NetworkManager aplica en cada conexión, así que también sobrevive a reconexiones y al reposo; se aplica al instante sin cortar la conexión. Compromiso: Omarchy trae su propio ajuste que apaga el ahorro de energía del Wi-Fi (puede añadir picos de latencia de 20-300 ms en enlaces inactivos, y algunos firmwares de Intel cortan el enlace al dormir); este cambio lo reemplaza a propósito con un archivo que se ordena después. Medido aquí con este router: las respuestas en un enlace inactivo tardaron 2,3-5,8 ms, sin picos. Lo que esa prueba no puede mostrar es un paquete no solicitado que llega mientras la tarjeta duerme, que puede esperar hasta unos 100 ms: invisible para chat o navegación, quizá notable en juegos en tiempo real o llamadas. Si alguna vez ves cortes o lag en el Wi-Fi, deshazlo. Deshacer: sudo ~/labspace/omarchy-kit/power/install-wifi-powersave --remove.",
   "~/labspace/omarchy-kit/power/power-lab results"),
  ("Power lab (measuring the battery, no changes)", "Laboratorio de energía (medir la batería, sin cambios)",
-  "power/power-lab is the kit's tool for finding out where the battery goes and for trying power-saving changes safely. Modes: quiet (draw at your brightness and with the backlight off), breakdown (adds CPU-package power from the RAPL counters and how deeply the CPU package sleeps, with the display on and off), singles (ten single changes, each reverted straight after), stack (fixes applied cumulatively, then removed one by one). It runs as a background system service after one sudo prompt, so the terminal stays idle: a working terminal repaints the screen and adds about 4 W by itself. Nothing is permanent: every change is reverted right after its measurement and on any exit. Results go to data/power-lab/ (not committed); the findings so far are written up in docs/POWER-LAB.md. power/msr-probe (read-only) shows the CPU's package C-state limit. Lessons recorded: a Thunderbolt driver test left that controller unreachable until reboot, and a PCI rescan crashed the kernel (an oops in intel_rapl_msr) and killed a test before it could restore the screen, so the tool has no Thunderbolt test, never removes or rescans devices, and a separate systemd cleanup command always restores the display and backlight, even if the script crashes.",
-  "power/power-lab es la herramienta del kit para saber a dónde se va la batería y para probar con seguridad cambios de ahorro de energía. Modos: quiet (consumo con tu brillo y con la luz de fondo apagada), breakdown (suma la potencia del paquete de CPU con los contadores RAPL y qué tan profundo duerme el paquete de CPU, con la pantalla encendida y apagada), singles (diez cambios sueltos, cada uno revertido enseguida), stack (arreglos aplicados de forma acumulativa y luego quitados uno por uno). Corre como servicio del sistema en segundo plano tras pedir sudo una vez, así la terminal queda inactiva: una terminal trabajando repinta la pantalla y suma unos 4 W por sí sola. Nada es permanente: cada cambio se revierte justo después de medirlo y al salir por cualquier vía. Los resultados van a data/power-lab/ (no se suben al repositorio); lo hallado hasta ahora está en docs/POWER-LAB.md. power/msr-probe (solo lectura) muestra el límite de estados C del paquete de la CPU. Lecciones registradas: una prueba con el controlador de Thunderbolt dejó ese controlador inaccesible hasta reiniciar, y un reescaneo del bus PCI hizo fallar el kernel (un oops en intel_rapl_msr) y mató una prueba antes de que pudiera restaurar la pantalla; por eso la herramienta no tiene prueba de Thunderbolt, nunca quita ni reescanea dispositivos, y un comando de limpieza aparte de systemd siempre restaura la pantalla y la luz de fondo, incluso si el script se cae.",
+  "power/power-lab is the kit's tool for finding out where the battery goes and for trying power-saving changes safely. Modes: quiet (draw at your brightness and with the backlight off), breakdown (adds CPU-package power from the RAPL counters and how deeply the CPU package sleeps, with the display on and off), singles (seven single changes, each reverted straight after), stack (fixes applied cumulatively, then removed one by one), hunt (looks for what keeps the CPU package out of deep sleep by turning on PCIe link power saving one group at a time), and rescue (not run by hand: the service runs it itself after every test, however the test ends, to put the display and backlight back). It runs as a background system service after one sudo prompt, so the terminal stays idle: a working terminal repaints the screen and adds about 4 W by itself. Nothing is permanent: every change is reverted right after its measurement and on any exit. Results go to data/power-lab/ (not committed); the findings so far are written up in docs/POWER-LAB.md. power/msr-probe (read-only) shows the CPU's package C-state limit. Lessons recorded: a Thunderbolt driver test left that controller unreachable until reboot, and a PCI rescan crashed the kernel (an oops in intel_rapl_msr) and killed a test before it could restore the screen, so the tool has no Thunderbolt test, never removes or rescans devices, and a separate systemd cleanup command always restores the display and backlight, even if the script crashes.",
+  "power/power-lab es la herramienta del kit para saber a dónde se va la batería y para probar con seguridad cambios de ahorro de energía. Modos: quiet (consumo con tu brillo y con la luz de fondo apagada), breakdown (suma la potencia del paquete de CPU con los contadores RAPL y qué tan profundo duerme el paquete de CPU, con la pantalla encendida y apagada), singles (siete cambios sueltos, cada uno revertido enseguida), stack (arreglos aplicados de forma acumulativa y luego quitados uno por uno). Corre como servicio del sistema en segundo plano tras pedir sudo una vez, así la terminal queda inactiva: una terminal trabajando repinta la pantalla y suma unos 4 W por sí sola. Nada es permanente: cada cambio se revierte justo después de medirlo y al salir por cualquier vía. Los resultados van a data/power-lab/ (no se suben al repositorio); lo hallado hasta ahora está en docs/POWER-LAB.md. power/msr-probe (solo lectura) muestra el límite de estados C del paquete de la CPU. Lecciones registradas: una prueba con el controlador de Thunderbolt dejó ese controlador inaccesible hasta reiniciar, y un reescaneo del bus PCI hizo fallar el kernel (un oops en intel_rapl_msr) y mató una prueba antes de que pudiera restaurar la pantalla; por eso la herramienta no tiene prueba de Thunderbolt, nunca quita ni reescanea dispositivos, y un comando de limpieza aparte de systemd siempre restaura la pantalla y la luz de fondo, incluso si el script se cae.",
   "~/labspace/omarchy-kit/power/power-lab --help"),
  ("Battery log around sleep", "Registro de batería durante el reposo",
   "sleep/battery-log is a systemd-sleep hook (installed to /usr/lib/systemd/system-sleep/, the only folder this systemd reads for sleep hooks, by sleep/install-battery-log, run with sudo) that writes the battery charge, voltage and charger state to the journal (tag sleep-battery) right before and after every sleep. sleep/sleep-check pairs those lines with each sleep and reports the drain in mAh and watts, but only trusts sleeps of 10 minutes or more on battery, because the awake seconds around a short sleep dominate the result. sleep-check also lists hibernate cycles. The hook only reads the battery. Undo: sudo ~/labspace/omarchy-kit/sleep/install-battery-log --remove.",
@@ -475,6 +510,10 @@ LOG = [
   f"Plan for {CO_NAME} (username {CO_USER}): a wheel member with a sudo password and a private home; Omarchy finishes their setup on first login; the login screen is shown at boot; {CO_FIRST} gets their own LUKS passphrase. The temporary password was given in chat and is not stored here. {CO_FIRST} should run passwd right after their first login.",
   f"Plan para {CO_NAME} (usuario {CO_USER}): miembro de wheel con contraseña para sudo y carpeta privada; Omarchy termina su configuración al primer inicio; pantalla de inicio al arrancar; frase LUKS propia. La contraseña temporal se dio en el chat y no se guarda aquí. {CO_FIRST_ES} debe ejecutar passwd tras su primer inicio.",
   f"passwd   # {CO_FIRST}, first thing after logging in"),
+ ("Kit audit: safer scripts, faster pages, a longer learning path", "Auditoría del kit: scripts más seguros, páginas más rápidas, un camino de aprendizaje más largo",
+  "2026-10-07: four read-only reviews (documentation, teaching, code and tests, web quality in a real browser) and their fixes. SAFETY: every installer and test script now prints its usage on --help and exits 2 on an unknown option instead of installing (an audit probe had run two installers by accident; both are idempotent and nothing changed). install-hibernate-nolock refuses unless the hibernate image is on an encrypted disk and fails closed if Omarchy's monitor is missing; sleep-lock-policy falls back to a plain session lock if the real lock script is gone; install-themes no longer aborts on a non-theme folder, copies aside before replacing and rejects names that climb out of its folder; power-lab's rescue command survives an empty Hyprland signature. PORTAL: the home wallpaper is served at 1920 px (1.77 MB down to 225 KB, cached in ~/.cache/omarchy-kit), the home sparkline asks only for the samples it draws (772 B instead of 105 KB and no 130 ms snapshot per poll), a visit to /setup no longer rewrites a file in the repository, the token is compared in constant time, long games jobs run one at a time, /install passes app ids as arguments, muted text and links now reach 4.5:1 on every surface in all 28 themes (the worst had been 3.2:1), pending lesson steps are no longer almost invisible, every page has a skip link and a main landmark, and printing is readable. LEARNING: a new first-command lesson, Level 6 'Care and feeding of your MacBook' (8 lessons on sleep, hibernate, real watts, themes, reading the journal and undoing anything), 14 glossary terms, XP ranks rescaled so the top rank needs nearly the whole path (about 2,300 XP), a reading guide with a colour key on this page, and Spanish text for 37 live status rows. TESTS: 165 hermetic tests and 87 browser checks; test/run-all --fast runs the first in about 20 s. Undo: these are changes to the kit's own files in git (git revert); the only thing outside the repository is the wallpaper cache, safe to delete (rm -rf ~/.cache/omarchy-kit).",
+  "2026-10-07: cuatro revisiones de solo lectura (documentación, enseñanza, código y pruebas, calidad web en un navegador real) y sus correcciones. SEGURIDAD: todo instalador y script de prueba imprime su uso con --help y sale con código 2 ante una opción desconocida en vez de instalar (una sonda de la auditoría ejecutó dos instaladores por accidente; ambos son idempotentes y no cambió nada). install-hibernate-nolock se niega si la imagen de hibernación no está en un disco cifrado y falla de forma segura si falta el monitor de Omarchy; sleep-lock-policy recurre a un bloqueo normal de sesión si desaparece el script de bloqueo real; install-themes ya no se aborta con una carpeta que no es tema, copia aparte antes de reemplazar y rechaza nombres que salen de su carpeta; el comando de rescate de power-lab sobrevive a una firma de Hyprland vacía. PORTAL: el fondo de la página de inicio se sirve a 1920 px (de 1,77 MB a 225 KB, en caché en ~/.cache/omarchy-kit), la gráfica de temperatura de inicio pide solo las muestras que dibuja (772 B en vez de 105 KB y sin la instantánea de 130 ms en cada consulta), visitar /setup ya no reescribe un archivo del repositorio, el token se compara en tiempo constante, los trabajos largos de juegos corren de uno en uno, /install pasa los ids de apps como argumentos, el texto atenuado y los enlaces llegan a 4,5:1 sobre cualquier superficie en los 28 temas (el peor era 3,2:1), los pasos pendientes de las lecciones ya no son casi invisibles, cada página tiene un enlace para saltar al contenido y una región principal, y se puede imprimir con legibilidad. APRENDIZAJE: una lección nueva de primer comando, el Nivel 6 «Cuidados de tu MacBook» (8 lecciones sobre reposo, hibernación, watts reales, temas, leer el journal y deshacer cualquier cosa), 14 términos de glosario, rangos de XP reescalados para que el rango máximo exija casi todo el camino (unos 2300 XP), una guía de lectura con la clave de colores en esta página y texto en español para 37 filas de estado en vivo. PRUEBAS: 165 pruebas herméticas y 87 comprobaciones de navegador; test/run-all --fast corre las primeras en unos 20 s. Deshacer: son cambios en archivos del propio kit en git (git revert); lo único fuera del repositorio es la caché del fondo, que se puede borrar (rm -rf ~/.cache/omarchy-kit).",
+  "~/labspace/omarchy-kit/test/run-all --fast"),
 ]
 
 ISSUES = [
@@ -503,11 +542,7 @@ TODO = [
   "Light sleep (s2idle) keeps the fans at their minimum speed and drains more than deep sleep did. After installing the battery log (status row above), unplug the charger, close the lid for 10 minutes or more, open it and run sleep-check: it shows the drain in mAh and watts. If it is too much, the plan is suspend-then-hibernate.",
   "El reposo ligero (s2idle) mantiene los ventiladores a su velocidad mínima y gasta más que el profundo. Tras instalar el registro de batería (fila de estado de arriba), desenchufa el cargador, cierra la tapa 10 minutos o más, ábrela y corre sleep-check: muestra el gasto en mAh y vatios. Si es demasiado, el plan es suspender-y-luego-hibernar.",
   "~/labspace/omarchy-kit/sleep/sleep-check"),
- ("you", "Reboot once: Thunderbolt is off until then", "Reinicia una vez: Thunderbolt está apagado hasta entonces",
-  "A power test on 2026-10-07 left the Thunderbolt controller unreachable (its driver could not wake it again). Thunderbolt ports, and possibly video on the Mini DisplayPort connectors, will not work until the next reboot; nothing else is affected. Reboot when it suits you. The power-lab tool no longer has a Thunderbolt test.",
-  "Una prueba de energía el 2026-10-07 dejó el controlador de Thunderbolt inaccesible (su controlador no pudo despertarlo de nuevo). Los puertos Thunderbolt, y posiblemente el video por los conectores Mini DisplayPort, no funcionarán hasta el próximo reinicio; nada más se ve afectado. Reinicia cuando te convenga. La herramienta power-lab ya no tiene una prueba de Thunderbolt.",
-  "systemctl reboot"),
- ("optional", "Battery drain: what is left to try (about 20 W at idle)", "Gasto de batería: lo que queda por probar (unos 20 W en reposo aparente)",
+ ("optional", "Battery drain: what is left to try (about 20 W at idle)", "Gasto de batería: lo que queda por probar (unos 20 W con el equipo sin actividad)",
   "Measured 2026-10-07 on battery with the terminal idle (a working Claude window adds about 4 W): 20.0 W at your brightness = backlight about 5 W + display pipeline and panel electronics about 4.4 W + CPU package 4.8 W + memory 1.7 W + the rest about 4 W. Safe fixes tried together saved only about 1.5 W; the one that held up is Wi-Fi power saving (status row above). The CPU package never reaches its deep sleep states (PC6/PC7 stayed at 0% in every test); the firmware does not cap it (limit C7s, unlocked), so something else blocks it, and the graphics driver cannot compress the screen (the firmware reserved no graphics memory). The hunt for the blocker (2026-10-07) found nothing: PCIe link power saving on the camera link changed nothing, the kernel refused it on the Thunderbolt links (the strongest suspect), and taking the camera, audio, management engine, SMBus and Wi-Fi off the bus changed nothing; the rest cannot be removed safely, and the rescan step crashed the kernel once, so the search is stopped. Still open: (1) nothing safe left to try for deep package sleep (worth up to about 3 W); (2) a lower fan floor (1,200 rpm) showed about -0.7 W in one noisy run, it needs a longer test before it is installed; (3) your own levers: brightness (the largest single item, about 1.5 W from 73% to 50%) and closing animated windows. Do not touch Thunderbolt. Tell Claude if you want any of the rest.",
   "Medido el 2026-10-07 con batería y terminal inactiva (una ventana de Claude trabajando suma unos 4 W): 20,0 W con tu brillo = luz de fondo unos 5 W + procesamiento de pantalla y electrónica del panel unos 4,4 W + paquete de CPU 4,8 W + memoria 1,7 W + el resto unos 4 W. Los arreglos seguros probados juntos ahorraron solo unos 1,5 W; el que se sostuvo es el ahorro de energía del Wi-Fi (fila de estado de arriba). El paquete de CPU nunca llega a sus estados de reposo profundo (PC6/PC7 se quedaron en 0 % en todas las pruebas); el firmware no lo limita (límite C7s, desbloqueado), así que algo más lo bloquea, y el controlador gráfico no puede comprimir la pantalla (el firmware no reservó memoria gráfica). La búsqueda del bloqueo (2026-10-07) no encontró nada: el ahorro de enlace PCIe en el enlace de la cámara no cambió nada, el kernel lo rechazó en los enlaces de Thunderbolt (el sospechoso principal), y quitar del bus la cámara, el audio, el motor de gestión, el SMBus y el Wi-Fi no cambió nada; lo demás no se puede quitar con seguridad, y el reescaneo hizo fallar el kernel una vez, así que la búsqueda se detuvo. Aún abierto: (1) no queda nada seguro por probar para el reposo profundo del paquete (vale hasta unos 3 W); (2) una base de ventiladores más baja (1.200 rpm) mostró unos -0,7 W en una prueba con ruido, necesita una prueba más larga antes de instalarse; (3) tus propias palancas: el brillo (lo más grande, unos 1,5 W al pasar de 73 % a 50 %) y cerrar ventanas animadas. No toques Thunderbolt. Dile a Claude si quieres alguna de las demás.",
   "upower -i /org/freedesktop/UPower/devices/battery_BAT0 | grep -E 'energy-rate|percentage|state'"),
@@ -562,15 +597,19 @@ SKIPPED = [
  ("The 1.3 second pause on every wake", "La pausa de 1,3 segundos al despertar",
   "Each wake spends about 1.3 seconds in a kernel step that re-reads the firmware's variables (efivarfs) before the desktop thaws. I found no setting that skips it, and the only workaround (unmounting efivarfs around every sleep) risks breaking the tools that use it, so it is left alone.",
   "Cada vez que despierta, pasa cerca de 1,3 segundos en un paso del kernel que vuelve a leer las variables del firmware (efivarfs) antes de descongelar el escritorio. No encontré ningún ajuste para saltarlo, y la única solución (desmontar efivarfs alrededor de cada reposo) arriesga romper las herramientas que lo usan, así que se deja como está."),
+ ("Audit findings left for later (bigger or riskier than the fix)", "Hallazgos de la auditoría que quedan para después (más grandes o riesgosos que la corrección)",
+  "Reviewed and deliberately not done in this round: (1) terminals and installs that the portal starts live inside the service's process group, so restarting the service ends a running install; (2) backup/install-backups --remove deletes the snapper 'home' config even if the kit did not create it, and leaves snapper-cleanup.timer enabled; (3) boot/apply-boot-look --undo restores a whole saved limine.conf, which can be stale; (4) games/fetch-freeware extracts zips without the unsafe-path check that the store client has; (5) helper functions (read, run_text, sh) are duplicated across scripts and apps-helper's hardware() repeats kitlive.snapshot; build_setup.py (about 600 lines) could keep its bilingual records in a TOML file with an English/Spanish parity test; (6) seven pages each inline the same 192 KB JSON and /setup takes about 0.95 s to render; (7) 43 unlabelled checkboxes on /cheatsheet and 11 on /apps, text as small as 6 px on /keyboard and /trackpad, and an occasional layout shift on the home page and /games. None affects safety today; each is a self-contained change for a later session.",
+  "Revisado y a propósito no hecho en esta ronda: (1) las terminales e instalaciones que inicia el portal viven dentro del grupo de procesos del servicio, así que reiniciar el servicio termina una instalación en curso; (2) backup/install-backups --remove borra la configuración 'home' de snapper aunque el kit no la haya creado, y deja habilitado snapper-cleanup.timer; (3) boot/apply-boot-look --undo restaura un limine.conf completo guardado, que puede estar desactualizado; (4) games/fetch-freeware extrae zips sin la comprobación de rutas inseguras que sí tiene el cliente de la tienda; (5) las funciones auxiliares (read, run_text, sh) están duplicadas entre scripts y hardware() de apps-helper repite kitlive.snapshot; build_setup.py (unas 600 líneas) podría guardar sus registros bilingües en un archivo TOML con una prueba de paridad inglés/español; (6) siete páginas incluyen el mismo JSON de 192 KB y /setup tarda cerca de 0,95 s en generarse; (7) 43 casillas sin etiqueta en /cheatsheet y 11 en /apps, texto de hasta 6 px en /keyboard y /trackpad, y un salto de diseño ocasional en la página de inicio y en /games. Nada afecta la seguridad hoy; cada uno es un cambio independiente para otra sesión."),
 ]
 
 
-def build():
+def build(write=True):
     data = {"checks": checks(), "status": STATUS, "log": LOG, "issues": ISSUES, "todo": TODO, "skipped": SKIPPED,
             "built": sh("date", "+%Y-%m-%d %H:%M")}
     tpl = (HERE / "setup.template.html").read_text()
     out = tpl.replace("/*__DATA__*/{}", json.dumps(data, ensure_ascii=False).replace("</", "<\\/"))
-    (HERE / "setup.html").write_text(out)
+    if write:
+        (HERE / "setup.html").write_text(out)
     return out
 
 

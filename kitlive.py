@@ -2,7 +2,7 @@
 keeps ~30 minutes of hardware history for the System page. Everything here is read-only except
 set_theme(), which runs Omarchy's own `omarchy-theme-set` with a name from the installed theme list.
 """
-import colorsys, glob, json, os, re, shutil, subprocess, threading, time
+import colorsys, glob, hashlib, json, os, re, shutil, subprocess, threading, time
 from pathlib import Path
 
 STATE = Path.home() / ".local/state/omarchy/current"
@@ -57,6 +57,13 @@ def _readable(c, bg, fg, need):
     return fg
 
 
+def _on_all(c, surfaces, fg, need):
+    """Make c readable on every surface it can sit on: each pass only moves it toward fg, which raises its contrast on the others too."""
+    for sf in surfaces:
+        c = _readable(c, sf, fg, need)
+    return c
+
+
 def _hue_ok(c, lo, hi):
     h, l, s = colorsys.rgb_to_hls(*c)
     h *= 360
@@ -96,19 +103,22 @@ def theme_css(path=None):
     card = _mix(bg, fg, .05) if dark else _mix(bg, white, .55)
     line = _mix(bg, fg, .15)
     kbd = _mix(bg, fg, .10)
-    mut = _readable(_mix(bg, fg, .6), card, fg, 4.6)
     acc0 = _hex(r.get("accent", "#7fb2e8"))
-    acc = _readable(acc0, card, fg, 4.5)  # text/links
+    acc = _on_all(acc0, (card, bg, kbd), fg, 4.6)  # text/links (a little above 4.5: the CSS rounds to 8 bits)
     accfill = acc0 if contrast(acc0, bg) >= 3 else acc  # buttons, bars, rings
     on_acc = black if contrast(accfill, black) >= contrast(accfill, white) else white
+    soft = _mix(card, accfill, .14)
+    # text can sit on the page, a card, a keycap chip or a highlighted row: check all four, not just the card
+    surfaces = (card, bg, kbd, soft)
+    acc = _on_all(acc, surfaces, fg, 4.6)
+    mut = _on_all(_mix(bg, fg, .6), surfaces, fg, 4.7)
 
     def sem(key, lo, hi, fallback):
         c = _hex(r[key]) if key in r and _hue_ok(_hex(r[key]), lo, hi) else _hex(fallback)
-        return _readable(c, card, fg, 4.5)
+        return _on_all(c, surfaces, fg, 4.6)
     ok = sem("green", 75, 170, "#68d391" if dark else "#2f855a")
     warn = sem("yellow", 25, 60, "#f6c453" if dark else "#b7791f")
     bad = sem("red", 340, 20, "#fc8181" if dark else "#c53030")
-    soft = _mix(card, accfill, .14)
     v = {"bg": bg, "fg": fg, "mut": mut, "card": card, "line": line, "acc": acc, "acc-fill": accfill, "on-acc": on_acc,
          "kbd": kbd, "kbdl": _mix(bg, fg, .3), "ok": ok, "warn": warn, "bad": bad, "info": acc, "soft": soft,
          "act": warn, "pend": mut, "no": mut, "stage1": _mix(bg, fg, .08), "stage2": _mix(bg, fg, .2),
@@ -123,6 +133,33 @@ def theme_css(path=None):
 def wallpaper():
     p = os.path.realpath(STATE / "background")
     return p if re.search(r"\.(jpe?g|png|webp)$", p, re.I) and os.path.isfile(p) else None
+
+
+def wallpaper_small(max_w=1920):
+    """(path, mime) of the wallpaper scaled to max_w pixels wide. The originals are 5000+ px (about 70 MB decoded in the browser), far more than
+    a blurred hero needs. Cached by source file and modification time under ~/.cache/omarchy-kit; falls back to the original without Pillow."""
+    w = wallpaper()
+    if not w:
+        return None, None
+    try:
+        from PIL import Image
+        cache = Path.home() / ".cache/omarchy-kit"
+        out = cache / ("wallpaper-" + hashlib.sha1(f"{w}|{os.stat(w).st_mtime_ns}|{max_w}".encode()).hexdigest()[:16] + ".jpg")
+        if not out.exists():
+            cache.mkdir(parents=True, exist_ok=True)
+            with Image.open(w) as im:
+                im.draft("RGB", (max_w, max_w))          # JPEG: decode at a reduced scale straight away
+                im = im.convert("RGB")
+                if im.width > max_w:
+                    im = im.resize((max_w, round(im.height * max_w / im.width)), Image.LANCZOS)
+                tmp = out.with_suffix(".tmp")
+                im.save(tmp, "JPEG", quality=82, optimize=True, progressive=True)
+                tmp.replace(out)
+            for old in sorted(cache.glob("wallpaper-*.jpg"), key=lambda q: q.stat().st_mtime)[:-6]:   # keep the six newest
+                old.unlink(missing_ok=True)
+        return str(out), "image/jpeg"
+    except Exception:
+        return w, None
 
 
 def theme_list():

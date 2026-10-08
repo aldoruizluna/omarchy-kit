@@ -77,3 +77,18 @@ header:has(.kit-tools)>#bLang{margin-left:0}
 
 @media (prefers-reduced-motion:reduce){body,.card,.kit-toast,.kp-back{transition:none!important;animation:none!important}}
 @media (forced-colors:active){.kit-xp,.kit-toast,.bdg.got{border:1px solid CanvasText}}
+
+/* skip link: invisible until it takes focus */
+.kit-skip{position:absolute;left:8px;top:-60px;z-index:1000;padding:8px 14px;border-radius:8px;background:var(--acc-fill,var(--acc,#7fb2e8));color:var(--on-acc,#000);font-weight:700;text-decoration:none}
+.kit-skip:focus{top:8px}
+[tabindex="-1"]:focus{outline:none}
+
+/* print: dark themes would otherwise print pale text on white paper */
+@media print{
+  body{background:#fff!important}
+  *{color:#000!important;text-shadow:none!important;box-shadow:none!important}
+  .kit-bar,.kit-skip,.kit-toasts,.kit-pal,button,#bLang,#top,canvas{display:none!important}
+  .card,.row,.step,.hw{background:#fff!important;border-color:#999!important;break-inside:avoid}
+  a{text-decoration:underline}
+  code,kbd{background:#eee!important;border:1px solid #ccc!important}
+}

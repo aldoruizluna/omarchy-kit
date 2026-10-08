@@ -36,7 +36,7 @@ function live(kind) {
   if (kind === "sleep") {
     const z = hw.sleep; if (!z) return "";
     const last = z.cycles[z.cycles.length - 1];
-    const msg = z.status === "pending" ? L("Untested: close the lid for 30 s, open it, and this turns green", "Sin probar: cierra la tapa 30 s, ábrela y esto se pone en verde")
+    const msg = z.status === "pending" ? L("No sleep recorded yet: close the lid for 30 s, open it, and this turns green", "Aún no hay reposos registrados: cierra la tapa 30 s, ábrela y esto se pone en verde")
       : z.status === "ok" ? L(`Last sleep ${(last.secs / 60).toFixed(1)} min, resumed fine`, `Último reposo ${(last.secs / 60).toFixed(1)} min, reanudó bien`)
       : L(`Woke itself after ${Math.round(last.secs)} s`, `Despertó sola tras ${Math.round(last.secs)} s`);
     return `<div class="livebox"><span>${L("Sleeps seen", "Reposos vistos")} <b>${z.count}</b></span><span>${esc(msg)}</span><span>${L("Can wake it", "Pueden despertarla")}: <b>${esc(z.wake_enabled.join(", ") || "—")}</b></span></div>`;
