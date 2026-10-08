@@ -2,6 +2,7 @@
 # Install the Mac ⌘ shortcuts (mackeys.lua) into the Hyprland config; no root needed.
 # Remove with: ./install-mackeys --remove      (then Super+Z etc. go back to doing nothing)
 set -euo pipefail
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
 cd "$(dirname "$0")"
 HYPR=${XDG_CONFIG_HOME:-$HOME/.config}/hypr
 LINE='require("hypr.mackeys")'

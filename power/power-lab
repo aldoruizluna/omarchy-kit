@@ -4,7 +4,7 @@
   power-lab quiet         your battery draw at normal brightness and with the backlight off          (about 2 minutes)
   power-lab breakdown     adds CPU-package power (RAPL) and how deeply the CPU package sleeps (PC2..PC7),
                           with the display on and then switched off                                  (about 3 minutes)
-  power-lab singles       tries ten single changes one at a time (each is reverted straight after)   (about 9 minutes)
+  power-lab singles       tries seven single changes one at a time (each is reverted straight after)   (about 9 minutes)
   power-lab stack         applies the candidate fixes cumulatively, then removes them one by one     (about 9 minutes)
   power-lab hunt          looks for what keeps the CPU package out of deep sleep (PC6/PC7): turns on PCIe link power saving on the
                           links that have it off, one group at a time. Works on the charger too                               (about 3 minutes)
@@ -18,7 +18,7 @@ keyboard and trackpad (input wakes the display), and keep the charger unplugged:
 Nothing is permanent. Every change is reverted right after its measurement, and also on any exit or signal; the backlight and the
 display are restored at the end. Results are written to data/power-lab/<mode>.txt (git-ignored).
 Written for this MacBookPro11,3 (Haswell, Hyprland, apple-gmux backlight); machine-specific bits are detected, not hard-coded."""
-import argparse, atexit, glob, os, pwd, signal, statistics, struct, subprocess, sys, time
+import argparse, atexit, glob, os, pwd, shlex, signal, statistics, struct, subprocess, sys, time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUT = os.path.join(os.path.dirname(HERE), "data", "power-lab")
@@ -32,7 +32,8 @@ def first(paths):
 
 def rd(p):
     try:
-        return open(p).read().strip()
+        with open(p) as f:
+            return f.read().strip()
     except OSError:
         return ""
 
@@ -465,7 +466,8 @@ def relaunch(mode, args, user):
     sig = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
     me = Lab(user, sig, out)
     # ExecStopPost runs when the service ends however it ends (finished, killed, crashed): the display always comes back
-    rescue = f"/usr/bin/python3 -I {os.path.abspath(__file__)} rescue --user {user} --sig {sig} --brightness {me.orig_brightness or 0}"
+    rescue = " ".join(["/usr/bin/python3", "-I", shlex.quote(os.path.abspath(__file__)), "rescue", f"--user={shlex.quote(user)}", f"--sig={shlex.quote(sig)}",
+                       f"--brightness={me.orig_brightness or 0}"])
     cmd = ["sudo", "systemd-run", "--collect", f"--unit=power-lab-{mode}", f"--property=ExecStopPost={rescue}", "python3", "-I", os.path.abspath(__file__), mode,
            "--user", user, "--sig", sig, "--out", out]
     rc = subprocess.call(cmd)

@@ -1,6 +1,7 @@
 #!/bin/bash
 # Install the automatic power profile (no root needed). Remove with: ./install-power-auto --remove
 set -euo pipefail
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
 cd "$(dirname "$0")"
 CFG=${XDG_CONFIG_HOME:-$HOME/.config}
 

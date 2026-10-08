@@ -10,6 +10,7 @@
 #
 # How: one systemd drop-in that sets HibernateMode=shutdown. It takes effect at the next hibernate.
 set -eu
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
 D=/etc/systemd/sleep.conf.d
 F=$D/10-hibernate-shutdown.conf
 [ "$(id -u)" = 0 ] || { echo "run it with sudo"; exit 1; }

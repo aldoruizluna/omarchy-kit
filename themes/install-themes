@@ -15,7 +15,8 @@ HERE=$(dirname "$(readlink -f "$0")")
 DEST=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/themes
 MARK=.omarchy-kit
 
-kit_themes() { for d in "$HERE"/*/; do [ -f "${d}colors.toml" ] && basename "$d"; done; }
+kit_themes() { local d; for d in "$HERE"/*/; do if [ -f "${d}colors.toml" ]; then basename "$d"; fi; done; }
+valid() { case $1 in "" | .* | */*) return 1 ;; esac; }   # a theme name is one plain folder name
 
 case "${1:-}" in
   --list)
@@ -29,24 +30,36 @@ case "${1:-}" in
     shift
     names=${*:-$(kit_themes)}
     for t in $names; do
+      valid "$t" || { echo "skipped $t: not a theme name"; continue; }
       if [ -f "$DEST/$t/$MARK" ]; then rm -rf "${DEST:?}/$t"; echo "removed $t"
       elif [ -d "$DEST/$t" ]; then echo "left $t alone: it is not one of the kit's"
       else echo "$t was not installed"; fi
     done
     exit 0 ;;
+  -h|--help)
+    sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;;
+  -*)
+    echo "usage: $(basename "$0") [name ...] | --list | --remove [name ...]   (--help for details)" >&2; exit 2 ;;
 esac
 
 names=${*:-$(kit_themes)}
 [ -n "$names" ] || { echo "no themes with a colors.toml in $HERE yet"; exit 1; }
 mkdir -p "$DEST"
 for t in $names; do
+  valid "$t" || { echo "skipped $t: not a theme name"; continue; }
   [ -f "$HERE/$t/colors.toml" ] || { echo "skipped $t: no such kit theme"; continue; }
   if [ -d "$DEST/$t" ] && [ ! -f "$DEST/$t/$MARK" ]; then echo "skipped $t: a theme with that name already exists and is not the kit's"; continue; fi
-  rm -rf "${DEST:?}/$t"
-  cp -r "$HERE/$t" "$DEST/$t"
-  rm -rf "$DEST/$t/THEME.md" "$DEST/$t/source" "$DEST/$t/__pycache__"   # documentation and generators stay in the kit
-  : > "$DEST/$t/$MARK"
-  echo "installed $t"
+  stage=$(mktemp -d "$DEST/.install.XXXXXX")   # build the copy aside, so a failed copy never leaves a half theme behind
+  if cp -r "$HERE/$t" "$stage/$t"; then
+    rm -rf "$stage/$t/THEME.md" "$stage/$t/source" "$stage/$t/__pycache__"   # documentation and generators stay in the kit
+    : > "$stage/$t/$MARK"
+    rm -rf "${DEST:?}/$t"
+    mv "$stage/$t" "$DEST/$t"
+    echo "installed $t"
+  else
+    echo "failed to copy $t; the previous copy (if any) is untouched"
+  fi
+  rm -rf "$stage"
 done
 echo; echo "Omarchy now lists:"; omarchy theme list 2>/dev/null | sed 's/^/  /'
 echo; echo "Nothing was switched. To try one:  omarchy theme set <name>"

@@ -68,6 +68,9 @@ def element(b, i):
 
 
 def main(paths):
+    if not paths or any(a.startswith("-") for a in paths):
+        print("usage: acpi-prw-scan DSDT.dat [SSDT.dat ...]   (disassembly is not needed; reads the raw AML)\n" + __doc__.strip(), file=sys.stderr if paths and paths[0] not in ("-h", "--help") else sys.stdout)
+        sys.exit(0 if paths and paths[0] in ("-h", "--help") else 2)
     for p in paths:
         b = Path(p).read_bytes()
         bl = blocks(b)

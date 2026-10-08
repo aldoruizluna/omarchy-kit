@@ -2,6 +2,7 @@
 # Install auto appearance (no root). It is installed but OFF: turn it on with `auto-appearance on`.
 # Remove everything with: ./install-auto-appearance --remove
 set -euo pipefail
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
 cd "$(dirname "$0")"
 CFG=${XDG_CONFIG_HOME:-$HOME/.config}
 STATE=${XDG_STATE_HOME:-$HOME/.local/state}/omarchy-kit/appearance

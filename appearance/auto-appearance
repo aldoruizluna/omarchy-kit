@@ -94,6 +94,10 @@ def remember(p):
 
 
 def main(argv):
+    bad = [a for a in argv if a.startswith("-") and a != "--dry-run"]
+    if bad:
+        print(__doc__.strip(), file=sys.stdout if bad[0] in ("-h", "--help") else sys.stderr)
+        return 0 if bad[0] in ("-h", "--help") else 2
     dry = "--dry-run" in argv
     args = [a for a in argv if not a.startswith("--")]
     s, cmd = settings(), (args[0] if args else "")

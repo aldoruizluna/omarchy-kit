@@ -14,7 +14,13 @@
 # Test hook: SLEEP_LOCK_POLICY_LINES=<file> reads logind lines from that file instead of the journal.
 REAL_PATH=/usr/share/omarchy
 real=$REAL_PATH/bin/omarchy-system-sleep-lock
-[ -x "$real" ] || real=$(command -v omarchy-system-sleep-lock)
+[ -x "$real" ] || real=$(command -v omarchy-system-sleep-lock || true)
+# Fail closed: if Omarchy moved its lock script, still lock through its general lock command or logind instead of running nothing.
+if [ -z "$real" ]; then
+  logger -t sleep-lock-policy "Omarchy's sleep-lock script is missing; falling back to a plain session lock"
+  real=$(command -v omarchy-system-lock || true)
+  [ -n "$real" ] || { loginctl lock-session; exit 0; }
+fi
 
 latest_sleep_line() {
   if [ -n "${SLEEP_LOCK_POLICY_LINES:-}" ]; then

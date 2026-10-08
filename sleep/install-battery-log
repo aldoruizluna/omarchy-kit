@@ -8,6 +8,7 @@
 # /etc/systemd/system-sleep/), where it runs before and after each suspend/hibernate. Also removes the earlier copy in /etc.
 # Read-only on the battery; the only output is one journal line per call.
 set -eu
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
 D=/usr/lib/systemd/system-sleep
 F=$D/battery-log
 OLD=/etc/systemd/system-sleep/battery-log   # first version of this installer used the wrong folder

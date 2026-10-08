@@ -13,6 +13,7 @@
 # Options verified against Limine 12's CONFIG.md (timeout, wallpaper, wallpaper_style, interface_resolution,
 # term_background TTRRGGBB) and plymouthd.defaults (UseSimpledrm).
 set -euo pipefail
+case "${1:-}" in "" | --undo) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--undo]   (--help for details)" >&2; exit 2 ;; esac
 [[ $EUID -eq 0 ]] || { echo "Run with sudo."; exit 1; }
 HERE="$(cd "$(dirname "$0")" && pwd)"
 CONF=/boot/limine.conf

@@ -11,6 +11,7 @@
 # How: one systemd-tmpfiles rule that writes "s2idle" into /sys/power/mem_sleep early in every boot. No kernel
 # parameter and no bootloader change, so nothing else is touched.
 set -eu
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
 F=/etc/tmpfiles.d/mem-sleep-s2idle.conf
 [ "$(id -u)" = 0 ] || { echo "run it with sudo"; exit 1; }
 

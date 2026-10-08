@@ -86,22 +86,29 @@ def report():
         pass
     if not cycles:
         status, verdict = "pending", "Never suspended on this machine yet. Close the lid for 30 seconds, open it, and run this again."
+        verdict_es = "Aún no se ha suspendido esta máquina. Cierra la tapa 30 segundos, ábrela y ejecuta esto de nuevo."
     else:
         last = cycles[-1]
         if last["mode"] == "deep":
             status = "action"
             verdict = ("The last sleep used deep sleep (S3). On this MacBook the lid opening does not wake deep sleep (found 2026-10-07), "
                        "light sleep (s2idle) does. Fix: sudo ~/labspace/omarchy-kit/sleep/install-s2idle")
+            verdict_es = ("El último reposo fue profundo (S3). En esta MacBook abrir la tapa no despierta del reposo profundo (descubierto el 2026-10-07), "
+                          "el reposo ligero (s2idle) sí. Solución: sudo ~/labspace/omarchy-kit/sleep/install-s2idle")
         elif last["secs"] < 20:
             status = "action"
             verdict = (f"The last sleep lasted only {last['secs']:.0f} s: the machine woke itself. "
                        + ("The USB controller (XHC1) is allowed to wake it, the usual cause on this model." if "XHC1" in wake else "Wake sources look normal, so check what woke it."))
+            verdict_es = (f"El último reposo duró solo {last['secs']:.0f} s: la máquina se despertó sola. "
+                          + ("El controlador USB (XHC1) puede despertarla, la causa habitual en este modelo." if "XHC1" in wake else "Las fuentes de despertar parecen normales, así que revisa qué la despertó."))
         else:
             status, verdict = "ok", f"The last sleep lasted {last['secs'] / 60:.1f} min and the machine resumed."
+            verdict_es = f"El último reposo duró {last['secs'] / 60:.1f} min y la máquina reanudó."
             b = last.get("battery")
             if b and b["reliable"]:
                 verdict += f" It used {b['mah']:.0f} mAh on battery (about {b['watts']} W)."
-    return {"status": status, "verdict": verdict, "cycles": cycles[-5:], "count": len(cycles), "hibernates": hibs[-3:], "wake_enabled": wake}
+                verdict_es += f" Gastó {b['mah']:.0f} mAh de batería (unos {b['watts']} W)."
+    return {"status": status, "verdict": verdict, "verdict_es": verdict_es, "cycles": cycles[-5:], "count": len(cycles), "hibernates": hibs[-3:], "wake_enabled": wake}
 
 
 if __name__ == "__main__":
@@ -112,7 +119,7 @@ if __name__ == "__main__":
     print(f"Suspend cycles in the last {DAYS} days: {r['count']}")
     for c in r["cycles"]:
         when = datetime.fromtimestamp(c["entry"]).strftime("%a %d %b %H:%M:%S")
-        print(f"  {when}  slept {c['secs']:>7.1f} s  mode {c['mode']:<6}  lid closed: {'yes' if c['lid_closed'] else 'no'}  lid opened to wake: {'yes' if c['lid_opened'] else 'no'}")
+        print(f"  {when}  slept {c['secs']:>7.1f} s  mode {c['mode']:<6}  lid closed: {'yes' if c['lid_closed'] else 'no'}  lid opened: {'yes' if c['lid_opened'] else 'no'}")
         b = c.get("battery")
         if b:
             note = "" if b["reliable"] else "  (too short to trust: the awake seconds dominate; try 10+ minutes on battery)"

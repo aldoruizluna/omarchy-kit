@@ -17,6 +17,7 @@
 # How: one NetworkManager setting (wifi.powersave = 3 = enable) in /etc/NetworkManager/conf.d/, which NetworkManager applies every
 # time it connects, so it also survives reconnects and sleep. It is applied now without dropping the connection.
 set -eu
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
 F=/etc/NetworkManager/conf.d/wifi-powersave.conf
 [ "$(id -u)" = 0 ] || { echo "run it with sudo"; exit 1; }
 IF=$(for d in /sys/class/net/*/wireless; do [ -e "$d" ] && basename "$(dirname "$d")" && break; done || true)

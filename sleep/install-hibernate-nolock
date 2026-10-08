@@ -9,6 +9,7 @@
 # that one service only, at a tiny folder holding (1) a symlink to the real monitor and (2) sleep-lock-policy, which skips
 # the lock for a plain hibernate and otherwise runs the real lock. Details and the safe-by-default rules: sleep-lock-policy.
 set -eu
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
 HERE=$(dirname "$(readlink -f "$0")")
 SHIM=$HOME/.local/share/omarchy-kit/sleep-lock-shim
 DROP=$HOME/.config/systemd/user/omarchy-sleep-lock.service.d
@@ -23,6 +24,18 @@ if [ "${1:-}" = "--remove" ]; then
   reload
   echo "removed: the lock screen now runs before hibernate too"
   exit 0
+fi
+
+# Refuse if Omarchy's sleep monitor is not there (the shim would link to nothing and no sleep would lock).
+[ -r "$REAL" ] || { echo "Omarchy's sleep monitor is missing ($REAL). Not installing."; exit 1; }
+
+# The whole idea is that the disk passphrase protects the saved image. Refuse unless the resume device sits on an encrypted volume.
+resume=$(tr ' ' '\n' < /proc/cmdline | sed -n 's/^resume=//p' | head -1)
+resume_dev=$(readlink -f "${resume#UUID=}" 2>/dev/null || true)
+case $resume in UUID=*) resume_dev=$(readlink -f "/dev/disk/by-uuid/${resume#UUID=}" 2>/dev/null || true) ;; esac
+if [ -z "$resume_dev" ] || ! lsblk -s -no TYPE "$resume_dev" 2>/dev/null | grep -qx crypt; then
+  echo "The hibernate image is not on an encrypted volume (resume=${resume:-not set}). Skipping the lock would leave your session open to anyone. Not installing."
+  exit 1
 fi
 
 # Refuse if Omarchy's monitor now uses other files under $OMARCHY_PATH: the shim would not have them.

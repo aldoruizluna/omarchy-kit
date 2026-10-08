@@ -12,6 +12,7 @@
 # Undo now:     echo ON | sudo tee /sys/kernel/debug/vgaswitcheroo/switch
 # Undo for good: sudo systemctl disable --now nvidia-off.service
 set -uo pipefail
+case "${1:-}" in "") ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0")    (--help for details)" >&2; exit 2 ;; esac
 SW=/sys/kernel/debug/vgaswitcheroo/switch
 DEV=/sys/bus/pci/devices/0000:01:00.0
 trap '[[ -r $SW ]] && grep ":DIS:" "$SW" >/run/nvidia-off.status; chmod 644 /run/nvidia-off.status 2>/dev/null' EXIT
