@@ -63,14 +63,26 @@ With the display off, every fix applied: 9.0 W against 9.4 W unfixed.
 
 ## What is still open
 
-* **What blocks deep package sleep.** Not a setting we could find. A systematic search (taking PCIe devices out one at a time while
-  watching the package) is possible but slow; worth up to about 3 W.
+* **What blocks deep package sleep.** Not found. The hunt (`power-lab hunt`, 2026-10-07, display off) turned PCIe link power saving
+  (L1) on for the FaceTime camera link: no change. The kernel **refused** to turn it on for the Thunderbolt bridge and controller
+  (`06:00.0`, `08:00.0`), which sit directly behind the CPU's own PCIe port and are the strongest suspects, so that link is
+  untested. Taking the camera, both audio controllers, the Intel management engine, the SMBus controller and the Wi-Fi card off the
+  bus one after another also changed nothing: the package stayed at PC3 (86-90 %) and PC6/PC7 at 0 %. What is left (the SSD, the USB
+  controller, the graphics chip, the Thunderbolt chain, the CPU/PCH links) cannot be removed safely. Worth up to about 3 W, but the
+  remaining search is not worth the risk.
 * **The display.** The graphics driver reports `FBC disabled: stolen memory not initialised`: Apple's firmware reserved no graphics
   memory, so the screen cannot be compressed and is read in full from RAM 60 times a second. There is no panel self-refresh either.
   That is a firmware limit, not a setting.
 * **Fan floor** at 1,200 rpm: promising (-0.73 W, and quieter) but measured once.
 
-## A warning from this work
+## Two warnings from this work
+
+**Never rescan or remove PCI devices on this machine.** After the device-removal steps of an early `hunt`, the cleanup wrote to
+`/sys/bus/pci/rescan`. While re-attaching the devices the kernel hit a general protection fault inside the `intel_rapl_msr` module
+(`rescan_store -> pci_bus_add_devices -> ... -> set_floor_freq_atom`). That killed the test script mid-cleanup, which left the display
+switched off and the backlight at 0, and the kernel hung on the next suspend, so a hard reset was needed. Nothing was damaged (btrfs
+reported no errors). `power-lab` no longer removes devices or rescans, and it now registers an `ExecStopPost` cleanup command with
+systemd, which restores the display and the backlight however the test ends (tested: it runs even after the script segfaults).
 
 **Do not unload the `thunderbolt` driver while its idle controller is allowed to runtime-sleep.** On this machine the reload failed
 (`device inaccessible`, `timeout resetting host router`, probe error -22) and the Falcon Ridge controller vanished from the PCI bus

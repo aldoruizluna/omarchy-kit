@@ -6,6 +6,8 @@
                           with the display on and then switched off                                  (about 3 minutes)
   power-lab singles       tries ten single changes one at a time (each is reverted straight after)   (about 9 minutes)
   power-lab stack         applies the candidate fixes cumulatively, then removes them one by one     (about 9 minutes)
+  power-lab hunt          looks for what keeps the CPU package out of deep sleep (PC6/PC7): turns on PCIe link power saving on the
+                          links that have it off, one group at a time. Works on the charger too                               (about 3 minutes)
   power-lab results [mode]   show the last results (any mode name, or all of them)
   power-lab <mode> --check   look only: show what it detected on this machine, change nothing
 
@@ -20,7 +22,7 @@ import argparse, atexit, glob, os, pwd, signal, statistics, struct, subprocess, 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUT = os.path.join(os.path.dirname(HERE), "data", "power-lab")
-MODES = {"quiet": "about 2 minutes", "breakdown": "about 3 minutes", "singles": "about 9 minutes", "stack": "about 9 minutes"}
+MODES = {"quiet": "about 2 minutes", "breakdown": "about 3 minutes", "singles": "about 9 minutes", "stack": "about 9 minutes", "hunt": "about 3 minutes"}
 PC_MSRS = {"PC2": 0x60D, "PC3": 0x3F8, "PC6": 0x3F9, "PC7": 0x3FA}   # Haswell package C-state residency counters
 
 
@@ -151,6 +153,28 @@ class Lab:
     def fmt(r):
         pcs = " ".join(f"{k} {r[k]:>3}%" for k in PC_MSRS if k in r)
         return f"{r['W']:5.1f} W | pkg {r.get('pkg', '?')!s:>5} W dram {r.get('dram', '?')!s:>5} W | {pcs}"
+
+    @staticmethod
+    def fmt_pc(r):
+        pcs = " ".join(f"{k} {r[k]:>3}%" for k in PC_MSRS if k in r)
+        return f"pkg {r.get('pkg', '?')!s:>5} W  dram {r.get('dram', '?')!s:>5} W | {pcs}"
+
+    def pci_name(self, a):
+        return sh("sh", "-c", f"lspci -D -s {a} | cut -d' ' -f2- | cut -c1-58")
+
+    def link_flags(self):
+        """{address: (l0s, l1)} for every PCI device that has ASPM controls."""
+        out = {}
+        for d in sorted(glob.glob("/sys/bus/pci/devices/*/link/l1_aspm")):
+            a = d.split("/")[5]
+            out[a] = (rd(d.replace("l1_aspm", "l0s_aspm")), rd(d))
+        return out
+
+    def lnkctl(self, a):
+        for l in sh("lspci", "-vv", "-s", a).splitlines():
+            if "LnkCtl:" in l:
+                return l.split("LnkCtl:")[1].strip().split(";")[0]
+        return "?"
 
     # --- reversible changes: each builder returns (apply, revert) -----------------------------------------------------------
     def b_alpm(self):
@@ -341,13 +365,90 @@ def mode_stack(lab):
     lab.say(f"  display on: baseline {base['W']} W -> all fixes {full['W']} W   (deep sleep PC6+PC7: {(base.get('PC6') or 0) + (base.get('PC7') or 0)}% -> {(full.get('PC6') or 0) + (full.get('PC7') or 0)}%)")
 
 
-RUN = {"quiet": mode_quiet, "breakdown": mode_breakdown, "singles": mode_singles, "stack": mode_stack}
-NEEDS = {"quiet": (), "singles": (), "breakdown": ("dpms", "rapl"), "stack": ("dpms", "rapl")}
+def mode_hunt(lab):
+    """Which PCIe link keeps the CPU package at PC2/PC3? Measured with the display off (the display alone caps it at PC2).
+
+    Safe version: it only flips the per-link L1 flag (reverted afterwards). An earlier version also took devices off the bus
+    and rescanned. On 2026-10-07 that PCI rescan crashed the kernel (an oops in intel_rapl_msr, reached from rescan_store ->
+    pci_bus_add_devices), killed the script before it could restore the display, and the machine hung on the next suspend.
+    Never remove devices or rescan the PCI bus on this machine."""
+    lab.set_backlight(0)
+    lab.say("backlight 0. Charger is fine for this mode (it reads the CPU's own sleep-state counters). Starting in 12 s; hands off.")
+    time.sleep(12)
+    lab.dpms("disable")
+    time.sleep(1)
+    if lab.dpms_state() != "0":
+        lab.say("the display did not switch off; aborting (package sleep cannot be read cleanly with it on)")
+        return
+    time.sleep(8)
+    flags = lab.link_flags()
+    lab.say("\n=== A. PCIe devices whose link power saving is not fully on (l0s / l1: 1 = on, 0 = off) ===")
+    for a, (l0, l1) in flags.items():
+        if l1 != "1" or l0 != "1":
+            lab.say(f"  {a}  l0s={l0} l1={l1}  {lab.pci_name(a)}   LnkCtl: {lab.lnkctl(a)}")
+    steps = []
+
+    def record(title, r):
+        steps.append((title, r))
+        lab.say(f"  {title:62s} {lab.fmt_pc(r)}")
+
+    lab.say("\n=== B. cumulative: each line = this change added to all the ones above ===")
+    record("0. baseline, display off", lab.measure(20))
+
+    def force_l1(addrs, title):
+        done, refused = [], []
+        for a in addrs:
+            f = f"/sys/bus/pci/devices/{a}/link/l1_aspm"
+            old = rd(f)
+            if old != "0":
+                continue
+            wr(f, "1")
+            if rd(f) == "1":
+                done.append((f, old))
+            else:
+                refused.append(a)
+        if done:
+            lab.undo.append((title, lambda d=done: [wr(f, v) for f, v in d]))
+        lab.say(f"      L1 took effect on: {', '.join(f.split('/')[5] for f, _ in done) or 'none'}"
+                + (f"   REFUSED by the kernel on: {', '.join(refused)}" if refused else "")
+                + "".join(f"\n        {a}: {lab.lnkctl(a)}" for a in addrs))
+        time.sleep(6)
+        return bool(done)
+
+    cam = [a for a in lab.camera if flags.get(a, ("", ""))[1] == "0"]
+    if cam:
+        force_l1(cam, "camera link L1")
+        record("1. L1 forced on the FaceTime camera link", lab.measure(20))
+    tb = [a for a in lab.thunderbolt if flags.get(a, ("", ""))[1] == "0"]
+    old_ctl = {a: rd(f"/sys/bus/pci/devices/{a}/power/control") for a in tb}
+    if tb:                                         # keep Thunderbolt awake and reachable: only the link flag changes, no unloading
+        for a in tb:
+            wr(f"/sys/bus/pci/devices/{a}/power/control", "on")
+        lab.undo.append(("thunderbolt power control", lambda: [wr(f"/sys/bus/pci/devices/{a}/power/control", v) for a, v in old_ctl.items() if v]))
+        force_l1(tb, "Thunderbolt link L1")
+        record("2. + L1 forced on the Thunderbolt links (06:00.0, 08:00.0)", lab.measure(20))
+    other = [a for a, (l0, l1) in flags.items() if l1 == "0" and a not in cam + tb]
+    if other:
+        force_l1(other, "other links L1")
+        record(f"3. + L1 forced on the remaining links ({', '.join(other)})", lab.measure(20))
+
+    unlocked = next((t for t, r in steps if (r.get("PC6") or 0) + (r.get("PC7") or 0) >= 5), None)
+    lab.say("\n=== VERDICT ===")
+    if unlocked:
+        lab.say(f"  deep package sleep (PC6/PC7) first appeared at: {unlocked}")
+    else:
+        lab.say("  deep package sleep never appeared with any link flag changed. Links whose L1 the kernel refused to enable are still untested;")
+        lab.say("  the rest of the suspects (SSD, USB controller, graphics, the Thunderbolt chain, the CPU/PCH links) cannot be removed safely.")
+
+
+RUN = {"quiet": mode_quiet, "breakdown": mode_breakdown, "singles": mode_singles, "stack": mode_stack, "hunt": mode_hunt}
+NEEDS = {"quiet": (), "singles": (), "breakdown": ("dpms", "rapl"), "stack": ("dpms", "rapl"), "hunt": ("dpms", "rapl")}
+BATTERY_ONLY = {"quiet", "breakdown", "singles", "stack"}   # these read the battery draw; hunt reads only the CPU's own counters
 
 
 def show_check(lab, mode):
     print(f"power-lab {mode} --check (looks only, changes nothing)")
-    rows = [("battery", lab.bat or "NOT FOUND"), ("charger plugged in", "no (good)" if lab.on_battery() else "YES: unplug it first"),
+    rows = [("battery", lab.bat or "NOT FOUND"), ("charger plugged in", ("no (good)" if lab.on_battery() else "YES: unplug it first") if mode in BATTERY_ONLY else "either way is fine for this mode"),
             ("backlight device", f"{lab.backlight or 'NOT FOUND'} (now {lab.orig_brightness})"), ("Wi-Fi interface", lab.wifi or "none"),
             ("camera PCI", ", ".join(lab.camera) or "none"), ("Thunderbolt PCI", ", ".join(lab.thunderbolt) or "none"),
             ("Hyprland signature", "yes" if lab.sig else "MISSING (needed to switch the display off)"),
@@ -361,8 +462,12 @@ def relaunch(mode, args, user):
     out = args.out or DEFAULT_OUT
     os.makedirs(out, exist_ok=True)
     print(f"power-lab {mode}: {MODES[mode]}. The screen will go dark. Hands off the keyboard and trackpad until it comes back.")
-    cmd = ["sudo", "systemd-run", "--collect", f"--unit=power-lab-{mode}", "python3", "-I", os.path.abspath(__file__), mode,
-           "--user", user, "--sig", os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", ""), "--out", out]
+    sig = os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
+    me = Lab(user, sig, out)
+    # ExecStopPost runs when the service ends however it ends (finished, killed, crashed): the display always comes back
+    rescue = f"/usr/bin/python3 -I {os.path.abspath(__file__)} rescue --user {user} --sig {sig} --brightness {me.orig_brightness or 0}"
+    cmd = ["sudo", "systemd-run", "--collect", f"--unit=power-lab-{mode}", f"--property=ExecStopPost={rescue}", "python3", "-I", os.path.abspath(__file__), mode,
+           "--user", user, "--sig", sig, "--out", out]
     rc = subprocess.call(cmd)
     if rc == 0:
         print(f"started in the background. When the screen is back: power-lab results {mode}")
@@ -371,10 +476,10 @@ def relaunch(mode, args, user):
 
 def main():
     ap = argparse.ArgumentParser(prog="power-lab", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("mode", nargs="?", choices=[*MODES, "results"])
+    ap.add_argument("mode", nargs="?", choices=[*MODES, "results", "rescue"])
     ap.add_argument("what", nargs="?", help="results: which mode (default: all)")
     ap.add_argument("--check", action="store_true", help="look only, change nothing")
-    ap.add_argument("--user"), ap.add_argument("--sig"), ap.add_argument("--out")
+    ap.add_argument("--user"), ap.add_argument("--sig"), ap.add_argument("--out"), ap.add_argument("--brightness")
     args = ap.parse_args()
     out = args.out or DEFAULT_OUT
     if not args.mode:
@@ -393,18 +498,28 @@ def main():
         return 0
     user = args.user or os.environ.get("SUDO_USER") or os.environ.get("USER") or pwd.getpwuid(os.getuid()).pw_name
     sig = args.sig if args.sig is not None else os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
+    if args.mode == "rescue":                     # run by systemd after a test ends for ANY reason (even a crash): display and backlight back on
+        if os.geteuid() != 0:
+            print("rescue needs root (it is run by the test service itself)")
+            return 2
+        lab = Lab(user, sig, out)
+        if sig:
+            lab.dpms("enable")
+        if lab.backlight and (args.brightness or "").isdigit() and int(args.brightness) > 0:
+            lab.set_backlight(args.brightness)
+        return 0
     lab = Lab(user, sig, out)
     lab.name = args.mode
     if args.check:
         show_check(lab, args.mode)
         return 0
     if os.geteuid() != 0:
-        if not lab.on_battery():
+        if args.mode in BATTERY_ONLY and not lab.on_battery():
             print("The charger is plugged in. Unplug it first: the draw is read from the battery.")
             return 2
         return relaunch(args.mode, args, user)
     # ---- running as root, as a background service ----
-    if not lab.on_battery():
+    if args.mode in BATTERY_ONLY and not lab.on_battery():
         print("charger plugged in; not running")
         return 2
     if "dpms" in NEEDS[args.mode] and not sig:
