@@ -3,12 +3,17 @@ import { spawn } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createServer } from "node:net";
+
+// A free TCP port. A fixed debugging port let a suite attach to the previous suite's browser while it was still shutting down
+// (it then read that browser's stale page and reported its 404s and lost focus as failures of its own).
+const freePort = () => new Promise((res, rej) => { const s = createServer(); s.on("error", rej); s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => res(p)); }); });
 
 // CDP_ATTACH=<port> attaches to an already-running browser (e.g. a real GPU Brave window) instead of
 // spawning headless Chromium; the browser is left running afterwards.
 export async function launch({ width = 1280, height = 1000, port = 9333 } = {}) {
   const attach = process.env.CDP_ATTACH ? +process.env.CDP_ATTACH : 0;
-  if (attach) port = attach;
+  if (attach) port = attach; else if (port === 9333) port = await freePort();
   const dir = attach ? "" : mkdtempSync(join(tmpdir(), "cdp-"));
   const proc = attach ? { kill() {} } : spawn("chromium", ["--headless=new", "--disable-gpu", "--no-sandbox", `--remote-debugging-port=${port}`,
     `--user-data-dir=${dir}`, `--window-size=${width},${height}`, "about:blank"], { stdio: "ignore" });
