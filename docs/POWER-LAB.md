@@ -1,5 +1,9 @@
 # Power lab: where a 2014 MacBook Pro's battery goes
 
+> **TL;DR.** A 2014 MacBook Pro idles at about 20 W on battery: backlight 5.0, display pipeline 4.4, CPU package 4.8, memory 1.7 and everything else about 4. The CPU package never reaches its deep sleep states (PC6/PC7) and the cause was not found. This page records what was measured, what each tried change saved, what was ruled out, two warnings, and how to use `power/power-lab`.
+
+Related: [power/README](../power/README.md) · [SLEEP](SLEEP.md) · [FIELD-NOTES](FIELD-NOTES.md) · [GLOSSARY](GLOSSARY.md) · [INDEX](INDEX.md)
+
 Findings from measuring a MacBookPro11,3 (15", mid-2014, Core i7-4870HQ, Intel Iris Pro + a switched-off NVIDIA GT 750M) running
 Omarchy / Hyprland on kernel 7.2. Everything below was measured with `power/power-lab`, on battery, with the terminal idle.
 The numbers are for this machine and this battery (about 75 % of its original capacity, 71 Wh when full); the method is general.
@@ -104,3 +108,7 @@ power/power-lab <mode> --check    # look only: what it detected, change nothing
 Keep the charger unplugged and your hands off the keyboard and trackpad while a test runs (input wakes the display). The screen goes
 dark for a few minutes and comes back by itself. Nothing is permanent: each change is reverted right after its measurement and on any
 exit; the backlight and display are restored at the end. The test runs as a systemd service whose cleanup step (`power-lab rescue`, never typed by hand) runs after it ends for any reason, even a crash.
+
+---
+
+Related: [power/README](../power/README.md) · [SLEEP](SLEEP.md) · [FIELD-NOTES](FIELD-NOTES.md) · [GLOSSARY](GLOSSARY.md) · [INDEX](INDEX.md)

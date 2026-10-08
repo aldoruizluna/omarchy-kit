@@ -1,5 +1,9 @@
 # Field notes: hard-won rules for this machine
 
+> **TL;DR.** Short, checkable rules learned the hard way on this MacBookPro11,3: how to measure power honestly, what must not be done (rescanning PCI devices, unloading `thunderbolt`, trusting timestamps across a sleep), how this system behaves, how to write and test scripts, how to work in the `!` prompt, and how to keep the public repository clean. Read it before changing the machine.
+
+Related: [AGENTS](../AGENTS.md) · [DEVELOPING](DEVELOPING.md) · [SLEEP](SLEEP.md) · [POWER-LAB](POWER-LAB.md) · [ARCHITECTURE](ARCHITECTURE.md) · [INDEX](INDEX.md)
+
 Short, checkable rules learned the hard way while setting up a MacBookPro11,3 with Omarchy 4. Each says what, why, and where it is
 recorded. If you are a person or an assistant about to change something on this machine, read this first.
 
@@ -68,3 +72,7 @@ recorded. If you are a person or an assistant about to change something on this 
   (preview screenshots once showed the real username).
 * Themes carry only original art. No official artwork, logos or character likenesses; credit the open-source works that inspired a theme,
   not the original brand.
+
+---
+
+Related: [AGENTS](../AGENTS.md) · [DEVELOPING](DEVELOPING.md) · [SLEEP](SLEEP.md) · [POWER-LAB](POWER-LAB.md) · [ARCHITECTURE](ARCHITECTURE.md) · [INDEX](INDEX.md)

@@ -1,0 +1,62 @@
+# Omarchy Kit
+
+> A bilingual (English / Spanish) learning portal and set of reversible setup scripts for running Omarchy (Arch Linux + Hyprland) on one specific laptop: the 15" MacBook Pro, mid-2014 (MacBookPro11,3). It teaches Omarchy with the machine's own live shortcuts, checks that lessons were really done, and carries the fixes that make this old Mac quiet, cool and usable: working sleep and hibernate, the NVIDIA GPU switched off, a battery power lab, Mac-style keys and accents, a speaker EQ and six original themes. Python standard library only, no build tools; it serves only on 127.0.0.1. Every change to the machine has an installer with --remove and a record on the app's Setup log.
+
+Rules for any assistant working in this repository: read AGENTS.md first; never run an installer or probe a script with --help without reading its argument handling; you cannot use sudo, give the owner the exact command; every user-visible string needs English and Spanish; do not push or publish without the owner's word. The repository is public, so documents never contain personal details or private project names.
+
+Source: https://github.com/aldoruizluna/omarchy-kit. Code is MIT; the themes' palettes, files, previews, wallpapers and texts are CC BY 4.0. The complete documentation in a single file is llms-full.txt.
+
+## Start here
+
+- [README](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/README.md): what it is, quick start, requirements, safety and undo, the pages, the Mac fixes, retro gaming, tests, licence
+- [AGENTS](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/AGENTS.md): the contract for AI coding assistants: map, commands, hard rules
+- [Documentation map](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/INDEX.md): every document, who should read it, how they connect
+
+## How it works
+
+- [Architecture](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/ARCHITECTURE.md): the build chain, the server and its security model, the browser code, the lesson engine, the Setup log, where state lives
+- [Developing](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/DEVELOPING.md): setup, the edit loop, conventions, and recipes for adding a lesson, habit, Setup row, installer, theme or document
+- [Glossary](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/GLOSSARY.md): one definition per term used across the documentation
+- [Field notes](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/FIELD-NOTES.md): short, checkable rules learned the hard way on this machine
+
+## Hardware topics
+
+- [Sleep, the lid and hibernate](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/SLEEP.md): why deep sleep never wakes on lid-open here, what was installed instead, measurements, trade-offs, the open decision
+- [Power lab](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/POWER-LAB.md): where the roughly 20 W of an idle MacBook goes, what was tried and ruled out, how to use the tool
+- [sleep/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/sleep/README.md): light sleep, hibernate that stays off, one password after hibernate, the battery log, sleep-check
+- [power/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/power/README.md): the power profile follows the charger, Wi-Fi power saving, power-lab, msr-probe
+- [gpu/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/gpu/README.md): keep the hot NVIDIA GPU off, firmware boot GPU
+- [audio/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/audio/README.md): the speaker EQ that bypasses itself for headphones
+- [boot/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/boot/README.md): a faster, themed boot screen
+- [backup/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/backup/README.md): hourly /home snapshots and Pika Backup
+
+## Feeling like a Mac
+
+- [Mac feel](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/MAC-FEEL.md): accents, command-key shortcuts, gestures, the top row, power profile, what was verified and how to undo it
+- [keys/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/keys/README.md): Mac command-key shortcuts inside apps and the opt-in extras
+- [trackpad/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/trackpad/README.md): three-finger swipe or drag
+- [appearance/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/appearance/README.md): light by day, dark at night
+
+## Themes
+
+- [Themes](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/THEMES.md): the six original themes, their inspiration chain, how to try them, licence and decisions
+- [themes/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/README.md): install-themes, make-wallpapers, the generators and the CC BY 4.0 licence
+
+## Games
+
+- [games/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/games/README.md): kit-games, the free-game fetchers, the signed-catalog store client, your own backups
+- [Dumping guide](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/DUMPING-GUIDE.md): dumping your own games, the right tool per console
+- [Game store roadmap](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/GAME-STORE-ROADMAP.md): the signed-catalog store, what is built and what is planned
+
+## Testing
+
+- [Tests](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/test/README.md): what each suite checks, how to run one, rules from experience
+
+## Optional
+
+- [Kawaii Bow theme](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/kawaii-bow/THEME.md): palette rationale, contrast table, credits
+- [Kawaii Bow Night theme](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/kawaii-bow-night/THEME.md): the dark variant
+- [Mecha Unit theme](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/mecha-unit/THEME.md): purple and acid green command centre
+- [Mecha Unit Red theme](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/mecha-unit-red/THEME.md): the red variant
+- [Solarpunk theme](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/solarpunk/THEME.md): a genuinely light theme
+- [Solarpunk Dusk theme](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/solarpunk-dusk/THEME.md): the dusk variant

@@ -1,5 +1,9 @@
 # Dumping your own games
 
+> **TL;DR.** Games you own enter the library by dumping the cartridge or disc yourself: copy the file into `~/Games/inbox`, run `games/kit-games ingest`, and it identifies, names, compresses and files it. This page lists the dumping tool for each console. The kit never downloads commercial ROMs or BIOS files.
+
+Related: [games/README](../games/README.md) · [GAME-STORE-ROADMAP](GAME-STORE-ROADMAP.md) · [README: Retro gaming](../README.md#retro-gaming) · [INDEX](INDEX.md)
+
 How games you own get into the library: copy (dump) the cartridge or disc yourself, drop the file in
 `~/Games/inbox`, and run `games/kit-games ingest`. Ingest checks each file against libretro's No-Intro
 (cartridges) and Redump (discs) databases, names it the canonical way, compresses discs (CHD, or RVZ for
@@ -69,3 +73,7 @@ games/kit-games export-telesia   # update ~/Games/telesia/library.json for Teles
 - consolemods.org wiki: "Creating Game Backups" pages per console.
 - Dolphin's "Ripping Games" guide: dolphin-emu.org/docs/guides/ripping-games.
 - redumper: github.com/superg/redumper (supported drive list in its README).
+
+---
+
+Related: [games/README](../games/README.md) · [GAME-STORE-ROADMAP](GAME-STORE-ROADMAP.md) · [README: Retro gaming](../README.md#retro-gaming) · [INDEX](INDEX.md)

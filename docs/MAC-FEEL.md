@@ -1,5 +1,9 @@
 # Making Omarchy feel like a Mac
 
+> **TL;DR.** Everything the kit changes so a macOS user feels at home: right-Option accents, ⌘ shortcuts in apps, three-finger behaviour, the power profile following the charger, a menu-bar clock with the date, Auto appearance, working sleep and hibernate, Wi-Fi saving and six themes. Each row says where it lives, how it was verified and how to undo it; the decisions that still wait for a person follow.
+
+Related: [keys/README](../keys/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)
+
 What the kit changes so a macOS user feels at home on this MacBook, how each piece was checked, how to undo it, and
 what is still waiting for a person. The live version of this (with real-time status) is the **Setup log** page.
 
@@ -79,3 +83,7 @@ node test/verify-keyboard.mjs
 node test/verify-mackeys.mjs     # needs a Hyprland session; launches its own scratch Brave and cleans up
 CDP_ATTACH=9334 node test/verify-trackpad.mjs   # same, in a real GPU Brave (use a full-size window)
 ```
+
+---
+
+Related: [keys/README](../keys/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)

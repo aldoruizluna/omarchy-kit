@@ -1,5 +1,9 @@
 # Themes: Kawaii Bow, Mecha Unit, Solarpunk
 
+> **TL;DR.** Six original Omarchy themes in three families (Kawaii Bow, Mecha Unit, Solarpunk), each with a light or dark partner. Palettes are re-derived and checked for contrast, wallpapers are drawn by generators when you install, and the looks are inspired in the second degree by credited open-source works. Licence: CC BY 4.0.
+
+Related: [themes/README](../themes/README.md) · [DEVELOPING](DEVELOPING.md#add-a-theme) · [MAC-FEEL](MAC-FEEL.md) · [INDEX](INDEX.md)
+
 Six complete Omarchy themes made for this kit, in three families. Each folder in `themes/` has a `colors.toml` palette (Omarchy's
 templates turn it into terminal, bar, btop, Neovim, VS Code and lock-screen colours), a preview and a `THEME.md` with the palette
 rationale, a WCAG contrast table, and the **inspiration chain**. The five original 2880x1800 wallpapers of each theme are not stored:
@@ -69,3 +73,7 @@ theme; the nearest neighbours are credited in each THEME.md, not used.
 * **Wallpapers are generated, not stored** (decided 2026-10-07). The working tree dropped about 12 MB of JPEGs. The repository history
   still contains the original images (commit `964f30e`), so a fresh clone is not smaller unless that history is rewritten, which would
   need a force-push of the public repository and has not been done.
+
+---
+
+Related: [themes/README](../themes/README.md) · [DEVELOPING](DEVELOPING.md#add-a-theme) · [MAC-FEEL](MAC-FEEL.md) · [INDEX](INDEX.md)

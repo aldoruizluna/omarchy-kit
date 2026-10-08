@@ -1,5 +1,9 @@
 # Sleep, the lid and hibernate on a MacBookPro11,3
 
+> **TL;DR.** On this MacBook deep sleep never wakes when the lid opens, so closing the lid uses light sleep (s2idle), which wakes at once but keeps the fans spinning and costs battery. Hibernate works, stays off, and can ask for one password. This page has the measurements, what is installed, how to check and undo each piece, and the open decision about the lid.
+
+Related: [sleep/README](../sleep/README.md) · [POWER-LAB](POWER-LAB.md) · [FIELD-NOTES](FIELD-NOTES.md) · [GLOSSARY](GLOSSARY.md) · [INDEX](INDEX.md)
+
 What was found, what is set up, how to check it, and how to undo each piece. Everything here was measured on this machine
 (MacBook Pro 15" mid-2014, Intel Iris Pro + a switched-off NVIDIA, Omarchy 4, kernel 7.2) on 2026-10-07.
 
@@ -100,3 +104,7 @@ phase and cannot be opened by a script). Not installed; waiting for the closed-l
 `sleep/sleep-check`, `sleep/install-s2idle`, `sleep/install-hibernate-mode`, `sleep/install-hibernate-nolock`, `sleep/sleep-lock-policy`,
 `sleep/install-battery-log`, `sleep/battery-log`, `sleep/acpi-prw-scan` (reads a DSDT for `_PRW` wake definitions). Every change has an
 EN/ES record with its undo on the Setup log page.
+
+---
+
+Related: [sleep/README](../sleep/README.md) · [POWER-LAB](POWER-LAB.md) · [FIELD-NOTES](FIELD-NOTES.md) · [GLOSSARY](GLOSSARY.md) · [INDEX](INDEX.md)

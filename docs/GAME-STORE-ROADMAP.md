@@ -1,9 +1,11 @@
 # Game Store — roadmap
 
-> **Status: planned, not implemented.** Nothing in this document exists as code yet. It describes how a
-> "store" for the retro library would be built on top of what `games/kit-games` already does, so the work can
-> start (or be handed off) without re-doing the research. Written 2026-10-05; facts marked *verified* were
-> checked on that date.
+> **TL;DR.** A plan for a "store" on top of `games/kit-games`: browse free games and your own backups by console, press Get, and find the game in ES-DE already named, compressed and
+> inside the disk budget. **Status 2026-10-08: partly built.** The store client (`kit-games store ...`, signed snapshots) and your own backup locations are built and tested; the `/store`
+> portal page, RVZ/CHD conversion on `get`, art fetching on `get` and a run against this machine's real library are not. Written 2026-10-05; facts marked *verified* were checked on that date.
+> The sections below are the original plan, with the updates that follow it.
+
+Related: [games/README](../games/README.md) · [DUMPING-GUIDE](DUMPING-GUIDE.md) · [README: Retro gaming](../README.md#retro-gaming) · [INDEX](INDEX.md)
 
 > **Update 2026-10-07:** a first slice is built and tested: `kit-games store` (refresh, list, search, info, get, remove,
 > sync, health) in `games/storelib.py`. Its shape differs from §5.1–5.2: the catalog is built by a **publisher**
@@ -195,3 +197,7 @@ can get from the sources themselves (Homebrew Hub and libretro entries sometimes
 
 Any commercial ROM or BIOS download, DRM keys, torrent transport, account scraping, and mobile/Ayn Thor sync
 (on hold until the local library is rich).
+
+---
+
+Related: [games/README](../games/README.md) · [DUMPING-GUIDE](DUMPING-GUIDE.md) · [README: Retro gaming](../README.md#retro-gaming) · [INDEX](INDEX.md)
