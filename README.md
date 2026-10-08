@@ -1,27 +1,80 @@
 # Omarchy Kit
 
-A bilingual (English / Español) learning portal and setup toolkit for running
-[Omarchy](https://omarchy.org) on a **15" MacBook Pro, mid-2014 (MacBookPro11,3)**: Intel Haswell + NVIDIA GT 750M.
+**A bilingual (English / Español) learning portal and setup toolkit for running [Omarchy](https://omarchy.org) on one specific
+laptop: the 15" MacBook Pro, mid-2014 (MacBookPro11,3, Intel Haswell + NVIDIA GT 750M).**
 
-It is a small local web app (Python standard library only, no build tools) that teaches Omarchy using your own
-machine's real shortcuts, gestures, menus and hardware, and checks live that you actually did each step.
+It teaches Omarchy with your own machine's real shortcuts, gestures, menus and hardware, checks live that you did each step,
+and carries the fixes that make this old Mac quiet, cool and usable: the NVIDIA GPU switched off, a speaker EQ, Mac-style
+accents and shortcuts, working sleep and hibernate, a battery power lab and six original themes. Python standard library
+only (Pillow is used if present, to shrink the home wallpaper), no build tools; it listens on 127.0.0.1 only.
 
 ![Start page](docs/start.png)
+
+## Quick start
+
+```bash
+git clone https://github.com/aldoruizluna/omarchy-kit ~/labspace/omarchy-kit
+cd ~/labspace/omarchy-kit
+python3 build_cheatsheet.py     # builds every page from your live Omarchy install
+./apps-helper                   # serves http://127.0.0.1:8787 and opens it
+```
+
+Start it with your session:
+
+```bash
+mkdir -p ~/.config/systemd/user && cp omarchy-kit.service ~/.config/systemd/user/
+systemctl --user enable --now omarchy-kit
+```
+
+Open the **Setup log** page (`/setup`) first: it lists every change this kit can make, whether it is applied on your machine
+right now, and the exact command to undo it. After editing any Python file, restart the service
+(`systemctl --user restart omarchy-kit`): it keeps the page builder in memory.
+
+## Requirements
+
+- Omarchy 4 (Arch Linux + Hyprland) with a user session running; Python 3.11 or newer (the scripts read TOML with `tomllib`);
+  Node 22 or newer, only for the browser tests.
+- The portal and learning pages work on any Omarchy machine. The hardware scripts (`gpu/`, `audio/`, `sleep/`, `power/`) are
+  written for the **MacBookPro11,3**; `gpu/nvidia-off` and `gpu/switch-to-intel` refuse to run on any other model. Read a script
+  before running it anywhere else.
+
+## Safety and how to undo
+
+- Nothing system-wide changes unless you run an installer yourself; the ones that need root say so and you run them with sudo.
+- Every installer takes `--remove`, and `--help` (or any unknown option) only prints its usage: it never installs by accident.
+  Every change is logged with its undo command on the Setup log page.
+- Two trade-offs to know before installing: `power/install-wifi-powersave` overrides Omarchy's deliberate "Wi-Fi power saving
+  off" (about 0.9 W saved; undo it if you see lag), and `sleep/install-hibernate-nolock` skips the lock screen before a plain
+  hibernate (the screen is unlocked for the ~30 s the image takes to save, and stays unlocked if a hibernate ever fails). That
+  installer refuses if the hibernate image is not on an encrypted disk.
+- Never rescan or remove PCI devices, or unload the `thunderbolt` driver, on this Mac (it crashed the kernel and lost the
+  controller until reboot). `power/power-lab` no longer does either; see [docs/POWER-LAB.md](docs/POWER-LAB.md).
+
+## Documentation
+
+| Read | For |
+|---|---|
+| [docs/SLEEP.md](docs/SLEEP.md) | Lid, sleep, hibernate and the battery log: what works, what does not, and why |
+| [docs/POWER-LAB.md](docs/POWER-LAB.md) | Where the battery goes (about 20 W idle), what was tried and what was ruled out |
+| [docs/MAC-FEEL.md](docs/MAC-FEEL.md) | Everything done to feel like a Mac, how it was verified, what still waits for you |
+| [docs/THEMES.md](docs/THEMES.md) | The six original themes and where their looks come from |
+| [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md) | Short, checkable rules learned the hard way (read before changing this machine) |
+| [docs/DUMPING-GUIDE.md](docs/DUMPING-GUIDE.md), [docs/GAME-STORE-ROADMAP.md](docs/GAME-STORE-ROADMAP.md) | Retro library: your own dumps, the signed catalog |
 
 ## What's inside
 
 | Page | What it does |
 |---|---|
-| **Start** | Your progress (XP, levels, streak, 15 badges), a live machine panel, and a gallery to switch the Omarchy theme |
-| **Learn** | 25 hands-on lessons, verified live against Hyprland (opening windows, switching spaces, the scratchpad…) |
-| **From macOS** | "How do I…?" for 50 Mac habits, translated to the shortcuts on *this* system |
+| **Start** | Your progress (XP, levels, streak, 16 badges), a live machine panel, and a gallery to switch the Omarchy theme |
+| **Learn** | 34 hands-on lessons in six levels, verified live against Hyprland (opening windows, switching spaces, the scratchpad…) |
+| **From macOS** | "How do I…?" for 55 Mac habits, translated to the shortcuts on *this* system |
 | **Your MacBook** | What works on 2014 MacBook hardware, with live readings and fixes |
 | **System** | Live graphs (2 s samples, 30 min history) of CPU temperature, fans, load, memory, network and battery, plus the busiest apps |
 | **Games** | Retro library status per console, disk budget, BIOS checklist, PS4 controller battery and hotkeys |
 | **Keyboard / Trackpad** | Interactive 3D models of the MacBook keyboard and trackpad, showing every binding and gesture |
 | **Reference / Cheat sheet** | All Omarchy commands, the full menu tree, and a glossary, read from the installed Omarchy |
 | **Apps** | One-click installer for the apps in `apps.toml` |
-| **Setup log** | Every change made to the machine, how to undo it, and its live status |
+| **Setup log** | Every change made to the machine, how to undo it, and its live status (with a guide to its colours) |
 
 Across every page:
 
@@ -34,9 +87,11 @@ Across every page:
 
 ## MacBook Pro 2014 fixes included
 
-- `gpu/`: keep the hot NVIDIA GT 750M **off** (`nvidia-off.service`) and the panel on Intel. Fans dropped from about 5,900 to about 2,200 RPM.
+- `gpu/`: keep the hot NVIDIA GT 750M **off** (`nvidia-off.service`) and the panel on Intel. Fans dropped from about 5,900 to about 2,100 to 2,200 RPM.
 - `audio/`: a measured speaker EQ in Omarchy's speaker-tuning layout, automatically bypassed for headphones.
-- The Setup log documents each change with its undo command.
+- `sleep/` and `power/`: sleep, hibernate and battery work (below, and in [docs/SLEEP.md](docs/SLEEP.md) and [docs/POWER-LAB.md](docs/POWER-LAB.md)).
+- `themes/`: six original themes of our own ([docs/THEMES.md](docs/THEMES.md)).
+- The Setup log documents each change with its undo command, and [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md) holds the rules learned the hard way.
 
 ## Making it feel like a Mac
 
@@ -70,9 +125,11 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
   C-state limit.
 - **Sleep that you can trust** (`sleep/`): this MacBook's deep sleep does not wake when the lid opens, so light sleep
   (s2idle) is set at every boot (`install-s2idle`); hibernate works and stays off (`install-hibernate-mode`), asks one
-  password instead of two (`install-hibernate-nolock`, no root) and `install-battery-log` records what each sleep costs.
+  password instead of two (`install-hibernate-nolock`, no root; it refuses unless the hibernate image sits on an encrypted
+  disk, because the disk passphrase is what protects it) and `install-battery-log` records what each sleep costs.
   Every installer takes `--remove`. `sleep-check` reads the journal and tells you whether closing the lid really
-  suspended and resumed, in which mode, how much battery it used, and lists hibernates.
+  suspended and resumed, in which mode, how much battery it used, and lists hibernates. The whole story, including the
+  open decision about the lid, is in [docs/SLEEP.md](docs/SLEEP.md).
 
 The full list, with how each piece was verified, the open decision and what is still waiting for a person, is in
 [docs/MAC-FEEL.md](docs/MAC-FEEL.md).
@@ -139,25 +196,11 @@ games/kit-games store list|search|info|get|remove|sync|health   # browse it, ins
 games/kit-games store locations add|list|remove, store scan|backups   # your own backups: recognised locally, installed from your folder
 ```
 
-## Run it
+## Configuration and security
 
-```bash
-git clone https://github.com/aldoruizluna/omarchy-kit ~/labspace/omarchy-kit
-cd ~/labspace/omarchy-kit
-python3 build_cheatsheet.py        # builds every page from your live Omarchy install
-./apps-helper                      # serves http://127.0.0.1:8787 and opens it
-```
-
-To start it with your session, install the user service:
-
-```bash
-mkdir -p ~/.config/systemd/user && cp omarchy-kit.service ~/.config/systemd/user/
-systemctl --user enable --now omarchy-kit
-```
-
-The service only listens on `127.0.0.1`. The endpoints that act on your desktop (open a menu, switch theme,
-install apps) require a per-run token embedded in the served pages, and the `Host` header is checked to block DNS
-rebinding.
+The service only listens on `127.0.0.1`. The endpoints that act on your desktop (open a menu, switch theme, install apps) require
+a per-run token embedded in the served pages, compared in constant time, and the `Host` header is checked to block DNS rebinding.
+Long jobs (library scan, ingest) run one at a time.
 
 Optional personal details, such as a co-admin's name on the Setup log, go in a git-ignored `local.toml`:
 
@@ -170,20 +213,34 @@ user = "username"
 ## Tests
 
 ```bash
-node test/verify-portal.mjs      # all pages, lessons engine, palette, System page
-node test/verify-keyboard.mjs
-node test/verify-trackpad.mjs
-python3 test/test_store.py        # store client: signatures, rollback, checksums, tombstones (stdlib + openssl, no network)
-python3 test/test_personal.py     # your own backups: locations, .rdb reader, scan, merge, install (sockets blocked)
-node test/verify-store-page.mjs  # the Games page's store section in EN and ES, served from this checkout
+test/run-all --fast      # syntax lint, then every hermetic test (about 30 s; no browser, no running service, no root)
+test/run-all             # the same, then the browser suites against the running portal
+```
+
+What runs, if you want one piece:
+
+```bash
+python3 -B -m unittest discover -s test -p 'test_*.py'   # store client, your-backups library, sleep/power/themes scripts, lesson data
+node test/verify-portal.mjs      # all 12 pages, lessons engine, palette, Setup log, skip links, EN/ES
+node test/verify-keyboard.mjs    # 3D keyboard page
+node test/verify-trackpad.mjs    # 3D trackpad page
+node test/verify-mackeys.mjs     # every ⌘ shortcut against a real Brave window
+node test/verify-store-page.mjs  # the Games page's store section in EN and ES
 CDP_ATTACH=9334 node test/verify-portal.mjs   # drive a real, GPU-accelerated Brave instead of headless Chromium
 ```
 
-The tests drive Chromium over the DevTools protocol with no npm dependencies (Node 22+). They never apply themes
-or open the real Omarchy menu.
+The Python tests run every installer inside a temporary directory with fake commands, so they cannot change your machine. The
+browser tests drive Chromium over the DevTools protocol with no npm dependencies; they never apply themes or open the real Omarchy
+menu. Each script prints usage with `--help`.
+
+## Licence
+
+Code: MIT (see `LICENSE`). Theme art: licence to be decided (see the Setup log, open items).
 
 ---
 
-**Español:** Omarchy Kit es un portal de aprendizaje bilingüe y un kit de configuración para usar Omarchy en una
-MacBook Pro de 15" de mediados de 2014. Enseña con tus atajos, gestos y hardware reales, verifica cada paso en vivo,
-sigue tu tema de Omarchy, y trae gráficas del sistema, búsqueda con Ctrl+K e insignias. Licencia MIT.
+**Español:** Omarchy Kit es un portal de aprendizaje bilingüe y un kit de configuración para usar Omarchy en una MacBook Pro de
+15" de mediados de 2014. Enseña con tus atajos, gestos y hardware reales, verifica cada paso en vivo, sigue tu tema de Omarchy y
+trae gráficas del sistema, búsqueda con Ctrl+K e insignias. Incluye lo necesario para que esta Mac sea silenciosa y fresca:
+reposo e hibernación que funcionan, un laboratorio de batería, atajos y acentos como en Mac, y seis temas originales. Todo cambio
+queda registrado en la Bitácora con el comando exacto para deshacerlo. Licencia MIT.

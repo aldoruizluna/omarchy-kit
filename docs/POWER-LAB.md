@@ -96,9 +96,11 @@ power/power-lab quiet             # about 2 min
 power/power-lab breakdown         # about 3 min, adds CPU-package power and package sleep states
 power/power-lab singles           # about 9 min
 power/power-lab stack             # about 9 min
+power/power-lab hunt              # about 3 min, looks for what keeps the CPU package out of deep sleep (works on the charger)
 power/power-lab results [mode]    # show the last results (data/power-lab/, not committed)
+power/power-lab <mode> --check    # look only: what it detected, change nothing
 ```
 
 Keep the charger unplugged and your hands off the keyboard and trackpad while a test runs (input wakes the display). The screen goes
 dark for a few minutes and comes back by itself. Nothing is permanent: each change is reverted right after its measurement and on any
-exit; the backlight and display are restored at the end.
+exit; the backlight and display are restored at the end. The test runs as a systemd service whose cleanup step (`power-lab rescue`, never typed by hand) runs after it ends for any reason, even a crash.
