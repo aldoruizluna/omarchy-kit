@@ -1,0 +1,6 @@
+text             = "#d7f2ff"
+placeholder      = "#9686bf"
+text-error       = "#ff5468"
+border           = "#8174aa"
+border-active    = "#a874ff"
+border-error     = "#ff5468"

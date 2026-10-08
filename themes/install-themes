@@ -1,0 +1,52 @@
+#!/bin/bash
+# install-themes: put the kit's own Omarchy themes where Omarchy finds them. No root needed; applies nothing.
+#
+#   install-themes                 install every theme in this folder
+#   install-themes <name> ...      install just those
+#   install-themes --list          what the kit has and what is installed
+#   install-themes --remove [name ...]   take them out again (all of the kit's, or just those)
+#
+# A theme is a folder here with a colors.toml (plus optional wallpapers, preview, btop/neovim/vscode files). Omarchy looks for
+# user themes in ~/.config/omarchy/themes/, so this COPIES each one there and marks the copy with a .omarchy-kit file; it never
+# overwrites or removes a theme without that mark. It does not switch the theme: do that with the Omarchy menu, the portal's theme
+# picker, or:  omarchy theme set <name>   (a folder named kawaii-bow-night is called "Kawaii Bow Night" in the list)
+set -eu
+HERE=$(dirname "$(readlink -f "$0")")
+DEST=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/themes
+MARK=.omarchy-kit
+
+kit_themes() { for d in "$HERE"/*/; do [ -f "${d}colors.toml" ] && basename "$d"; done; }
+
+case "${1:-}" in
+  --list)
+    printf '%-24s %-9s %s\n' THEME KIT? INSTALLED
+    for t in $(kit_themes); do
+      state="no"; [ -f "$DEST/$t/$MARK" ] && state="yes"; [ -d "$DEST/$t" ] && [ ! -f "$DEST/$t/$MARK" ] && state="CLASH (not ours)"
+      printf '%-24s %-9s %s\n' "$t" "yes" "$state"
+    done
+    exit 0 ;;
+  --remove)
+    shift
+    names=${*:-$(kit_themes)}
+    for t in $names; do
+      if [ -f "$DEST/$t/$MARK" ]; then rm -rf "${DEST:?}/$t"; echo "removed $t"
+      elif [ -d "$DEST/$t" ]; then echo "left $t alone: it is not one of the kit's"
+      else echo "$t was not installed"; fi
+    done
+    exit 0 ;;
+esac
+
+names=${*:-$(kit_themes)}
+[ -n "$names" ] || { echo "no themes with a colors.toml in $HERE yet"; exit 1; }
+mkdir -p "$DEST"
+for t in $names; do
+  [ -f "$HERE/$t/colors.toml" ] || { echo "skipped $t: no such kit theme"; continue; }
+  if [ -d "$DEST/$t" ] && [ ! -f "$DEST/$t/$MARK" ]; then echo "skipped $t: a theme with that name already exists and is not the kit's"; continue; fi
+  rm -rf "${DEST:?}/$t"
+  cp -r "$HERE/$t" "$DEST/$t"
+  rm -rf "$DEST/$t/THEME.md" "$DEST/$t/source" "$DEST/$t/__pycache__"   # documentation and generators stay in the kit
+  : > "$DEST/$t/$MARK"
+  echo "installed $t"
+done
+echo; echo "Omarchy now lists:"; omarchy theme list 2>/dev/null | sed 's/^/  /'
+echo; echo "Nothing was switched. To try one:  omarchy theme set <name>"

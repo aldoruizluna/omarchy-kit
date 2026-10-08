@@ -60,6 +60,9 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
   terminals always keep the Omarchy meaning.
 - **A Time Machine for your files** (`backup/install-backups`, needs sudo): hourly `/home` snapshots with snapper plus
   Pika Backup for the real backup. Preview with `--dry-run`.
+- **Six themes of our own** (`themes/`, `docs/THEMES.md`): Kawaii Bow (light and night), Mecha Unit (purple and red) and Solarpunk
+  (light and dusk), with original wallpapers, contrast-checked palettes and credits for the open-source works they were inspired by.
+  `themes/install-themes` puts them in Omarchy without switching yours (`--remove` takes them out).
 - **Where your battery goes** (`power/power-lab`, `docs/POWER-LAB.md`): measures the real draw, the CPU package and its sleep states
   with the display on and off, and tries power-saving changes one at a time or cumulatively, reverting each straight after. It runs
   as a background service so the terminal stays idle (a busy terminal adds about 4 W). The first tuning it produced is
