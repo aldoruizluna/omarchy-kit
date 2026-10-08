@@ -45,7 +45,7 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
 - **Accents like macOS.** `kb_variant = "mac"` (in `~/.config/hypr/input.lua`) makes the right Option key a dead-key
   accent key: ⌥e then a gives á, ⌥n then n gives ñ, ⌥1 gives ¡, ⌥⇧/ gives ¿. The left Option stays Alt, so Hyprland's Alt
   shortcuts are untouched. fcitx5 copies the layout only when it starts: after changing it run
-  `fcitx5 --disable notificationitem -r -d`.
+  `systemctl --user restart omarchy-fcitx5`.
 - **⌘ shortcuts inside apps** (`keys/`): `mackeys.lua` turns Super+A, Z, ⇧Z, R, ⇧R, N, ⇧T, D, B, I, U, [ and ] into the
   Ctrl chord the app expects, skipping terminals. It only uses keys Omarchy leaves free (Super+W/T/F/S/L/P/G keep their
   Omarchy meaning). `keys/install-mackeys` installs it and `--remove` undoes it; `test/verify-mackeys.mjs` checks every
@@ -60,8 +60,11 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
   terminals always keep the Omarchy meaning.
 - **A Time Machine for your files** (`backup/install-backups`, needs sudo): hourly `/home` snapshots with snapper plus
   Pika Backup for the real backup. Preview with `--dry-run`.
-- **Sleep that you can trust** (`sleep/sleep-check`): reads the journal and tells you whether closing the lid really
-  suspended and resumed, and warns about the known MacBookPro11 wake-on-USB problem.
+- **Sleep that you can trust** (`sleep/`): this MacBook's deep sleep does not wake when the lid opens, so light sleep
+  (s2idle) is set at every boot (`install-s2idle`); hibernate works and stays off (`install-hibernate-mode`), asks one
+  password instead of two (`install-hibernate-nolock`, no root) and `install-battery-log` records what each sleep costs.
+  Every installer takes `--remove`. `sleep-check` reads the journal and tells you whether closing the lid really
+  suspended and resumed, in which mode, how much battery it used, and lists hibernates.
 
 The full list, with how each piece was verified, the open decision and what is still waiting for a person, is in
 [docs/MAC-FEEL.md](docs/MAC-FEEL.md).

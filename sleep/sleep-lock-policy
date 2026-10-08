@@ -1,0 +1,53 @@
+#!/bin/bash
+# sleep-lock-policy: stands in for Omarchy's omarchy-system-sleep-lock (see install-hibernate-nolock).
+#
+# Omarchy locks the screen before every sleep. Before a plain HIBERNATE that lock is redundant: the memory image sits on the
+# encrypted disk, so the disk passphrase typed at start-up already proves who you are, exactly as on a cold boot (where
+# Omarchy logs you straight in). This script skips the lock in that one case and otherwise hands over to the real lock script.
+#
+# Safe by default: it skips ONLY when logind's most recent "The system will ... now!" line (last 15 s) says hibernate.
+# Suspend, hybrid, suspend-then-hibernate, a doubtful or missing log line, or any error all lock exactly as before.
+#
+#   sleep-lock-policy            what the sleep monitor calls (no arguments)
+#   sleep-lock-policy --check    print what it would do right now: "hibernate" or "lock"
+#
+# Test hook: SLEEP_LOCK_POLICY_LINES=<file> reads logind lines from that file instead of the journal.
+REAL_PATH=/usr/share/omarchy
+real=$REAL_PATH/bin/omarchy-system-sleep-lock
+[ -x "$real" ] || real=$(command -v omarchy-system-sleep-lock)
+
+latest_sleep_line() {
+  if [ -n "${SLEEP_LOCK_POLICY_LINES:-}" ]; then
+    cat "$SLEEP_LOCK_POLICY_LINES"
+  else
+    journalctl -u systemd-logind --since "-15s" --no-pager -o cat 2>/dev/null
+  fi | grep -E "^The system will " | tail -1
+}
+
+decide() {
+  # logind writes its "will ... now!" line a few ms before announcing the sleep; give the journal a moment to catch up.
+  local line try
+  for try in 1 2 3; do
+    line=$(latest_sleep_line)
+    [ -n "$line" ] && break
+    sleep 0.1
+  done
+  case $line in
+    "The system will hibernate now!") echo hibernate ;;
+    *) echo lock ;;
+  esac
+}
+
+if [ "${1:-}" = "--check" ]; then
+  decide
+  exit 0
+fi
+
+if [ "$(decide)" = hibernate ]; then
+  logger -t sleep-lock-policy "plain hibernate: not locking (the disk passphrase protects the image)"
+  exit 0
+fi
+
+# Everything else: the real lock, with Omarchy's own path restored for the scripts it calls.
+export OMARCHY_PATH=$REAL_PATH
+exec "$real" "$@"

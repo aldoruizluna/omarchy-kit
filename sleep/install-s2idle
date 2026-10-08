@@ -1,0 +1,30 @@
+#!/bin/bash
+# install-s2idle: make light sleep (s2idle) the sleep mode at every boot. Needs root.
+#
+#   sudo install-s2idle            install, and apply right now
+#   sudo install-s2idle --remove   undo: back to deep sleep (S3)
+#
+# Why: on this MacBookPro11,3 the lid opening does NOT wake deep sleep (only a key or the power button does), while
+# light sleep wakes on the lid at once (tested 2026-10-07 with the logs in /setup). The price: in s2idle the CPU stays
+# in a light idle state instead of being powered down, so a closed MacBook drains the battery faster.
+#
+# How: one systemd-tmpfiles rule that writes "s2idle" into /sys/power/mem_sleep early in every boot. No kernel
+# parameter and no bootloader change, so nothing else is touched.
+set -eu
+F=/etc/tmpfiles.d/mem-sleep-s2idle.conf
+[ "$(id -u)" = 0 ] || { echo "run it with sudo"; exit 1; }
+
+if [ "${1:-}" = "--remove" ]; then
+  rm -f "$F"
+  echo deep > /sys/power/mem_sleep
+  echo "removed $F; sleep mode now: $(cat /sys/power/mem_sleep)"
+  exit 0
+fi
+
+printf '%s\n' \
+  '# MacBookPro11,3: deep sleep never wakes on lid-open, s2idle does. Undo: omarchy-kit/sleep/install-s2idle --remove' \
+  'w /sys/power/mem_sleep - - - - s2idle' > "$F"
+systemd-tmpfiles --create "$F"
+mode=$(cat /sys/power/mem_sleep)
+echo "installed $F; sleep mode now: $mode"
+case "$mode" in *"[s2idle]"*) ;; *) echo "WARNING: s2idle is not active"; exit 1;; esac

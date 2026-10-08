@@ -1,0 +1,29 @@
+#!/bin/bash
+# install-hibernate-mode: make hibernate finish with a plain power-off ("shutdown") instead of the firmware's S4 ("platform"). Needs root.
+#
+#   sudo install-hibernate-mode            install
+#   sudo install-hibernate-mode --remove   undo (back to systemd's default: platform first)
+#
+# Why: on this MacBookPro11,3 the default saved the memory image and then the Mac switched itself back on a few seconds
+# later, with nobody touching it (seen 2026-10-07). "shutdown" saves the same image and then powers off like a normal
+# shutdown; the next start-up still finds the image and restores the session.
+#
+# How: one systemd drop-in that sets HibernateMode=shutdown. It takes effect at the next hibernate.
+set -eu
+D=/etc/systemd/sleep.conf.d
+F=$D/10-hibernate-shutdown.conf
+[ "$(id -u)" = 0 ] || { echo "run it with sudo"; exit 1; }
+
+if [ "${1:-}" = "--remove" ]; then
+  rm -f "$F"
+  echo "removed $F"
+  exit 0
+fi
+
+mkdir -p "$D"
+printf '%s\n' \
+  '# MacBookPro11,3: the default hibernate mode (platform/S4) restarts the Mac by itself. Undo: omarchy-kit/sleep/install-hibernate-mode --remove' \
+  '[Sleep]' \
+  'HibernateMode=shutdown' > "$F"
+echo "installed $F:"
+cat "$F"

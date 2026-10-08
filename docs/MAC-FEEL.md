@@ -19,8 +19,9 @@ Everything is reversible and logged, with its undo command, on the Setup log pag
 
 ## Waiting for a person
 
-- **Close the lid once** and run `sleep/sleep-check`. This MacBook model is known to wake right after sleeping when its
-  USB controller (XHC1) may wake it; the fix is known but is deliberately not applied until the test shows it is needed.
+- **Make light sleep permanent**: `sudo sleep/install-s2idle` (undo with `--remove`). This MacBook's deep sleep does not
+  wake when the lid opens (tested 2026-10-07: two failures, the lid only woke it when closing an open lid); light sleep
+  (s2idle) wakes on the lid at once. Then, away from the charger, measure what a closed lid costs in battery.
 - **Type with your own fingers** the accents, ⌘ shortcuts and trackpad gestures; the Learn lessons check them.
 - **Unplug the charger once** to see the power profile flip to `balanced`.
 - **Backups** (needs a password): `sudo backup/install-backups` (preview with `--dry-run`) sets up hourly `/home`

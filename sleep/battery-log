@@ -1,0 +1,14 @@
+#!/bin/bash
+# battery-log: systemd-sleep hook that writes the battery charge to the journal right before and after every sleep, so
+# sleep/sleep-check can say what sleeping costs. Installed to /usr/lib/systemd/system-sleep/ by install-battery-log.
+#
+# systemd calls it as: battery-log pre|post suspend|hibernate|hybrid-sleep|suspend-then-hibernate
+# It only reads the battery and writes one journal line (tag sleep-battery). It never changes anything and always exits 0.
+b=/sys/class/power_supply/BAT0
+read_num() { cat "$b/$1" 2>/dev/null || echo 0; }
+ac=0
+for f in /sys/class/power_supply/AC*/online /sys/class/power_supply/ADP*/online; do
+  [ -r "$f" ] && [ "$(cat "$f")" = 1 ] && ac=1
+done
+logger -t sleep-battery "$1 ${2:-${SYSTEMD_SLEEP_ACTION:-sleep}} charge_uah=$(read_num charge_now) full_uah=$(read_num charge_full) volt_uv=$(read_num voltage_now) ac=$ac"
+exit 0

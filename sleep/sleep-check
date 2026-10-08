@@ -3,7 +3,8 @@
 
 Reads the journal (no root needed) for the last 14 days: every suspend, how long it lasted, whether the lid
 was involved, and which devices are still allowed to wake the machine. This model is known to wake right
-after closing the lid when the USB controller (XHC1) may wake it; the verdict says so.
+after closing the lid when the USB controller (XHC1) may wake it, and its deep sleep (S3) does not wake on the lid
+opening at all (only light sleep, s2idle, does); the verdict says so.
 
   sleep-check            human-readable report
   sleep-check --json     machine-readable, used by the Setup log page
@@ -30,28 +31,51 @@ def journal(*args):
 
 
 def report():
-    events = []
+    events, modes = [], {}
     for t, msg in journal("-k"):
         if "PM: suspend entry" in msg:
             events.append((t, "entry"))
+            modes[t] = "s2idle" if "s2idle" in msg else "deep" if "deep" in msg else "?"
         elif "PM: suspend exit" in msg:
             events.append((t, "exit"))
+        elif "hibernation entry" in msg:
+            events.append((t, "h-entry"))
+        elif "hibernation exit" in msg:
+            events.append((t, "h-exit"))
     for t, msg in journal("-u", "systemd-logind"):
         if "Lid closed" in msg:
             events.append((t, "lid-closed"))
         elif "Lid opened" in msg:
             events.append((t, "lid-opened"))
     events.sort()
-    cycles, cur = [], None
+    cycles, cur, hibs, hcur = [], None, [], None
     for t, kind in events:
-        if kind == "entry":
-            cur = {"entry": t, "exit": None, "lid_closed": any(k == "lid-closed" and 0 <= t - tt < 30 for tt, k in events)}
+        if kind == "h-entry":
+            hcur = t
+        elif kind == "h-exit" and hcur is not None:
+            hibs.append({"entry": hcur, "exit": t, "secs": round(t - hcur, 1)})
+            hcur = None
+        elif kind == "entry":
+            cur = {"entry": t, "exit": None, "mode": modes.get(t, "?"), "lid_closed": any(k == "lid-closed" and 0 <= t - tt < 30 for tt, k in events)}
         elif kind == "exit" and cur and cur["exit"] is None:
             cur["exit"] = t
             cur["secs"] = round(t - cur["entry"], 1)
             cur["lid_opened"] = any(k == "lid-opened" and cur["entry"] <= tt <= t + 5 for tt, k in events)
             cycles.append(cur)
             cur = None
+    bat = []
+    for t, msg in journal("-t", "sleep-battery"):
+        m = re.search(r"(pre|post) \S+ charge_uah=(\d+) full_uah=\d+ volt_uv=(\d+) ac=(\d)", msg)
+        if m:
+            bat.append((t, m.group(1), int(m.group(2)), int(m.group(3)), int(m.group(4))))
+    for c in cycles:
+        pre = [b for b in bat if b[1] == "pre" and 0 <= c["entry"] - b[0] <= 60]
+        post = [b for b in bat if b[1] == "post" and 0 <= b[0] - c["exit"] <= 60]
+        if pre and post and not pre[-1][4] and not post[0][4]:
+            dt = post[0][0] - pre[-1][0]
+            mah = (pre[-1][2] - post[0][2]) / 1000
+            ma = mah / (dt / 3600) if dt > 0 else 0
+            c["battery"] = {"mah": round(mah, 1), "secs": round(dt), "ma": round(ma), "watts": round(ma * post[0][3] / 1e9, 1), "reliable": dt >= 600}
     wake = []
     try:
         for line in Path("/proc/acpi/wakeup").read_text().splitlines()[1:]:
@@ -64,13 +88,20 @@ def report():
         status, verdict = "pending", "Never suspended on this machine yet. Close the lid for 30 seconds, open it, and run this again."
     else:
         last = cycles[-1]
-        if last["secs"] < 20:
+        if last["mode"] == "deep":
+            status = "action"
+            verdict = ("The last sleep used deep sleep (S3). On this MacBook the lid opening does not wake deep sleep (found 2026-10-07), "
+                       "light sleep (s2idle) does. Fix: sudo ~/labspace/omarchy-kit/sleep/install-s2idle")
+        elif last["secs"] < 20:
             status = "action"
             verdict = (f"The last sleep lasted only {last['secs']:.0f} s: the machine woke itself. "
                        + ("The USB controller (XHC1) is allowed to wake it, the usual cause on this model." if "XHC1" in wake else "Wake sources look normal, so check what woke it."))
         else:
             status, verdict = "ok", f"The last sleep lasted {last['secs'] / 60:.1f} min and the machine resumed."
-    return {"status": status, "verdict": verdict, "cycles": cycles[-5:], "count": len(cycles), "wake_enabled": wake}
+            b = last.get("battery")
+            if b and b["reliable"]:
+                verdict += f" It used {b['mah']:.0f} mAh on battery (about {b['watts']} W)."
+    return {"status": status, "verdict": verdict, "cycles": cycles[-5:], "count": len(cycles), "hibernates": hibs[-3:], "wake_enabled": wake}
 
 
 if __name__ == "__main__":
@@ -81,6 +112,13 @@ if __name__ == "__main__":
     print(f"Suspend cycles in the last {DAYS} days: {r['count']}")
     for c in r["cycles"]:
         when = datetime.fromtimestamp(c["entry"]).strftime("%a %d %b %H:%M:%S")
-        print(f"  {when}  slept {c['secs']:>7.1f} s  lid closed: {'yes' if c['lid_closed'] else 'no'}  lid opened to wake: {'yes' if c['lid_opened'] else 'no'}")
+        print(f"  {when}  slept {c['secs']:>7.1f} s  mode {c['mode']:<6}  lid closed: {'yes' if c['lid_closed'] else 'no'}  lid opened to wake: {'yes' if c['lid_opened'] else 'no'}")
+        b = c.get("battery")
+        if b:
+            note = "" if b["reliable"] else "  (too short to trust: the awake seconds dominate; try 10+ minutes on battery)"
+            print(f"      battery: {-b['mah']:+.0f} mAh in {b['secs']} s = about {b['ma']} mA ({b['watts']} W){note}")
+    for h in r["hibernates"]:
+        when = datetime.fromtimestamp(h["entry"]).strftime("%a %d %b %H:%M:%S")
+        print(f"  {when}  hibernated and resumed after {h['secs'] / 60:.1f} min")
     print(f"Devices allowed to wake it: {', '.join(r['wake_enabled']) or 'none of XHC1/LID0'}")
     print(f"\n{r['status'].upper()}: {r['verdict']}")

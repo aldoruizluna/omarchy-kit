@@ -1,0 +1,41 @@
+#!/bin/bash
+# install-hibernate-nolock: no lock screen before a plain hibernate, so coming back asks for ONE password (the disk
+# passphrase) instead of two. No root needed, no Omarchy file is edited.
+#
+#   install-hibernate-nolock            install
+#   install-hibernate-nolock --remove   undo (the lock comes back for hibernate too)
+#
+# How: Omarchy's sleep monitor finds its lock script through $OMARCHY_PATH. A user-level drop-in points that variable, for
+# that one service only, at a tiny folder holding (1) a symlink to the real monitor and (2) sleep-lock-policy, which skips
+# the lock for a plain hibernate and otherwise runs the real lock. Details and the safe-by-default rules: sleep-lock-policy.
+set -eu
+HERE=$(dirname "$(readlink -f "$0")")
+SHIM=$HOME/.local/share/omarchy-kit/sleep-lock-shim
+DROP=$HOME/.config/systemd/user/omarchy-sleep-lock.service.d
+CONF=$DROP/10-hibernate-no-lock.conf
+REAL=/usr/share/omarchy/bin/omarchy-system-sleep-monitor
+
+reload() { systemctl --user daemon-reload; systemctl --user restart omarchy-sleep-lock.service; }
+
+if [ "${1:-}" = "--remove" ]; then
+  rm -f "$CONF"; rmdir "$DROP" 2>/dev/null || true
+  rm -rf "$SHIM"
+  reload
+  echo "removed: the lock screen now runs before hibernate too"
+  exit 0
+fi
+
+# Refuse if Omarchy's monitor now uses other files under $OMARCHY_PATH: the shim would not have them.
+extra=$(grep -o 'OMARCHY_PATH/bin/[A-Za-z0-9_.-]*' "$REAL" | sort -u | grep -v -x -e 'OMARCHY_PATH/bin/omarchy-system-sleep-lock' -e 'OMARCHY_PATH/bin/omarchy-system-sleep-monitor' || true)
+[ -z "$extra" ] || { echo "Omarchy's sleep monitor changed (it also uses: $extra). Not installing; ask Claude to update the shim."; exit 1; }
+
+mkdir -p "$SHIM/bin" "$DROP"
+ln -sfn "$REAL" "$SHIM/bin/omarchy-system-sleep-monitor"
+install -m755 "$HERE/sleep-lock-policy" "$SHIM/bin/omarchy-system-sleep-lock"
+printf '%s\n' '# Skip the lock screen before a plain hibernate (omarchy-kit/sleep/install-hibernate-nolock). Undo: that script with --remove.' \
+  '[Service]' "Environment=OMARCHY_PATH=$SHIM" > "$CONF"
+reload
+sleep 1
+echo "installed. The monitor now runs with:"
+systemctl --user show omarchy-sleep-lock.service -p Environment --value | tr ' ' '\n' | grep OMARCHY_PATH
+echo "service: $(systemctl --user is-active omarchy-sleep-lock.service)   decision right now: $("$SHIM/bin/omarchy-system-sleep-lock" --check)"

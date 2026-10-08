@@ -112,7 +112,7 @@ try {
   c.ok(await b.eval(`D.log.every(e=>e.length===5&&e[2]&&e[3])`), "every log entry has English and Spanish text");
   c.ok(await b.eval(`D.todo.every(t=>t[3]&&t[4])&&D.skipped.every(t=>t[2]&&t[3])`), "every open item has English and Spanish text");
   await b.eval(`document.getElementById('bLang').click()`); await b.sleep(200);
-  c.ok(await b.eval(`document.getElementById('todo').innerText.includes('Cierra la tapa')&&document.getElementById('skipped').innerText.includes('Fuente del sistema')`), "Spanish switch translates the new sections");
+  c.ok(await b.eval(`document.getElementById('todo').innerText.includes('Mide cuánta batería')&&document.getElementById('skipped').innerText.includes('Fuente del sistema')`), "Spanish switch translates the new sections");
   await b.eval(`document.getElementById('bLang').click()`); await b.sleep(200);
   await b.shot(`${OUT}/05b-setup.png`);
 

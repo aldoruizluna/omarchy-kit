@@ -1,0 +1,24 @@
+#!/bin/bash
+# install-battery-log: log the battery charge around every sleep (see battery-log). Needs root.
+#
+#   sudo install-battery-log            install
+#   sudo install-battery-log --remove   undo
+#
+# Copies battery-log to /usr/lib/systemd/system-sleep/, the one folder this systemd reads for sleep hooks (it ignores
+# /etc/systemd/system-sleep/), where it runs before and after each suspend/hibernate. Also removes the earlier copy in /etc.
+# Read-only on the battery; the only output is one journal line per call.
+set -eu
+D=/usr/lib/systemd/system-sleep
+F=$D/battery-log
+OLD=/etc/systemd/system-sleep/battery-log   # first version of this installer used the wrong folder
+[ "$(id -u)" = 0 ] || { echo "run it with sudo"; exit 1; }
+
+if [ "${1:-}" = "--remove" ]; then
+  rm -f "$F" "$OLD"
+  echo "removed $F"
+  exit 0
+fi
+
+rm -f "$OLD"
+install -m755 "$(dirname "$(readlink -f "$0")")/battery-log" "$F"
+echo "installed $F"
