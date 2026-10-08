@@ -1,0 +1,39 @@
+#!/bin/bash
+# install-wifi-powersave: let the Wi-Fi card sleep between packets. Needs root.
+#
+#   sudo install-wifi-powersave            install, and apply right now
+#   sudo install-wifi-powersave --remove   undo
+#
+# Why: measured with power-lab on this MacBookPro11,3 (Broadcom BCM4360, wl driver): about 0.9 W less battery draw, the same
+# result in two separate runs (power-lab singles: -0.94 W; power-lab stack: -0.9 W).
+#
+# NOTE: Omarchy ships its own /etc/NetworkManager/conf.d/omarchy-wifi-powersave.conf (wifi.powersave = 2, off) because power
+# saving can add 20-300 ms latency spikes on idle links and some Intel firmware drops the link when it naps. This installer
+# deliberately overrides that: its file sorts later, so NetworkManager uses it. Measured here (Broadcom wl, this router): replies on
+# an idle link took 2.3-5.8 ms, no spikes. What it cannot show is the case Omarchy warns about, an unsolicited packet arriving while
+# the card dozes, which can wait up to a beacon interval (about 100 ms, more if the router uses long DTIM): invisible for chat or
+# browsing, noticeable in real-time games or calls. If you ever see Wi-Fi drops or lag, undo it with --remove.
+#
+# How: one NetworkManager setting (wifi.powersave = 3 = enable) in /etc/NetworkManager/conf.d/, which NetworkManager applies every
+# time it connects, so it also survives reconnects and sleep. It is applied now without dropping the connection.
+set -eu
+F=/etc/NetworkManager/conf.d/wifi-powersave.conf
+[ "$(id -u)" = 0 ] || { echo "run it with sudo"; exit 1; }
+IF=$(for d in /sys/class/net/*/wireless; do [ -e "$d" ] && basename "$(dirname "$d")" && break; done || true)
+
+if [ "${1:-}" = "--remove" ]; then
+  rm -f "$F"
+  nmcli general reload conf 2>/dev/null || true
+  [ -n "$IF" ] && iw dev "$IF" set power_save off 2>/dev/null || true
+  echo "removed $F; Wi-Fi power saving: $([ -n "$IF" ] && iw dev "$IF" get power_save || echo 'no Wi-Fi interface')"
+  exit 0
+fi
+
+printf '%s\n' \
+  '# MacBookPro11,3: let the Wi-Fi card sleep between packets (about -0.9 W). Undo: omarchy-kit/power/install-wifi-powersave --remove' \
+  '[connection]' \
+  'wifi.powersave = 3' > "$F"
+nmcli general reload conf 2>/dev/null || true
+[ -n "$IF" ] && iw dev "$IF" set power_save on 2>/dev/null || true
+echo "installed $F"
+echo "Wi-Fi power saving now: $([ -n "$IF" ] && iw dev "$IF" get power_save || echo 'no Wi-Fi interface found')"

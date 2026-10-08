@@ -1,0 +1,431 @@
+#!/usr/bin/env python3
+"""power-lab: measure where a laptop's battery power goes, and test power-saving changes safely.
+
+  power-lab quiet         your battery draw at normal brightness and with the backlight off          (about 2 minutes)
+  power-lab breakdown     adds CPU-package power (RAPL) and how deeply the CPU package sleeps (PC2..PC7),
+                          with the display on and then switched off                                  (about 3 minutes)
+  power-lab singles       tries ten single changes one at a time (each is reverted straight after)   (about 9 minutes)
+  power-lab stack         applies the candidate fixes cumulatively, then removes them one by one     (about 9 minutes)
+  power-lab results [mode]   show the last results (any mode name, or all of them)
+  power-lab <mode> --check   look only: show what it detected on this machine, change nothing
+
+Run it as yourself. It asks for sudo once and runs the test as a background system service, so this terminal stays idle: a busy
+terminal repaints the screen and adds about 4 W by itself, which would spoil the numbers. During a test keep your hands off the
+keyboard and trackpad (input wakes the display), and keep the charger unplugged: the draw is read from the battery.
+
+Nothing is permanent. Every change is reverted right after its measurement, and also on any exit or signal; the backlight and the
+display are restored at the end. Results are written to data/power-lab/<mode>.txt (git-ignored).
+Written for this MacBookPro11,3 (Haswell, Hyprland, apple-gmux backlight); machine-specific bits are detected, not hard-coded."""
+import argparse, atexit, glob, os, pwd, signal, statistics, struct, subprocess, sys, time
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_OUT = os.path.join(os.path.dirname(HERE), "data", "power-lab")
+MODES = {"quiet": "about 2 minutes", "breakdown": "about 3 minutes", "singles": "about 9 minutes", "stack": "about 9 minutes"}
+PC_MSRS = {"PC2": 0x60D, "PC3": 0x3F8, "PC6": 0x3F9, "PC7": 0x3FA}   # Haswell package C-state residency counters
+
+
+def first(paths):
+    return sorted(paths)[0] if paths else ""
+
+
+def rd(p):
+    try:
+        return open(p).read().strip()
+    except OSError:
+        return ""
+
+
+def wr(p, v):
+    try:
+        open(p, "w").write(str(v))
+        return True
+    except OSError:
+        return False
+
+
+def sh(*cmd):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+        return (r.stdout + r.stderr).strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return ""
+
+
+class Lab:
+    def __init__(self, user, sig, out):
+        self.user, self.sig, self.out = user, sig, out
+        self.lines, self.undo, self.saved, self.name = [], [], {}, "lab"
+        self.bat = first(glob.glob("/sys/class/power_supply/BAT*"))
+        self.ac = [p for p in glob.glob("/sys/class/power_supply/*/online") if rd(os.path.dirname(p) + "/type") == "Mains"]
+        bl = glob.glob("/sys/class/backlight/*")
+        self.backlight = os.path.basename(first([b for b in bl if "gmux" in b or "intel" in b] or bl)) if bl else ""
+        wl = sorted(os.path.dirname(p) for p in glob.glob("/sys/class/net/*/wireless"))
+        self.wifi = os.path.basename(wl[0]) if wl else ""
+        self.rapl = {rd(d + "/name"): d + "/energy_uj" for d in sorted(glob.glob("/sys/class/powercap/intel-rapl:*"))}
+        self.msr = None
+        lspci = sh("lspci", "-D")
+        self.camera = [l.split()[0] for l in lspci.splitlines() if "FaceTime" in l]
+        self.thunderbolt = [l.split()[0] for l in lspci.splitlines() if "Thunderbolt" in l]
+        self.orig_brightness = sh("brightnessctl", "-d", self.backlight, "get") if self.backlight else ""
+
+    # --- output ---------------------------------------------------------------------------------------------------------------
+    def say(self, msg=""):
+        print(msg, flush=True)
+        self.lines.append(msg)
+        os.makedirs(self.out, exist_ok=True)
+        with open(os.path.join(self.out, self.name + ".txt"), "w") as f:
+            f.write("\n".join(self.lines) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+
+    # --- environment ----------------------------------------------------------------------------------------------------------
+    def hypr(self, *a):
+        return sh("runuser", "-u", self.user, "--", "env", "XDG_RUNTIME_DIR=/run/user/%d" % pwd.getpwnam(self.user).pw_uid,
+                  f"HYPRLAND_INSTANCE_SIGNATURE={self.sig}", "hyprctl", *a)
+
+    def dpms(self, action):   # only "enable" / "disable": this Hyprland treats other words as a toggle
+        return self.hypr("dispatch", f'hl.dsp.dpms({{ action = "{action}" }})')
+
+    def dpms_state(self):
+        for l in self.hypr("monitors").splitlines():
+            if "dpmsStatus" in l:
+                return l.split(":")[1].strip()
+        return "?"
+
+    def on_battery(self):
+        return not any(rd(p) == "1" for p in self.ac)
+
+    def set_backlight(self, v):
+        sh("brightnessctl", "-d", self.backlight, "set", str(v))
+
+    def restore_all(self, *_):
+        while self.undo:
+            name, rev = self.undo.pop()
+            try:
+                rev()
+            except Exception as e:
+                self.say(f"   undo error in {name}: {e}")
+        if self.sig:
+            self.dpms("enable")
+        if self.backlight and self.orig_brightness:
+            self.set_backlight(self.orig_brightness)
+
+    def open_msr(self):
+        try:
+            self.msr = os.open("/dev/cpu/0/msr", os.O_RDONLY)
+        except OSError:
+            self.msr = None
+
+    # --- measuring ------------------------------------------------------------------------------------------------------------
+    def watts(self):
+        return int(rd(self.bat + "/current_now")) * int(rd(self.bat + "/voltage_now")) / 1e12
+
+    def rdmsr(self, reg):
+        try:
+            return struct.unpack("<Q", os.pread(self.msr, 8, reg))[0]
+        except (OSError, TypeError):
+            return None
+
+    def snap(self):
+        return {"t": time.time(), "tsc": self.rdmsr(0x10), "pc": {k: self.rdmsr(v) for k, v in PC_MSRS.items()},
+                "rapl": {k: int(rd(v) or 0) for k, v in self.rapl.items()}}
+
+    def measure(self, seconds):
+        a, w, t0 = self.snap(), [], time.time()
+        while time.time() - t0 < seconds:
+            w.append(self.watts())
+            time.sleep(0.5)
+        b = self.snap()
+        dt = b["t"] - a["t"]
+        r = {"W": round(statistics.mean(w), 1), "lo": round(min(w), 1), "hi": round(max(w), 1)}
+        for k, label in (("package-0", "pkg"), ("dram", "dram")):
+            if k in self.rapl and b["rapl"][k] >= a["rapl"][k]:
+                r[label] = round((b["rapl"][k] - a["rapl"][k]) / 1e6 / dt, 2)
+        if a["tsc"] and b["tsc"] and b["tsc"] > a["tsc"]:
+            for k in PC_MSRS:
+                if a["pc"][k] is not None and b["pc"][k] is not None:
+                    r[k] = round(100 * (b["pc"][k] - a["pc"][k]) / (b["tsc"] - a["tsc"]))
+        return r
+
+    @staticmethod
+    def fmt(r):
+        pcs = " ".join(f"{k} {r[k]:>3}%" for k in PC_MSRS if k in r)
+        return f"{r['W']:5.1f} W | pkg {r.get('pkg', '?')!s:>5} W dram {r.get('dram', '?')!s:>5} W | {pcs}"
+
+    # --- reversible changes: each builder returns (apply, revert) -----------------------------------------------------------
+    def b_alpm(self):
+        files = glob.glob("/sys/class/scsi_host/host*/link_power_management_policy")
+        old = {p: rd(p) for p in files}
+        return (lambda: bool(files) and all([wr(p, "med_power_with_dipm") for p in files]), lambda: [wr(p, v) for p, v in old.items()])
+
+    def b_usb(self):
+        files = glob.glob("/sys/bus/usb/devices/*/power/control")
+        old = {p: rd(p) for p in files}
+        return (lambda: [wr(p, "auto") for p in files] and True, lambda: [wr(p, v) for p, v in old.items()])
+
+    def b_pci(self, only=None):
+        skip = {"0000:00:00.0", "0000:00:1f.0", "0000:01:00.0"}   # host bridge, LPC, the switched-off dGPU
+        files = [p for p in glob.glob("/sys/bus/pci/devices/*/power/control")
+                 if p.split("/")[5] not in skip and (only is None or p.split("/")[5] in only)]
+        old = {p: rd(p) for p in files}
+        return (lambda: [wr(p, "auto") for p in files] and True, lambda: [wr(p, v) for p, v in old.items()])
+
+    def b_ssd(self):
+        return self.b_pci(only={"0000:05:00.0", "0000:00:16.0"})
+
+    def b_wifi(self):
+        if not self.wifi:
+            return (lambda: False, lambda: None)
+        return (lambda: "Power save: on" in (sh("iw", "dev", self.wifi, "set", "power_save", "on") + sh("iw", "dev", self.wifi, "get", "power_save")),
+                lambda: sh("iw", "dev", self.wifi, "set", "power_save", "off"))
+
+    def b_camera(self):
+        loaded = "facetimehd" in sh("lsmod")
+        return (lambda: loaded and (sh("modprobe", "-r", "facetimehd") or True), lambda: loaded and sh("modprobe", "facetimehd"))
+
+    # NOTE: there is deliberately no Thunderbolt test. On 2026-10-07 unloading its driver while the idle controller was allowed to
+    # sleep left the Falcon Ridge controller "inaccessible" ("timeout resetting host router", probe error -22) and it vanished from
+    # the PCI bus until the next reboot. The saving is below the measurement noise (<= 0.7 W), so it is not worth the risk.
+
+    def b_nmi(self):
+        nmi, wq = rd("/proc/sys/kernel/nmi_watchdog"), rd("/sys/module/workqueue/parameters/power_efficient")
+        return (lambda: [wr("/proc/sys/kernel/nmi_watchdog", 0), wr("/sys/module/workqueue/parameters/power_efficient", "Y")] and True,
+                lambda: [wr("/proc/sys/kernel/nmi_watchdog", nmi), wr("/sys/module/workqueue/parameters/power_efficient", wq or "N")])
+
+    def b_aspm(self, policy="powersupersave"):
+        pol = rd("/sys/module/pcie_aspm/parameters/policy")
+        old = pol.split("[")[1].split("]")[0] if "[" in pol else "default"
+        return (lambda: wr("/sys/module/pcie_aspm/parameters/policy", policy), lambda: wr("/sys/module/pcie_aspm/parameters/policy", old))
+
+    def b_fan(self):
+        files = sorted(glob.glob("/sys/devices/platform/applesmc.768/fan[0-9]_min"))
+        old = {p: rd(p) for p in files}
+
+        def on():
+            temp = sh("sh", "-c", "sensors 2>/dev/null | awk '/Package id 0/{gsub(/[^0-9.]/,\"\",$4); print int($4)}'")
+            if not files or int(temp or 99) > 60:
+                self.say("    (CPU above 60 C or no fan control: fans left alone)")
+                return False
+            return all([wr(p, 1200) for p in files])
+        return (on, lambda: [wr(p, v) for p, v in old.items()])
+
+    def single(self, title, builder, settle=10, note=""):
+        on, off = builder()
+        self.say(f"\n## {title}")
+        before = self.measure(10)["W"]
+        if on() is False:
+            self.say("    not applicable on this system, skipped")
+            off()
+            return None
+        self.undo.append((title, off))
+        time.sleep(settle)
+        during = self.measure(20)["W"]
+        off()
+        self.undo.pop()
+        time.sleep(5)
+        after = self.measure(10)["W"]
+        delta = during - (before + after) / 2
+        self.say(f"    before {before:.1f} W | with change {during:.1f} W | after revert {after:.1f} W  =>  change {delta:+.2f} W {note}")
+        return delta
+
+
+# ================================================================================================================================
+# modes
+# ================================================================================================================================
+def mode_quiet(lab):
+    lab.say(f"waiting 25 s for the terminal to go quiet; brightness {lab.orig_brightness} will be restored")
+    time.sleep(25)
+    a = lab.measure(35)
+    lab.say(f"\n## A. normal brightness, terminal quiet\n    {lab.fmt(a)}")
+    lab.set_backlight(0)
+    time.sleep(6)
+    b = lab.measure(25)
+    lab.say(f"\n## B. backlight at 0\n    {lab.fmt(b)}")
+    lab.restore_all()
+    lab.say(f"\nRESULT  normal {a['W']} W | backlight off {b['W']} W | the backlight is about {round(a['W'] - b['W'], 1)} W of it")
+
+
+def mode_breakdown(lab):
+    lab.set_backlight(0)
+    lab.say("backlight 0; starting in 12 s")
+    time.sleep(12)
+    p1 = lab.measure(30)
+    lab.say(f"\n## 1. display on (backlight 0)\n    {lab.fmt(p1)}")
+    lab.dpms("disable")
+    time.sleep(1)
+    p2 = None
+    if lab.dpms_state() == "0":
+        time.sleep(6)
+        p2 = lab.measure(30)
+        lab.say(f"\n## 2. display pipeline off\n    {lab.fmt(p2)}")
+    else:
+        lab.say("\n   (the display did not switch off; skipping phase 2)")
+    lab.dpms("enable")
+    time.sleep(7)
+    p3 = lab.measure(20)
+    lab.say(f"\n## 3. display on again (drift check)\n    {lab.fmt(p3)}")
+    lab.say("\n==== SUMMARY ====")
+    if p2:
+        lab.say(f"  display pipeline + panel electronics (everything but the backlight): about {round(p1['W'] - p2['W'], 1)} W")
+    lab.say(f"  with the display on: CPU package {p1.get('pkg', '?')} W + memory {p1.get('dram', '?')} W of {p1['W']} W total")
+    lab.say(f"  deep package sleep (PC6+PC7): {(p1.get('PC6') or 0) + (p1.get('PC7') or 0)}% display on"
+            + (f", {(p2.get('PC6') or 0) + (p2.get('PC7') or 0)}% display off" if p2 else ""))
+
+
+def mode_singles(lab):
+    lab.set_backlight(0)
+    lab.say(f"backlight 0 (was {lab.orig_brightness}); starting in 12 s")
+    time.sleep(12)
+    base = lab.measure(25)["W"]
+    lab.say(f"\nBASELINE (backlight off): {base} W")
+    tests = [("FaceTime camera driver unloaded", lab.b_camera, 10, ""), ("SATA link power saving", lab.b_alpm, 10, ""), ("Runtime sleep for the SSD controller and the Intel ME", lab.b_ssd, 10, ""),
+             ("NMI watchdog off + power-efficient workqueues", lab.b_nmi, 10, ""), ("Wi-Fi power saving on", lab.b_wifi, 10, ""),
+             ("Fan floor lowered to 1200 rpm", lab.b_fan, 25, ""), ("PCIe ASPM policy powersave", lambda: lab.b_aspm("powersave"), 12, "")]
+    res = []
+    for title, builder, settle, note in tests:
+        d = lab.single(title, builder, settle, note)
+        if d is not None:
+            res.append((d, title))
+    lab.say("\n==== SUMMARY (negative = saves power; each alone; noise is about +-1 W) ====")
+    for d, t in sorted(res):
+        lab.say(f"  {d:+6.2f} W   {t}")
+    lab.say(f"\nbaseline {base} W")
+
+
+def mode_stack(lab):
+    lab.set_backlight(0)
+    lab.say(f"started {time.strftime('%H:%M:%S')}; backlight 0 (was {lab.orig_brightness}); starting in 12 s")
+    time.sleep(12)
+    lab.say("\n=== A. graphics driver display-power status (root debugfs) ===")
+    for d in [d for d in glob.glob("/sys/kernel/debug/dri/*") if "i915" in rd(d + "/name")][:1]:
+        for f in ("i915_fbc_status", "i915_edp_psr_status", "i915_drrs_status"):
+            txt = rd(f"{d}/{f}")
+            lab.say(f"  {f}: " + (" | ".join(l.strip() for l in txt.splitlines()[:4]) if txt else "(missing: not supported here)"))
+    stages = [("SATA link power saving", lab.b_alpm), ("USB autosuspend (all devices)", lab.b_usb), ("PCI runtime sleep", lab.b_pci),
+              ("Wi-Fi power saving", lab.b_wifi), ("FaceTime camera driver unloaded", lab.b_camera), ("PCIe ASPM powersupersave", lab.b_aspm),
+              ("NMI watchdog off, power-efficient workqueues", lab.b_nmi)]
+    lab.say("\n=== B. cumulative fixes, display ON (each line = this fix added to all those above) ===")
+    base = lab.measure(20)
+    lab.say(f"  {'0. baseline':50s} {lab.fmt(base)}")
+    applied = []
+    for i, (title, make) in enumerate(stages, 1):
+        on, off = make()
+        on()
+        lab.undo.append((title, off))
+        applied.append((title, on, off))
+        time.sleep(8)
+        r = lab.measure(20)
+        lab.say(f"  {str(i) + '. + ' + title:50s} {lab.fmt(r)}")
+    full = r
+    lab.say("\n=== C. display OFF with ALL fixes, then each fix removed on its own ===")
+    lab.dpms("disable")
+    time.sleep(1)
+    if lab.dpms_state() == "0":
+        time.sleep(8)
+        lab.say(f"  {'all fixes, display off':50s} {lab.fmt(lab.measure(20))}")
+        for title, on, off in applied:
+            off()
+            time.sleep(6)
+            lab.say(f"  {'without: ' + title:50s} {lab.fmt(lab.measure(14))}")
+            on()
+            time.sleep(4)
+        for title, on, off in reversed(applied):
+            off()
+        lab.undo.clear()
+        time.sleep(8)
+        lab.say(f"  {'NO fixes, display off (reference)':50s} {lab.fmt(lab.measure(20))}")
+        lab.dpms("enable")
+    else:
+        lab.say("  (the display did not switch off; skipping part C)")
+    lab.say("\n=== SUMMARY ===")
+    lab.say(f"  display on: baseline {base['W']} W -> all fixes {full['W']} W   (deep sleep PC6+PC7: {(base.get('PC6') or 0) + (base.get('PC7') or 0)}% -> {(full.get('PC6') or 0) + (full.get('PC7') or 0)}%)")
+
+
+RUN = {"quiet": mode_quiet, "breakdown": mode_breakdown, "singles": mode_singles, "stack": mode_stack}
+NEEDS = {"quiet": (), "singles": (), "breakdown": ("dpms", "rapl"), "stack": ("dpms", "rapl")}
+
+
+def show_check(lab, mode):
+    print(f"power-lab {mode} --check (looks only, changes nothing)")
+    rows = [("battery", lab.bat or "NOT FOUND"), ("charger plugged in", "no (good)" if lab.on_battery() else "YES: unplug it first"),
+            ("backlight device", f"{lab.backlight or 'NOT FOUND'} (now {lab.orig_brightness})"), ("Wi-Fi interface", lab.wifi or "none"),
+            ("camera PCI", ", ".join(lab.camera) or "none"), ("Thunderbolt PCI", ", ".join(lab.thunderbolt) or "none"),
+            ("Hyprland signature", "yes" if lab.sig else "MISSING (needed to switch the display off)"),
+            ("RAPL (CPU package watts)", ", ".join(lab.rapl) if lab.rapl else "not available"), ("root needed", f"yes; you are {'root' if os.geteuid() == 0 else 'a normal user (it will ask for sudo)'}"),
+            ("duration", MODES[mode])]
+    for k, v in rows:
+        print(f"  {k:26s} {v}")
+
+
+def relaunch(mode, args, user):
+    out = args.out or DEFAULT_OUT
+    os.makedirs(out, exist_ok=True)
+    print(f"power-lab {mode}: {MODES[mode]}. The screen will go dark. Hands off the keyboard and trackpad until it comes back.")
+    cmd = ["sudo", "systemd-run", "--collect", f"--unit=power-lab-{mode}", "python3", "-I", os.path.abspath(__file__), mode,
+           "--user", user, "--sig", os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", ""), "--out", out]
+    rc = subprocess.call(cmd)
+    if rc == 0:
+        print(f"started in the background. When the screen is back: power-lab results {mode}")
+    return rc
+
+
+def main():
+    ap = argparse.ArgumentParser(prog="power-lab", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("mode", nargs="?", choices=[*MODES, "results"])
+    ap.add_argument("what", nargs="?", help="results: which mode (default: all)")
+    ap.add_argument("--check", action="store_true", help="look only, change nothing")
+    ap.add_argument("--user"), ap.add_argument("--sig"), ap.add_argument("--out")
+    args = ap.parse_args()
+    out = args.out or DEFAULT_OUT
+    if not args.mode:
+        ap.print_help()
+        return 0
+    if args.mode == "results":
+        names = [args.what] if args.what else sorted(MODES)
+        shown = 0
+        for n in names:
+            txt = rd(os.path.join(out, n + ".txt"))
+            if txt:
+                print(f"===== {n} =====\n{txt}\n")
+                shown += 1
+        if not shown:
+            print("no results yet: run one of: " + ", ".join(MODES))
+        return 0
+    user = args.user or os.environ.get("SUDO_USER") or os.environ.get("USER") or pwd.getpwuid(os.getuid()).pw_name
+    sig = args.sig if args.sig is not None else os.environ.get("HYPRLAND_INSTANCE_SIGNATURE", "")
+    lab = Lab(user, sig, out)
+    lab.name = args.mode
+    if args.check:
+        show_check(lab, args.mode)
+        return 0
+    if os.geteuid() != 0:
+        if not lab.on_battery():
+            print("The charger is plugged in. Unplug it first: the draw is read from the battery.")
+            return 2
+        return relaunch(args.mode, args, user)
+    # ---- running as root, as a background service ----
+    if not lab.on_battery():
+        print("charger plugged in; not running")
+        return 2
+    if "dpms" in NEEDS[args.mode] and not sig:
+        print("no Hyprland signature; cannot switch the display off")
+        return 2
+    lab.open_msr()
+    atexit.register(lab.restore_all)
+    for s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+        signal.signal(s, lambda *a: (lab.restore_all(), sys.exit(1)))
+    try:
+        RUN[args.mode](lab)
+    finally:
+        lab.restore_all()
+        lab.say(f"\nfinished {time.strftime('%H:%M:%S')}; all changes reverted; display and brightness restored")
+        for f in glob.glob(os.path.join(out, "*")):
+            try:
+                os.chown(f, pwd.getpwnam(user).pw_uid, -1)
+            except OSError:
+                pass
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

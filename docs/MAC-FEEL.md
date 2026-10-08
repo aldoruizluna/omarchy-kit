@@ -19,6 +19,8 @@ Everything is reversible and logged, with its undo command, on the Setup log pag
 
 ## Waiting for a person
 
+- **Wi-Fi power saving** (about 0.9 W): `sudo power/install-wifi-powersave` (undo with `--remove`). Measured with `power/power-lab`; the
+  findings and what is still open (what keeps the CPU package out of deep sleep) are in `docs/POWER-LAB.md`.
 - **Make light sleep permanent**: `sudo sleep/install-s2idle` (undo with `--remove`). This MacBook's deep sleep does not
   wake when the lid opens (tested 2026-10-07: two failures, the lid only woke it when closing an open lid); light sleep
   (s2idle) wakes on the lid at once. Then, away from the charger, measure what a closed lid costs in battery.

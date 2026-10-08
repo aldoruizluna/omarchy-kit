@@ -60,6 +60,11 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
   terminals always keep the Omarchy meaning.
 - **A Time Machine for your files** (`backup/install-backups`, needs sudo): hourly `/home` snapshots with snapper plus
   Pika Backup for the real backup. Preview with `--dry-run`.
+- **Where your battery goes** (`power/power-lab`, `docs/POWER-LAB.md`): measures the real draw, the CPU package and its sleep states
+  with the display on and off, and tries power-saving changes one at a time or cumulatively, reverting each straight after. It runs
+  as a background service so the terminal stays idle (a busy terminal adds about 4 W). The first tuning it produced is
+  `power/install-wifi-powersave` (about 0.9 W, `--remove` undoes it). `power/msr-probe` is a read-only check of the CPU's package
+  C-state limit.
 - **Sleep that you can trust** (`sleep/`): this MacBook's deep sleep does not wake when the lid opens, so light sleep
   (s2idle) is set at every boot (`install-s2idle`); hibernate works and stays off (`install-hibernate-mode`), asks one
   password instead of two (`install-hibernate-nolock`, no root) and `install-battery-log` records what each sleep costs.

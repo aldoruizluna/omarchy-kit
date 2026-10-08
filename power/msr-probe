@@ -1,0 +1,54 @@
+#!/usr/bin/env python3
+"""msr-probe: read-only. Prints the CPU's package C-state limit and related switches (Haswell). Run as root.
+
+If the firmware capped the package at a shallow state (or locked the register), the CPU can never reach PC6/PC7 whatever Linux
+does. Reads only /dev/cpu/N/msr; changes nothing."""
+import os, struct, sys
+
+LIMIT = {0: "C0/C1 (no package sleep)", 1: "C2", 2: "C3", 3: "C6", 4: "C7", 5: "C7s"}
+
+
+def rdmsr(reg, cpu=0):
+    fd = os.open(f"/dev/cpu/{cpu}/msr", os.O_RDONLY)
+    try:
+        return struct.unpack("<Q", os.pread(fd, 8, reg))[0]
+    finally:
+        os.close(fd)
+
+
+def bit(v, n):
+    return (v >> n) & 1
+
+
+def describe(e2, power_ctl):
+    out = [f"MSR_PKG_CST_CONFIG_CONTROL (0xE2) = {e2:#x}",
+           f"  package C-state limit : {LIMIT.get(e2 & 7, 'unknown ' + str(e2 & 7))}   <- the deepest package state the CPU may enter",
+           f"  register locked       : {'YES (bit 15: cannot be changed until the next reboot)' if bit(e2, 15) else 'no (bit 15 clear: Linux may change it)'}",
+           f"  I/O MWAIT redirection : {'on' if bit(e2, 10) else 'off'}",
+           f"  C3 auto-demotion      : {'ON (CPU may quietly demote C3 to C1)' if bit(e2, 25) else 'off'}",
+           f"  C1 auto-demotion      : {'ON (CPU may quietly demote C1 to C0)' if bit(e2, 26) else 'off'}",
+           f"  C3 undemotion         : {'on' if bit(e2, 27) else 'off'}   C1 undemotion: {'on' if bit(e2, 28) else 'off'}",
+           f"  package auto-demotion : {'ON' if bit(e2, 29) else 'off'}   (bit 29)",
+           f"MSR_POWER_CTL (0x1FC) = {power_ctl:#x}   C1E enable: {'on' if bit(power_ctl, 1) else 'off'}"]
+    return "\n".join(out)
+
+
+if __name__ == "__main__":
+    if os.geteuid() != 0:
+        sys.exit("run as root")
+    model = next((l.split(":", 1)[1].strip() for l in open("/proc/cpuinfo") if l.startswith("model name")), "?")
+    print(f"CPU: {model}")
+    seen = set()
+    for cpu in range(os.cpu_count() or 1):
+        try:
+            e2 = rdmsr(0xE2, cpu)
+            pc = rdmsr(0x1FC, cpu)
+        except OSError as e:
+            print(f"cpu{cpu}: cannot read ({e.strerror})")
+            continue
+        if (e2, pc) not in seen:
+            print(f"\n-- cpu{cpu}")
+            print(describe(e2, pc))
+            seen.add((e2, pc))
+    if len(seen) == 1:
+        print("\n(all CPUs report the same values)")

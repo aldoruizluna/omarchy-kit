@@ -96,7 +96,7 @@ try {
 
   console.log("your MacBook");
   await go("/macbook"); await b.sleep(1200);
-  c.ok(await b.eval(`document.querySelectorAll('.hw').length===12`), "12 hardware items");
+  c.ok(await b.eval(`document.querySelectorAll('.hw').length===13`), "13 hardware items");
   c.ok(await b.eval(`(()=>{const r={bad:0,warn:1,ok:2};const v=[...document.querySelectorAll('.hw .dot')].map(d=>r[['bad','warn','ok'].find(k=>d.classList.contains(k))]);return v.every((x,i)=>i===0||v[i-1]<=x)})()`), "problems are listed first");
   c.ok(await b.eval(`[...document.querySelectorAll('.livebox')].some(l=>/Intel|NVIDIA/.test(l.innerText)&&l.innerText.includes('°C'))`), "live GPU/temperature readings shown", await b.eval(`[...document.querySelectorAll('.livebox')].map(l=>l.innerText).join(' | ')`));
   await b.shot(`${OUT}/05-macbook.png`);

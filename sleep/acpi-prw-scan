@@ -1,0 +1,101 @@
+#!/usr/bin/env python3
+"""Crude AML scan: for every _PRW in the given tables print the enclosing device path and the package contents.
+
+Not a full AML parser. It finds Device (5B 82) and Scope (10) opcodes, decodes their PkgLength, and nests them by byte range."""
+import sys
+from pathlib import Path
+
+
+def pkglen(b, i):
+    lead = b[i]
+    n = lead >> 6
+    if n == 0:
+        return lead & 0x3F, 1
+    v = lead & 0x0F
+    for k in range(n):
+        v |= b[i + 1 + k] << (4 + 8 * k)
+    return v, n + 1
+
+
+def nameseg(b, i):
+    return bytes(b[i:i + 4]).decode("latin1")
+
+
+def blocks(b):
+    """(start, end, kind, name) for Device and Scope blocks whose name segment is a plain 4-char NameSeg."""
+    out = []
+    for i in range(len(b) - 8):
+        if b[i] == 0x5B and b[i + 1] == 0x82:
+            try:
+                ln, used = pkglen(b, i + 2)
+                name = nameseg(b, i + 2 + used)
+            except IndexError:
+                continue
+            if name.replace("_", "A").isalnum() and name[0] in "ABCDEFGHIJKLMNOPQRSTUVWXYZ_":
+                out.append((i, i + 2 + ln, "Device", name))
+        elif b[i] == 0x10:
+            try:
+                ln, used = pkglen(b, i + 1)
+                nxt = b[i + 1 + used]
+                if nxt in (0x5C, 0x5E, 0x2E, 0x2F):  # root / parent prefix, dual / multi name path: keep raw text
+                    raw = bytes(b[i + 1 + used:i + 1 + used + 14]).decode("latin1")
+                    name = "".join(c if c.isalnum() or c in "_\\^" else "." for c in raw)
+                else:
+                    name = nameseg(b, i + 1 + used)
+            except IndexError:
+                continue
+            if ln > 6 and i + 1 + ln <= len(b):
+                out.append((i, i + 1 + ln, "Scope", name))
+    return out
+
+
+def element(b, i):
+    op = b[i]
+    if op == 0x00:
+        return "0", 1
+    if op == 0x01:
+        return "1", 1
+    if op == 0x0A:
+        return f"0x{b[i + 1]:02X}", 2
+    if op == 0x0B:
+        return f"0x{b[i + 1] | b[i + 2] << 8:04X}", 3
+    if op == 0x0C:
+        return f"0x{int.from_bytes(b[i + 1:i + 5], 'little'):08X}", 5
+    if op == 0x5C or (0x41 <= op <= 0x5A) or op == 0x5F:
+        j = i + (1 if op == 0x5C else 0)
+        return "ref:" + nameseg(b, j), (5 if op == 0x5C else 4)
+    return f"?{op:02X}", 1
+
+
+def main(paths):
+    for p in paths:
+        b = Path(p).read_bytes()
+        bl = blocks(b)
+        pos = 0
+        while True:
+            pos = b.find(b"_PRW", pos)
+            if pos < 0:
+                break
+            ctx = [x for x in bl if x[0] < pos < x[1]]
+            ctx.sort(key=lambda x: x[0])
+            path = " > ".join(f"{k[0]}:{k[3]}" for k in ctx[-4:])
+            kind = "Name" if b[pos - 1] == 0x08 else "Method" if b[pos - 2:pos - 1] == b"\x14" or b[pos - 3:pos - 2] == b"\x14" else f"op{b[pos - 1]:02X}"
+            body = ""
+            if kind == "Name" and b[pos + 4] == 0x12:
+                ln, used = pkglen(b, pos + 5)
+                n = b[pos + 5 + used]
+                i = pos + 5 + used + 1
+                els = []
+                for _ in range(n):
+                    if i >= len(b):
+                        break
+                    s, step = element(b, i)
+                    els.append(s)
+                    i += step
+                body = "{" + ", ".join(els) + "}"
+            print(f"{Path(p).name:7s} @{pos:6d} {kind:6s} {body:24s} {path}")
+            pos += 4
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
