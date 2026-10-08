@@ -32,7 +32,7 @@ def journal(*args):
 
 def report():
     events, modes = [], {}
-    for t, msg in journal("-k"):
+    for t, msg in journal("_TRANSPORT=kernel"):   # not -k: that implies the current boot only, and a reboot would wipe the history
         if "PM: suspend entry" in msg:
             events.append((t, "entry"))
             modes[t] = "s2idle" if "s2idle" in msg else "deep" if "deep" in msg else "?"
