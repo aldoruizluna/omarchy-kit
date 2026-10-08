@@ -82,9 +82,9 @@ Computed in Python with the WCAG 2.x relative-luminance formula. Target: 7:1 for
 - `unlock.png`: lock-screen logo (800x188, transparent)
 - `preview.png`: 1800x1012 theme preview composite
 - `preview-unlock.png`: 1920x1080 lock-screen preview
-- `backgrounds/`: 5 original wallpapers, 2880x1800 JPEG, each under 700 KB
+- `backgrounds/`: 5 original wallpapers, 2880x1800 JPEG, each under 700 KB; drawn when you run `install-themes` (or `make-wallpapers`), not stored in git
 - `THEME.md`: this file
-- `source/`: generator scripts for the wallpapers (`palette.py`, `art.py`, `walls.py`)
+- generators: `themes/generators/mecha/` (`palette.py`, `art.py`, `walls.py`), run by `themes/make-wallpapers`
 
 ## Install
 
@@ -102,7 +102,7 @@ Wallpapers are cycled with the Omarchy background-next key. Wallpaper files are 
 
 ## Credits and licences
 
-- **Palette, `colors.toml`, `btop.theme`, `hyprland.lua`, `shell.lock.toml`, `unlock.png`, `preview*.png`, wallpapers**: original work, generated for this machine; the wallpapers are drawn procedurally with Python and Pillow (the generator is in `mecha-unit/source/`, run `python3 walls.py {base|red} OUTDIR`). No third-party artwork, logos, characters or screenshots are embedded. The repository owner chooses the final licence for these original files (CC0 1.0 is suggested).
+- **Palette, `colors.toml`, `btop.theme`, `hyprland.lua`, `shell.lock.toml`, `unlock.png`, `preview*.png`, wallpapers**: original work, generated for this machine; the wallpapers are drawn procedurally with Python and Pillow (the generator is `themes/generators/mecha/`, run by `themes/make-wallpapers`; the images are not stored in git). No third-party artwork, logos, characters or screenshots are embedded. Licence: CC BY 4.0 (see `themes/LICENSE`).
 - **Fonts**: the wallpapers and the lock-screen logo use JetBrains Mono Nerd Font as already installed on the system (SIL OFL 1.1); it is not bundled in this folder.
 - Names such as "unit", "sync" and "plate" in the art are generic sci-fi interface vocabulary.
 

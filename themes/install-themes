@@ -5,15 +5,23 @@
 #   install-themes <name> ...      install just those
 #   install-themes --list          what the kit has and what is installed
 #   install-themes --remove [name ...]   take them out again (all of the kit's, or just those)
+#   install-themes --no-wallpapers ...   install without drawing the wallpapers (the colours still work)
 #
 # A theme is a folder here with a colors.toml (plus optional wallpapers, preview, btop/neovim/vscode files). Omarchy looks for
 # user themes in ~/.config/omarchy/themes/, so this COPIES each one there and marks the copy with a .omarchy-kit file; it never
 # overwrites or removes a theme without that mark. It does not switch the theme: do that with the Omarchy menu, the portal's theme
 # picker, or:  omarchy theme set <name>   (a folder named kawaii-bow-night is called "Kawaii Bow Night" in the list)
+#
+# The wallpapers are not stored in the repository: make-wallpapers draws them from the generator scripts (about 7 s per theme, needs
+# python-pillow and librsvg). If drawing fails, the theme is still installed, and wallpapers from a previous install are kept.
+# The themes' art and palettes are CC BY 4.0 (themes/LICENSE); a copy goes into each installed theme.
 set -eu
 HERE=$(dirname "$(readlink -f "$0")")
 DEST=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/themes
 MARK=.omarchy-kit
+WALLS=1; rest=()
+for a in "$@"; do if [ "$a" = --no-wallpapers ]; then WALLS=0; else rest+=("$a"); fi; done
+set -- ${rest[@]+"${rest[@]}"}
 
 kit_themes() { local d; for d in "$HERE"/*/; do if [ -f "${d}colors.toml" ]; then basename "$d"; fi; done; }
 valid() { case $1 in "" | .* | */*) return 1 ;; esac; }   # a theme name is one plain folder name
@@ -52,10 +60,26 @@ for t in $names; do
   stage=$(mktemp -d "$DEST/.install.XXXXXX")   # build the copy aside, so a failed copy never leaves a half theme behind
   if cp -r "$HERE/$t" "$stage/$t"; then
     rm -rf "$stage/$t/THEME.md" "$stage/$t/source" "$stage/$t/__pycache__"   # documentation and generators stay in the kit
+    [ ! -f "$HERE/LICENSE" ] || cp "$HERE/LICENSE" "$stage/$t/LICENSE"
     : > "$stage/$t/$MARK"
+    walls="no wallpapers (skipped)"
+    if [ "$WALLS" = 1 ]; then
+      if [ ! -x "$HERE/make-wallpapers" ]; then
+        walls="wallpapers as shipped in the folder"          # a theme folder without a generator keeps what it carries
+      elif "$HERE/make-wallpapers" --out "$stage" "$t" > "$stage/draw.log" 2>&1; then
+        walls="$(ls "$stage/$t/backgrounds" 2>/dev/null | wc -l) wallpapers drawn"
+      else
+        # drawing failed: fall back to files the folder ships, then to the previous install, so a reinstall never loses wallpapers
+        rm -rf "$stage/$t/backgrounds"
+        walls="WARNING: could not draw wallpapers ($(tail -1 "$stage/draw.log" 2>/dev/null)); the colours still work"
+        for old in "$HERE/$t/backgrounds" "$DEST/$t/backgrounds"; do
+          if ls "$old"/* > /dev/null 2>&1; then cp -r "$old" "$stage/$t/backgrounds"; walls="WARNING: could not draw wallpapers, kept the existing ones"; break; fi
+        done
+      fi
+    fi
     rm -rf "${DEST:?}/$t"
     mv "$stage/$t" "$DEST/$t"
-    echo "installed $t"
+    echo "installed $t: $walls"
   else
     echo "failed to copy $t; the previous copy (if any) is untouched"
   fi

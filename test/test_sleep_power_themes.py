@@ -395,26 +395,31 @@ class BatteryLogContract(Sandbox):
 # ======================================================================================================================
 # themes/install-themes
 # ======================================================================================================================
+def theme_kit(self):
+    """A fake theme kit in a sandbox: two themes, a fake omarchy, and a copy of the real install-themes."""
+    self.kit = self.tmp / "kit"
+    self.cfg = self.tmp / "cfg"
+    self.dest = self.cfg / "omarchy" / "themes"
+    self.fb = fake_bin(self.tmp / "fb", omarchy="echo fake-omarchy-list")
+    for name in ("alpha", "beta"):
+        d = self.kit / name
+        (d / "backgrounds").mkdir(parents=True)
+        (d / "source").mkdir()
+        (d / "__pycache__").mkdir()
+        (d / "colors.toml").write_text(f'accent = "#112233"\nname = "{name}"\n')
+        (d / "THEME.md").write_text("docs")
+        (d / "source" / "gen.py").write_text("print()")
+        (d / "__pycache__" / "x.pyc").write_text("x")
+        (d / "backgrounds" / "1.png").write_text("png")
+        (d / "hyprland.lua").write_text("-- lua")
+    shutil.copy(KIT / "themes" / "install-themes", self.kit / "install-themes")
+    self.kit.joinpath("install-themes").chmod(0o755)
+
+
 class InstallThemes(Sandbox):
     def setUp(self):
         super().setUp()
-        self.kit = self.tmp / "kit"
-        self.cfg = self.tmp / "cfg"
-        self.dest = self.cfg / "omarchy" / "themes"
-        self.fb = fake_bin(self.tmp / "fb", omarchy="echo fake-omarchy-list")
-        for name in ("alpha", "beta"):
-            d = self.kit / name
-            (d / "backgrounds").mkdir(parents=True)
-            (d / "source").mkdir()
-            (d / "__pycache__").mkdir()
-            (d / "colors.toml").write_text(f'accent = "#112233"\nname = "{name}"\n')
-            (d / "THEME.md").write_text("docs")
-            (d / "source" / "gen.py").write_text("print()")
-            (d / "__pycache__" / "x.pyc").write_text("x")
-            (d / "backgrounds" / "1.png").write_text("png")
-            (d / "hyprland.lua").write_text("-- lua")
-        shutil.copy(KIT / "themes" / "install-themes", self.kit / "install-themes")
-        self.kit.joinpath("install-themes").chmod(0o755)
+        theme_kit(self)
 
     def go(self, *args, kit=None):
         env = {"PATH": f"{self.fb}:{SAFE_PATH}", "HOME": str(self.tmp / "home"), "XDG_CONFIG_HOME": str(self.cfg)}
@@ -535,6 +540,133 @@ class InstallThemes(Sandbox):
         self.dest.mkdir(parents=True, exist_ok=True)
         self.go("--remove", "../victim")
         self.assertTrue(victim.exists())
+
+
+class InstallThemesWallpapers(Sandbox):
+    """The wallpapers are drawn at install time by a make-wallpapers script next to install-themes (here a stand-in)."""
+    DRAWS = '#!/bin/bash\n[ "$1" = --out ] || exit 9\necho "$3" >> "$(dirname "$0")/draw-calls"\nmkdir -p "$2/$3/backgrounds"\necho drawn > "$2/$3/backgrounds/1-drawn.jpg"\necho "$3: drawn"\n'
+    FAILS = '#!/bin/bash\necho "boom: no rsvg-convert" >&2\nexit 3\n'
+
+    go = InstallThemes.go    # the same fixture as InstallThemes, without inheriting its tests
+
+    def setUp(self):
+        super().setUp()
+        theme_kit(self)
+        for t in ("alpha", "beta"):
+            shutil.rmtree(self.kit / t / "backgrounds")           # nothing is stored: the generator makes them
+
+    def generator(self, body):
+        path = self.kit / "make-wallpapers"
+        path.write_text(body)
+        path.chmod(0o755)
+
+    def test_the_generated_wallpapers_land_in_the_installed_copy_only(self):
+        self.generator(self.DRAWS)
+        r = self.go()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        for t in ("alpha", "beta"):
+            self.assertTrue((self.dest / t / "backgrounds" / "1-drawn.jpg").is_file(), t)
+            self.assertFalse((self.kit / t / "backgrounds").exists(), "the kit's own folder gets no images")
+        self.assertIn("installed alpha: 1 wallpapers drawn", r.stdout)
+        self.assertEqual(sorted(a.name for a in self.dest.iterdir()), ["alpha", "beta"], "no staging folder is left behind")
+
+    def test_a_failed_drawing_keeps_the_previous_installs_wallpapers(self):
+        self.generator(self.DRAWS)
+        self.go()
+        self.generator(self.FAILS)
+        r = self.go()
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertIn("WARNING", r.stdout)
+        self.assertIn("kept the existing ones", r.stdout)
+        self.assertTrue((self.dest / "alpha" / "backgrounds" / "1-drawn.jpg").is_file())
+
+    def test_a_failed_first_drawing_still_installs_the_theme_with_a_clear_warning(self):
+        self.generator(self.FAILS)
+        r = self.go()
+        self.assertEqual(r.returncode, 0)
+        self.assertTrue((self.dest / "alpha" / "colors.toml").is_file() and (self.dest / "alpha" / ".omarchy-kit").is_file())
+        self.assertFalse((self.dest / "alpha" / "backgrounds").exists())
+        self.assertIn("could not draw wallpapers (boom: no rsvg-convert)", r.stdout)
+
+    def test_no_wallpapers_flag_never_calls_the_generator(self):
+        self.generator(self.DRAWS)
+        r = self.go("--no-wallpapers", "alpha")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertFalse((self.kit / "draw-calls").exists())
+        self.assertFalse((self.dest / "alpha" / "backgrounds").exists())
+        self.assertIn("installed alpha: no wallpapers (skipped)", r.stdout)
+
+    def test_the_licence_goes_into_every_installed_theme(self):
+        (self.kit / "LICENSE").write_text("CC BY 4.0 notice")
+        self.go()
+        for t in ("alpha", "beta"):
+            self.assertEqual((self.dest / t / "LICENSE").read_text(), "CC BY 4.0 notice")
+
+    def test_only_the_named_theme_is_drawn(self):
+        self.generator(self.DRAWS)
+        self.go("beta")
+        self.assertEqual((self.kit / "draw-calls").read_text().split(), ["beta"])
+
+
+class MakeWallpapers(unittest.TestCase):
+    SCRIPT = KIT / "themes" / "make-wallpapers"
+    HAVE_TOOLS = shutil.which("rsvg-convert") is not None and importlib.util.find_spec("PIL") is not None
+
+    def mw(self, *args, path=None):
+        env = {"PATH": path if path is not None else "/usr/bin:/bin", "HOME": "/nonexistent"}
+        return run([sys.executable, "-B", str(self.SCRIPT), *args], env=env)
+
+    def test_help_and_listing(self):
+        r = self.mw("--help")
+        self.assertEqual(r.returncode, 0)
+        self.assertIn("python-pillow", r.stdout)
+        r = self.mw("--list")
+        self.assertEqual(r.returncode, 0)
+        self.assertEqual(sorted(l.split()[0] for l in r.stdout.splitlines()),
+                         ["kawaii-bow", "kawaii-bow-night", "mecha-unit", "mecha-unit-red", "solarpunk", "solarpunk-dusk"])
+
+    def test_bad_arguments_exit_2_and_draw_nothing(self):
+        for args in (("--bogus",), ("no-such-theme",), ("--only", "9"), ("--jobs", "0"), ("--out",)):
+            r = self.mw(*args)
+            self.assertEqual(r.returncode, 2, (args, r.stdout, r.stderr))
+
+    def test_every_listed_generator_exists(self):
+        for line in self.mw("--list").stdout.splitlines():
+            theme, script, variant = line.split()
+            self.assertTrue((self.SCRIPT.parent / "generators" / script).is_file(), f"{theme}: {script}")
+
+    def test_missing_svg_tool_is_reported_not_crashed(self):
+        r = self.mw("kawaii-bow", path="/nonexistent")
+        self.assertEqual(r.returncode, 3, r.stderr)
+        self.assertIn("librsvg", r.stderr)
+
+    @unittest.skipUnless(HAVE_TOOLS, "needs python-pillow and rsvg-convert")
+    def test_one_real_wallpaper_per_generator_family(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as out:
+            r = self.mw("--only", "1", "--out", out, "kawaii-bow-night", "solarpunk-dusk", "mecha-unit-red")
+            self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+            files = sorted(pathlib.Path(out).glob("*/backgrounds/*.jpg"))
+            self.assertEqual(len(files), 3, files)
+            for f in files:
+                with Image.open(f) as im:
+                    self.assertEqual((im.format, im.size), ("JPEG", (2880, 1800)), f)
+                self.assertGreater(f.stat().st_size, 50_000, f)
+                self.assertLess(f.stat().st_size, 700_000, f)
+
+    def test_no_wallpaper_images_are_tracked_in_git(self):
+        r = subprocess.run(["git", "-C", str(KIT), "ls-files", "themes"], capture_output=True, text=True)
+        if r.returncode:
+            self.skipTest("not a git checkout")
+        self.assertEqual([l for l in r.stdout.splitlines() if "/backgrounds/" in l], [], "wallpapers are generated, not stored")
+
+    def test_the_licence_and_no_personal_paths_ship_with_the_generators(self):
+        lic = (KIT / "themes" / "LICENSE").read_text()
+        self.assertIn("CC BY 4.0", lic)
+        self.assertIn("creativecommons.org/licenses/by/4.0", lic)
+        for f in (KIT / "themes" / "generators").rglob("*.py"):
+            text = f.read_text()
+            self.assertNotIn("/home/", text, f.name)
 
 
 # ======================================================================================================================

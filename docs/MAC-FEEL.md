@@ -19,7 +19,7 @@ what is still waiting for a person. The live version of this (with real-time sta
 | **Sleep battery log** around every sleep | `sleep/install-battery-log` (hook in `/usr/lib/systemd/system-sleep/`) | entries in the journal after real sleeps | `sudo sleep/install-battery-log --remove` |
 | **Sleep check** from the journal: every suspend and hibernate, its mode, duration and battery use | `sleep/sleep-check` | run against this machine's real journal and tested on fake ones | read-only, nothing to undo |
 | **Wi-Fi power saving** (about 0.9 W; a packet can wait up to one beacon interval) | `power/install-wifi-powersave` (overrides Omarchy's default off) | measured with `power/power-lab`; idle link latency 2.3 to 5.8 ms | `sudo power/install-wifi-powersave --remove` |
-| **Six themes of our own**: Kawaii Bow, Mecha Unit, Solarpunk, each in two variants | `themes/install-themes` (no root; never touches other themes) | each applied to the live desktop and screenshotted; text contrast at least 4.5:1 | `themes/install-themes --remove` |
+| **Six themes of our own**: Kawaii Bow, Mecha Unit, Solarpunk, each in two variants (CC BY 4.0; wallpapers drawn at install time) | `themes/install-themes` (no root; never touches other themes) | each applied to the live desktop and screenshotted; text contrast at least 4.5:1 | `themes/install-themes --remove` |
 
 Everything is reversible and logged, with its undo command, on the Setup log page.
 
@@ -36,8 +36,6 @@ Everything is reversible and logged, with its undo command, on the Setup log pag
 - **Backups** (needs a password): `sudo backup/install-backups` (preview with `--dry-run`) sets up hourly `/home`
   snapshots and installs Pika Backup. Snapshots on the same disk undo mistakes, not a dead disk, so also point Pika
   Backup at an external drive.
-- **Themes**: choose a licence for the original wallpapers (MIT, CC0 or CC BY 4.0) and say whether the 17 MB of images should
-  stay in the repository or be replaced by their generators ([THEMES.md](THEMES.md)).
 - **A decision about ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P**, below.
 - Optional: turn on Auto appearance (`auto-appearance on`).
 

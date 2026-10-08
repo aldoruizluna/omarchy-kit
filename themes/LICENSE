@@ -1,0 +1,24 @@
+Omarchy Kit themes: Kawaii Bow, Kawaii Bow Night, Mecha Unit, Mecha Unit Red, Solarpunk, Solarpunk Dusk
+
+Copyright (c) 2026 Aldo Ruiz Luna
+
+The creative content of these themes is licensed under the Creative Commons Attribution 4.0 International licence (CC BY 4.0):
+
+    https://creativecommons.org/licenses/by/4.0/
+    https://creativecommons.org/licenses/by/4.0/legalcode
+
+That covers, for each theme: the colour palette (colors.toml) and the application theme files made from it (btop.theme,
+hyprland.lua, chromium.theme, icons.theme, keyboard.rgb, shell.lock.toml), the preview and lock-screen images, the wallpapers
+(which are drawn by the generator scripts in themes/generators/ and so exist as files only after install-themes or
+make-wallpapers has run), and the THEME.md texts.
+
+You may share and adapt all of it, including commercially, as long as you give appropriate credit, link to the licence and say
+if you changed anything. A suitable credit line:
+
+    Omarchy Kit themes by Aldo Ruiz Luna, https://github.com/aldoruizluna/omarchy-kit, CC BY 4.0
+
+The generator scripts themselves (themes/generators/, themes/make-wallpapers, themes/install-themes) are code and fall under the
+MIT licence of the repository (see the LICENSE file at the top).
+
+The open-source works credited in each THEME.md inspired the look of these themes; none of their files, art or palettes were copied,
+and this licence says nothing about them. No official artwork, logo or character likeness of any brand is included.

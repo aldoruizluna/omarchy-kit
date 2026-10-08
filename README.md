@@ -6,7 +6,8 @@ laptop: the 15" MacBook Pro, mid-2014 (MacBookPro11,3, Intel Haswell + NVIDIA GT
 It teaches Omarchy with your own machine's real shortcuts, gestures, menus and hardware, checks live that you did each step,
 and carries the fixes that make this old Mac quiet, cool and usable: the NVIDIA GPU switched off, a speaker EQ, Mac-style
 accents and shortcuts, working sleep and hibernate, a battery power lab and six original themes. Python standard library
-only (Pillow is used if present, to shrink the home wallpaper), no build tools; it listens on 127.0.0.1 only.
+only (Pillow, if present, shrinks the home wallpaper and, with librsvg, draws the theme wallpapers), no build tools; it listens on
+127.0.0.1 only.
 
 ![Start page](docs/start.png)
 
@@ -33,7 +34,8 @@ right now, and the exact command to undo it. After editing any Python file, rest
 ## Requirements
 
 - Omarchy 4 (Arch Linux + Hyprland) with a user session running; Python 3.11 or newer (the scripts read TOML with `tomllib`);
-  Node 22 or newer, only for the browser tests.
+  Node 22 or newer, only for the browser tests. `python-pillow` and `librsvg` are needed only to draw the theme wallpapers
+  (`sudo pacman -S python-pillow librsvg`); the themes install without them, minus the wallpapers.
 - The portal and learning pages work on any Omarchy machine. The hardware scripts (`gpu/`, `audio/`, `sleep/`, `power/`) are
   written for the **MacBookPro11,3**; `gpu/nvidia-off` and `gpu/switch-to-intel` refuse to run on any other model. Read a script
   before running it anywhere else.
@@ -57,7 +59,7 @@ right now, and the exact command to undo it. After editing any Python file, rest
 | [docs/SLEEP.md](docs/SLEEP.md) | Lid, sleep, hibernate and the battery log: what works, what does not, and why |
 | [docs/POWER-LAB.md](docs/POWER-LAB.md) | Where the battery goes (about 20 W idle), what was tried and what was ruled out |
 | [docs/MAC-FEEL.md](docs/MAC-FEEL.md) | Everything done to feel like a Mac, how it was verified, what still waits for you |
-| [docs/THEMES.md](docs/THEMES.md) | The six original themes and where their looks come from |
+| [docs/THEMES.md](docs/THEMES.md) | The six original themes, where their looks come from, and their CC BY 4.0 licence |
 | [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md) | Short, checkable rules learned the hard way (read before changing this machine) |
 | [docs/DUMPING-GUIDE.md](docs/DUMPING-GUIDE.md), [docs/GAME-STORE-ROADMAP.md](docs/GAME-STORE-ROADMAP.md) | Retro library: your own dumps, the signed catalog |
 
@@ -117,7 +119,8 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
   Pika Backup for the real backup. Preview with `--dry-run`.
 - **Six themes of our own** (`themes/`, `docs/THEMES.md`): Kawaii Bow (light and night), Mecha Unit (purple and red) and Solarpunk
   (light and dusk), with original wallpapers, contrast-checked palettes and credits for the open-source works they were inspired by.
-  `themes/install-themes` puts them in Omarchy without switching yours (`--remove` takes them out).
+  The wallpapers are drawn by generator scripts (`themes/generators/`) and not stored. `themes/install-themes` puts the themes in
+  Omarchy, drawing the wallpapers as it goes, without switching yours (`--remove` takes them out).
 - **Where your battery goes** (`power/power-lab`, `docs/POWER-LAB.md`): measures the real draw, the CPU package and its sleep states
   with the display on and off, and tries power-saving changes one at a time or cumulatively, reverting each straight after. It runs
   as a background service so the terminal stays idle (a busy terminal adds about 4 W). The first tuning it produced is
@@ -235,7 +238,7 @@ menu. Each script prints usage with `--help`.
 
 ## Licence
 
-Code: MIT (see `LICENSE`). Theme art: licence to be decided (see the Setup log, open items).
+Code: MIT (see `LICENSE`). Themes (palettes, theme files, previews, wallpapers and their texts): CC BY 4.0, see `themes/LICENSE`.
 
 ---
 

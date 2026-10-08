@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""make-wallpapers: draw the kit's theme wallpapers from their generator scripts. No root needed; writes only where you point it.
+
+  make-wallpapers                    draw all six themes into themes/<theme>/backgrounds/ (git-ignored)
+  make-wallpapers solarpunk ...      just those themes
+  make-wallpapers --out DIR ...      write DIR/<theme>/backgrounds/ instead
+  make-wallpapers --only 2 ...       just wallpaper number 2 of each theme (a quick check)
+  make-wallpapers --jobs 3 ...       wallpapers drawn at the same time (default 2; each is CPU-bound)
+  make-wallpapers --list             the themes and which generator draws each
+
+The art is original and generated, not stored: five 2880x1800 JPEGs per theme (about 600 KB each), the same every time apart from
+a little film grain. install-themes runs this for you. It needs python-pillow, and librsvg (rsvg-convert) for Kawaii Bow and
+Solarpunk:  sudo pacman -S python-pillow librsvg
+"""
+import concurrent.futures as cf
+import os, shutil, subprocess, sys, time
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+GEN = HERE / "generators"
+THEMES = {   # theme -> (generator script, variant)
+    "kawaii-bow": ("kawaii.py", "light"),
+    "kawaii-bow-night": ("kawaii.py", "dark"),
+    "mecha-unit": ("mecha/walls.py", "base"),
+    "mecha-unit-red": ("mecha/walls.py", "red"),
+    "solarpunk": ("solarpunk.py", "day"),
+    "solarpunk-dusk": ("solarpunk.py", "dusk"),
+}
+NEEDS_SVG = {"kawaii.py", "solarpunk.py"}
+
+
+def missing_tools(scripts):
+    out = []
+    try:
+        import PIL  # noqa: F401
+    except ImportError:
+        out.append("python-pillow")
+    if NEEDS_SVG & set(scripts) and not shutil.which("rsvg-convert"):
+        out.append("librsvg (rsvg-convert)")
+    return out
+
+
+def draw(theme, out_root, number):
+    script, variant = THEMES[theme]
+    dest = Path(out_root) / theme / "backgrounds"
+    dest.mkdir(parents=True, exist_ok=True)
+    cmd = [sys.executable, "-B", str(GEN / script), variant, str(dest)] + ([str(number)] if number else [])
+    r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(GEN / Path(script).parent))
+    return theme, number, r.returncode, (r.stdout + r.stderr).strip()
+
+
+def main(argv):
+    if any(a in ("-h", "--help") for a in argv):
+        print(__doc__.strip())
+        return 0
+    out_root, only, jobs, names, i = HERE, None, 2, [], 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--list":
+            for t, (s, v) in THEMES.items():
+                print(f"{t:18s} {s} {v}")
+            return 0
+        if a in ("--out", "--only", "--jobs"):
+            if i + 1 >= len(argv):
+                print(f"{a} needs a value", file=sys.stderr)
+                return 2
+            v = argv[i + 1]
+            if a == "--out":
+                out_root = v
+            elif a == "--only" and v.isdigit() and 1 <= int(v) <= 5:
+                only = int(v)
+            elif a == "--jobs" and v.isdigit() and 1 <= int(v) <= 8:
+                jobs = int(v)
+            else:
+                print(f"bad value for {a}: {v!r}", file=sys.stderr)
+                return 2
+            i += 2
+            continue
+        if a.startswith("-"):
+            print(f"usage: make-wallpapers [--out DIR] [--only 1-5] [--jobs N] [--list] [theme ...]   (--help for details)", file=sys.stderr)
+            return 2
+        names.append(a)
+        i += 1
+    names = names or list(THEMES)
+    unknown = [n for n in names if n not in THEMES]
+    if unknown:
+        print("unknown theme(s): " + ", ".join(unknown) + "  (make-wallpapers --list shows them)", file=sys.stderr)
+        return 2
+    need = missing_tools({THEMES[n][0] for n in names})
+    if need:
+        print("cannot draw wallpapers: missing " + " and ".join(need) + "   (sudo pacman -S python-pillow librsvg)", file=sys.stderr)
+        return 3
+
+    t0, failed = time.time(), 0
+    work = [(n, k) for n in names for k in ([only] if only else [1, 2, 3, 4, 5])]
+    with cf.ThreadPoolExecutor(max_workers=jobs) as ex:
+        for theme, number, rc, text in ex.map(lambda w: draw(w[0], out_root, w[1]), work):
+            if rc:
+                failed += 1
+                print(f"FAILED {theme} #{number}: {text.splitlines()[-1] if text else rc}", file=sys.stderr)
+            else:
+                print(f"{theme}: {text.splitlines()[-1] if text else 'drawn'}", flush=True)
+    print(f"{len(work) - failed} of {len(work)} wallpapers drawn in {time.time() - t0:.0f} s -> {out_root}")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

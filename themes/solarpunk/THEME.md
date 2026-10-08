@@ -80,18 +80,18 @@ Notes: Omarchy maps ANSI black to `background` and bright black to `muted`; the 
 ## Files
 
 - `THEME.md` - this file
-- `backgrounds/1-sun-hills.jpg` - wallpaper 2880x1800 JPEG
-- `backgrounds/2-green-towers.jpg` - wallpaper 2880x1800 JPEG
-- `backgrounds/3-nouveau-garden.jpg` - wallpaper 2880x1800 JPEG
-- `backgrounds/4-sunray-fan.jpg` - wallpaper 2880x1800 JPEG
-- `backgrounds/5-circuit-leaf.jpg` - wallpaper 2880x1800 JPEG
+- `backgrounds/1-sun-hills.jpg` - wallpaper 2880x1800 JPEG, drawn at install time
+- `backgrounds/2-green-towers.jpg` - wallpaper 2880x1800 JPEG, drawn at install time
+- `backgrounds/3-nouveau-garden.jpg` - wallpaper 2880x1800 JPEG, drawn at install time
+- `backgrounds/4-sunray-fan.jpg` - wallpaper 2880x1800 JPEG, drawn at install time
+- `backgrounds/5-circuit-leaf.jpg` - wallpaper 2880x1800 JPEG, drawn at install time
 - `colors.toml` - palette (same 25 keys + `mode` as the stock themes)
 - `icons.theme` - Yaru icon variant
 - `preview-unlock.png` - lock-screen preview
 - `preview.png` - 1800x1012 composite preview
 - `unlock.png` - lock-screen wordmark (800x188 RGBA)
 
-All wallpapers are 2880x1800 JPEG (<= 700 KB each) generated procedurally (Python, rsvg-convert, PIL; the generator script is not shipped in this folder). `neovim.lua` and `vscode.json` are intentionally omitted: Omarchy then generates the Neovim and VS Code themes from `colors.toml` through its templates (`/usr/share/omarchy/default/themed/*.tpl`), so they match this palette exactly instead of borrowing another theme's plugin.
+All wallpapers are 2880x1800 JPEG (<= 700 KB each) generated procedurally (Python, rsvg-convert, PIL; the generator is `themes/generators/solarpunk.py`, run by `themes/make-wallpapers`; the images are not stored in git). `neovim.lua` and `vscode.json` are intentionally omitted: Omarchy then generates the Neovim and VS Code themes from `colors.toml` through its templates (`/usr/share/omarchy/default/themed/*.tpl`), so they match this palette exactly instead of borrowing another theme's plugin.
 
 ## Install
 
@@ -150,6 +150,6 @@ Art Nouveau (whiplash curves, framed borders) is an art-historical vocabulary, n
 
 ## Credits and licences
 
-- Palette, wallpapers, preview and lock images: original work generated for this machine; no third-party artwork, screenshots or traced images are included. Suggested licence for the art and palette: CC0 1.0 (the owner of this repository decides).
+- Palette, wallpapers, preview and lock images: original work generated for this machine; no third-party artwork, screenshots or traced images are included. Licence for the art and palette: CC BY 4.0 (see `themes/LICENSE`).
 - Fonts used only inside preview.png: JetBrainsMono Nerd Font (OFL-1.1), Noto Serif (OFL-1.1), Liberation Sans (OFL-1.1).
 - Icon theme referenced by `icons.theme`: `Yaru-sage` (part of the Yaru icon set, CC-BY-SA-4.0 / GPL-3.0, installed system-wide, not redistributed here).
