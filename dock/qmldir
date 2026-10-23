@@ -7,3 +7,4 @@ Dock 1.0 Dock.qml
 Switcher 1.0 Switcher.qml
 ItemMenu 1.0 ItemMenu.qml
 singleton IconIndex 1.0 IconIndex.qml
+MissionControl 1.0 MissionControl.qml

@@ -9,6 +9,8 @@ What is covered:
   icons/mac-icons-hook    picks WhiteSur-light or WhiteSur-dark from the theme's mode, and leaves Omarchy's choice alone if the icons are gone
   dock/install-dock       files, default dock.json (kept on re-run and on --remove), the Hyprland module and its require line, --remove
   menubar/install-menubar the bar layout moves to the Mac order, the original is saved and restored exactly, bad JSON is never touched
+  mission control         the overlay's binds, shortcuts and IPC agree, nothing is captured live, and its layout function (run in node)
+                          keeps every window's proportions, fits the screen and never overlaps
   contracts               every QML file the dock needs is installed; every item id in the menu widget has a Lua action; Lua and QML parse
 """
 import hashlib, io, json, os, pathlib, re, shutil, stat, subprocess, sys, tarfile, tempfile, textwrap, unittest
@@ -448,6 +450,132 @@ class InstallMenubar(Sandbox):
 
 
 # ======================================================================================================================
+# dock/MissionControl.qml
+# ======================================================================================================================
+def js_function(source, name):
+    """The text of `function <name>(...) { ... }` out of a QML file (brace matching; no braces appear inside these strings)."""
+    start = source.index(f"function {name}(")
+    i = source.index("{", start)
+    depth = 0
+    for j in range(i, len(source)):
+        depth += source[j] == "{"
+        depth -= source[j] == "}"
+        if depth == 0:
+            return source[start:j + 1]
+    raise AssertionError(f"unbalanced braces in {name}")
+
+
+class MissionControl(unittest.TestCase):
+    QML = (KIT / "dock" / "MissionControl.qml").read_text()
+    LUA = (KIT / "dock" / "macdock.lua").read_text()
+
+    def test_every_global_shortcut_the_lua_side_sends_exists_in_the_qml(self):
+        sent = set(re.findall(r'hl\.dsp\.global\("macmission:(\w+)"\)', self.LUA))
+        declared = set(re.findall(r'GlobalShortcut \{ appid: "macmission"; name: "(\w+)"', self.QML))
+        self.assertEqual(sent, {"toggle", "appwindows"})
+        self.assertEqual(sent - declared, set())
+
+    def test_the_binds_are_the_ones_documented(self):
+        for chord in ('"XF86LaunchA"', '"SUPER + CTRL + UP"', '"SUPER + CTRL + DOWN"'):
+            self.assertIn(f"o.bind({chord}", self.LUA)
+        header = self.LUA.split("\nlocal home", 1)[0]
+        for text in ("F3", "Super+Ctrl+Up", "Super+Ctrl+Down", "Mission Control", "App Expos"):
+            self.assertIn(text, header)
+
+    def test_plain_ctrl_arrows_are_never_taken_over(self):
+        # Ctrl+Up and Ctrl+Down are text-editing keys; every Mission Control chord that uses them also carries Super
+        for m in re.finditer(r'o\.bind\("([^"]*(?:UP|DOWN))"', self.LUA):
+            self.assertIn("SUPER", m.group(1), m.group(1))
+
+    def test_the_overlay_surface_has_a_layer_rule_and_the_name_agrees(self):
+        self.assertIn('WlrLayershell.namespace: "macmission"', self.QML)
+        self.assertRegex(self.LUA, r'namespace = "\^\([^)]*\bmacmission\b[^)]*\)\$"')
+
+    def test_the_ipc_target_has_what_the_tests_and_the_docs_use(self):
+        target = self.QML[self.QML.index('target: "mission"'):]
+        for fn in ("toggle", "appwindows", "open", "close", "visible", "selectSpace", "selectWindow", "activate", "describe"):
+            self.assertIn(f"function {fn}(", target, fn)
+
+    def test_nothing_is_captured_live_and_nothing_is_mapped_while_closed(self):
+        self.assertIn("live: false", self.QML)
+        self.assertNotIn("live: true", self.QML)
+        self.assertIn("visible: shown", self.QML)                               # no surface at all while closed
+        self.assertIn("model: win.shown ? win.wins : []", self.QML)             # no ScreencopyView exists while closed
+        self.assertIn("spaces = []", self.QML)                                  # captures are dropped on close
+
+    def test_it_is_instantiated_once_and_installed(self):
+        self.assertEqual((KIT / "dock" / "shell.qml").read_text().count("MissionControl {}"), 1)
+        self.assertIn("MissionControl.qml", (KIT / "dock" / "install-dock").read_text())
+        self.assertRegex((KIT / "dock" / "qmldir").read_text(), r"MissionControl 1\.0 MissionControl\.qml")
+
+    # ---- the layout function, run for real in node
+    def run_layout(self, windows, W=1300, H=700):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not installed")
+        code = ("const gap = 30, labelH = 40;\n" + js_function(self.QML, "layoutCards") +
+                f"\nprocess.stdout.write(JSON.stringify(layoutCards({json.dumps(windows)}, {W}, {H})));")
+        r = run([node, "-e", code])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return json.loads(r.stdout)
+
+    def assert_sane(self, windows, cards, W=1300, H=700, label=40):
+        self.assertEqual(len(cards), len(windows))
+        for i, (win, c) in enumerate(zip(windows, cards)):
+            self.assertGreaterEqual(c["x"], -0.001)
+            self.assertGreaterEqual(c["y"], -0.001)
+            self.assertLessEqual(c["x"] + c["w"], W + 0.001, f"card {i} leaves the area on the right")
+            self.assertLessEqual(c["y"] + c["h"] + label, H + 0.001, f"card {i} (and its label) leaves the area at the bottom")
+            if win["w"] > 0 and win["h"] > 0:
+                self.assertAlmostEqual(c["w"] / c["h"], win["w"] / win["h"], places=3, msg=f"card {i} lost its proportions")
+        for i in range(len(cards)):
+            for j in range(i + 1, len(cards)):
+                a, b = cards[i], cards[j]
+                apart = a["x"] + a["w"] <= b["x"] + 0.01 or b["x"] + b["w"] <= a["x"] + 0.01 or a["y"] + a["h"] + label <= b["y"] + 0.01 or b["y"] + b["h"] + label <= a["y"] + 0.01
+                self.assertTrue(apart, f"cards {i} and {j} overlap")
+
+    def test_no_windows_gives_no_cards(self):
+        self.assertEqual(self.run_layout([]), [])
+
+    def test_one_window_is_centred_and_not_blown_up_past_its_real_size(self):
+        win = [{"w": 700, "h": 400}]
+        cards = self.run_layout(win)
+        self.assert_sane(win, cards)
+        self.assertLessEqual(cards[0]["h"], 400)
+        self.assertAlmostEqual(cards[0]["x"] + cards[0]["w"] / 2, 650, delta=1)
+
+    def test_a_few_mixed_windows_keep_their_proportions_and_fit(self):
+        win = [{"w": 701, "h": 767}, {"w": 701, "h": 377}, {"w": 1416, "h": 767}, {"w": 820, "h": 670}]
+        self.assert_sane(win, self.run_layout(win))
+
+    def test_many_windows_still_fit_without_overlapping(self):
+        win = [{"w": 600 + 40 * i, "h": 400 + 25 * (i % 4)} for i in range(11)]
+        self.assert_sane(win, self.run_layout(win))
+
+    def test_windows_without_a_size_get_a_default_shape_instead_of_breaking(self):
+        win = [{"w": 0, "h": 0}, {"w": 800, "h": 600}, {"w": 0, "h": 500}]
+        cards = self.run_layout(win)
+        self.assertEqual(len(cards), 3)
+        for c in cards:
+            self.assertTrue(c["w"] > 0 and c["h"] > 0)
+
+    def test_a_tiny_area_still_returns_finite_cards(self):
+        win = [{"w": 800, "h": 600}] * 3
+        for c in self.run_layout(win, W=420, H=260):
+            self.assertTrue(all(isinstance(c[k], (int, float)) and c[k] == c[k] for k in ("x", "y", "w", "h")))
+
+    def test_special_workspaces_are_never_listed(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not installed")
+        code = js_function(self.QML, "usable") + (
+            "\nconst t = [{id: 1, name: '1'}, {id: 7, name: '7'}, {id: -99, name: 'special:hidden'}, {id: 3, name: 'special:scratchpad'}, null].map(w => !!usable(w));"
+            "\nprocess.stdout.write(JSON.stringify(t));")
+        r = run([node, "-e", code])
+        self.assertEqual(json.loads(r.stdout), [True, True, False, False, False])
+
+
+# ======================================================================================================================
 # contracts between the pieces
 # ======================================================================================================================
 class Contracts(unittest.TestCase):
@@ -482,7 +610,7 @@ class Contracts(unittest.TestCase):
         header = lua.split("\nlocal home", 1)[0]
         for chord in re.findall(r'o\.bind\("SUPER( \+ [A-Z+ ]+)"', lua):
             key = chord.split("+")[-1].strip().lower()
-            shown = {"tab": "Tab", "grave": "`", "right": "Right", "left": "Left", "escape": "Escape"}.get(key, key.upper())
+            shown = {"tab": "Tab", "grave": "`", "right": "Right", "left": "Left", "escape": "Escape", "up": "Up", "down": "Down"}.get(key, key.upper())
             self.assertIn(shown, header, f"Super+{shown} is bound but not described in the header of macdock.lua")
 
     def test_lua_files_parse(self):

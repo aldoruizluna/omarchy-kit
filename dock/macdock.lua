@@ -11,11 +11,15 @@
 --   Super+Alt+D                   hide / show the dock (⌥⌘D)
 --   Super+Alt+Escape              cancel the switcher (the keyboard remap sends it for Esc while the switcher is up)
 --   Shift+Print                   full-screen screenshot (⇧⌘3; ⇧⌘4 is Omarchy's own Print, ⇧⌘5 its capture menu)
+--   F3 (the Mission Control key)  Mission Control: all spaces and their windows. Same as Super+Ctrl+Up and four fingers up
+--   F4 (the Launchpad key)        the Apps view (macOS 26 replaced Launchpad with Apps in Spotlight); same as the four-finger pinch
+--   Super+Ctrl+Up                 Mission Control (⌃↑ on a Mac; plain Ctrl+Up stays a text-editing key)
+--   Super+Ctrl+Down               App Exposé: only the windows of the focused app, from every space (⌃↓)
 --   Super+Ctrl+Shift+Left/Right   previous / next workspace
 --
 -- What this replaces: Super+Tab and Super+Shift+Tab were "Next workspace" and "Previous workspace" in Omarchy; those moved to
 -- Super+Ctrl+Shift+Right and Left (three- and four-finger swipes and Super+1..9 still switch workspaces). Super+Q, Super+H, Super+M,
--- Super+`, Super+Alt+D, Super+Alt+Escape and Shift+Print were free.
+-- Super+`, Super+Alt+D, Super+Alt+Escape, Shift+Print, F3 and F4 (XF86LaunchA and XF86LaunchB, which did nothing) and Super+Ctrl+Up/Down were free.
 --
 -- While the switcher is open, Super+Q and Super+H act on the app that is *selected* in it, not on the focused one (that is what ⌘Q and
 -- ⌘H do in the macOS switcher); the bind asks Hyprland whether the switcher's layer exists, which needs no round trip to the dock.
@@ -26,7 +30,7 @@
 local home = os.getenv("HOME") or ""
 local share = home .. "/.local/share/macdock"
 
-hl.layer_rule({ match = { namespace = "^(macdock|macswitcher)$" }, no_anim = true, animation = "none" })
+hl.layer_rule({ match = { namespace = "^(macdock|macswitcher|macmission)$" }, no_anim = true, animation = "none" })
 
 hl.on("hyprland.start", function()
   hl.exec_cmd(o.launch("quickshell -n -p " .. o.shell_quote(share)))
@@ -202,3 +206,9 @@ o.bind("SUPER + ALT + ESCAPE", "Cancel the app switcher", function()
   hl.dispatch(hl.dsp.global("macswitcher:cancel"))
 end)
 o.bind("SHIFT + Print", "Screenshot of the whole screen (⇧⌘3)", "omarchy-capture-screenshot fullscreen")
+
+-- Mission Control and App Exposé (dock/MissionControl.qml). The four-finger swipe up in input.lua opens it too.
+o.bind("XF86LaunchA", "Mission Control (F3)", hl.dsp.global("macmission:toggle"))
+o.bind("XF86LaunchB", "Apps (F4)", "omarchy-menu toggle apps")
+o.bind("SUPER + CTRL + UP", "Mission Control (⌃↑)", hl.dsp.global("macmission:toggle"))
+o.bind("SUPER + CTRL + DOWN", "App Exposé (⌃↓)", hl.dsp.global("macmission:appwindows"))
