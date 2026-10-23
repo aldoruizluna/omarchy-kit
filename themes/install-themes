@@ -77,6 +77,10 @@ for t in $names; do
         done
       fi
     fi
+    if [ "$WALLS" != 1 ] && ls "$DEST/$t/backgrounds"/* > /dev/null 2>&1; then
+      # --no-wallpapers means "do not draw", not "delete what is there": a reinstall keeps the wallpapers of the previous install
+      rm -rf "$stage/$t/backgrounds"; cp -r "$DEST/$t/backgrounds" "$stage/$t/backgrounds"; walls="kept the existing wallpapers (not redrawn)"
+    fi
     rm -rf "${DEST:?}/$t"
     mv "$stage/$t" "$DEST/$t"
     echo "installed $t: $walls"

@@ -596,6 +596,19 @@ class InstallThemesWallpapers(Sandbox):
         self.assertFalse((self.dest / "alpha" / "backgrounds").exists())
         self.assertIn("installed alpha: no wallpapers (skipped)", r.stdout)
 
+    def test_no_wallpapers_on_a_reinstall_keeps_the_ones_already_drawn(self):
+        # found when the Golden Gate themes were reinstalled with --no-wallpapers and lost their pictures
+        self.generator(self.DRAWS)
+        self.assertEqual(self.go("alpha").returncode, 0)
+        drawn = sorted(p.name for p in (self.dest / "alpha" / "backgrounds").iterdir())
+        self.assertTrue(drawn)
+        calls_before = (self.kit / "draw-calls").read_text()
+        r = self.go("--no-wallpapers", "alpha")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(sorted(p.name for p in (self.dest / "alpha" / "backgrounds").iterdir()), drawn)
+        self.assertEqual((self.kit / "draw-calls").read_text(), calls_before)      # and nothing was drawn again
+        self.assertIn("kept the existing wallpapers", r.stdout)
+
     def test_the_licence_goes_into_every_installed_theme(self):
         (self.kit / "LICENSE").write_text("CC BY 4.0 notice")
         self.go()
@@ -623,7 +636,7 @@ class MakeWallpapers(unittest.TestCase):
         r = self.mw("--list")
         self.assertEqual(r.returncode, 0)
         self.assertEqual(sorted(l.split()[0] for l in r.stdout.splitlines()),
-                         ["kawaii-bow", "kawaii-bow-night", "mecha-unit", "mecha-unit-red", "solarpunk", "solarpunk-dusk"])
+                         ["golden-gate", "golden-gate-night", "kawaii-bow", "kawaii-bow-night", "mecha-unit", "mecha-unit-red", "solarpunk", "solarpunk-dusk"])
 
     def test_bad_arguments_exit_2_and_draw_nothing(self):
         for args in (("--bogus",), ("no-such-theme",), ("--only", "9"), ("--jobs", "0"), ("--out",)):

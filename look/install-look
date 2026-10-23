@@ -1,0 +1,63 @@
+#!/bin/bash
+# Install the Mac-style details that are not part of a theme; no root needed.
+# Usage: install-look [--remove]
+#
+#   - the UI font for the Omarchy shell (bar, menus, panels) and the Dock: Adwaita Sans, a free relative of San Francisco, instead of the
+#     system monospace font. A fontconfig rule that applies only to programs named "quickshell"; terminals and editors keep their monospace.
+#   - the window close button on the LEFT of the title bar of GTK apps (Files and others), where the red traffic light is on a Mac
+#     (your previous layout is saved and --remove puts it back)
+#   - the Hyprland module for the blur behind the glass (macglass.lua), OFF until you run look/mac-glass on
+# It restarts the Omarchy shell once so the bar picks up the font (a couple of seconds).
+# Undo: ./install-look --remove
+set -euo pipefail
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
+cd "$(dirname "$0")"
+
+CFG=${XDG_CONFIG_HOME:-$HOME/.config}
+HYPR=$CFG/hypr
+FONTCONF=$CFG/fontconfig/conf.d/60-kit-mac-ui-font.conf
+SAVED=$CFG/omarchy-kit/look-saved.conf
+LINE='require("hypr.macglass")'
+SCHEMA=org.gnome.desktop.wm.preferences
+
+restart_shell() { command -v omarchy >/dev/null && omarchy restart shell >/dev/null 2>&1 || true; }
+
+if [[ ${1:-} == --remove ]]; then
+  rm -f "$FONTCONF" "$HYPR/macglass.lua" "$CFG/omarchy-kit/glass"
+  if [[ -f $HYPR/hyprland.lua ]] && grep -qF "$LINE" "$HYPR/hyprland.lua"; then
+    grep -vF "$LINE" "$HYPR/hyprland.lua" > "$HYPR/hyprland.lua.tmp" && mv "$HYPR/hyprland.lua.tmp" "$HYPR/hyprland.lua"
+  fi
+  if command -v gsettings >/dev/null; then
+    layout=""
+    [[ -f $SAVED ]] && layout=$(sed -n "s/^BUTTON_LAYOUT=//p" "$SAVED" | head -n1)
+    if [[ -n $layout ]]; then gsettings set "$SCHEMA" button-layout "$layout" || true; else gsettings reset "$SCHEMA" button-layout || true; fi
+  fi
+  rm -f "$SAVED"
+  command -v hyprctl >/dev/null && hyprctl reload >/dev/null || true
+  restart_shell
+  echo "removed"; exit 0
+fi
+
+for f in 60-kit-mac-ui-font.conf macglass.lua; do [[ -f $f ]] || { echo "missing $f next to this script" >&2; exit 1; }; done
+
+install -Dm644 60-kit-mac-ui-font.conf "$FONTCONF"
+
+mkdir -p "$CFG/omarchy-kit"
+if command -v gsettings >/dev/null; then
+  # Saved once, so installing twice never records our own value as "yours".
+  [[ -f $SAVED ]] || printf 'BUTTON_LAYOUT=%s\n' "$(gsettings get "$SCHEMA" button-layout | sed "s/^'//; s/'\$//")" > "$SAVED"
+  gsettings set "$SCHEMA" button-layout 'close:'
+fi
+
+[[ -f $HYPR/hyprland.lua.bak-macglass ]] || cp "$HYPR/hyprland.lua" "$HYPR/hyprland.lua.bak-macglass"
+install -Dm644 macglass.lua "$HYPR/macglass.lua"
+if ! grep -qF "$LINE" "$HYPR/hyprland.lua"; then
+  sed -i "/^require(\"hypr.gpu\")/a $LINE  -- blur behind the glass, off until look/mac-glass on (omarchy-kit/look)" "$HYPR/hyprland.lua"
+  grep -qF "$LINE" "$HYPR/hyprland.lua" || { echo "could not add the require line to hyprland.lua" >&2; exit 1; }
+fi
+hyprctl reload >/dev/null
+sleep 1
+errs=$(hyprctl configerrors)
+[[ -z $errs ]] || { echo "Hyprland reported config errors:"; echo "$errs"; exit 1; }
+restart_shell
+echo "installed: UI font for the shell and Dock, window buttons on the left; the glass blur is $( [[ -f $CFG/omarchy-kit/glass ]] && tr -d '[:space:]' < "$CFG/omarchy-kit/glass" || echo off )"

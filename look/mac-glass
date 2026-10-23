@@ -1,0 +1,20 @@
+#!/bin/bash
+# Turn the blur behind the glass on or off (Dock, switcher, menus, notifications, launcher). No root.
+# Usage: mac-glass on | off | status
+# It is off by default: blur costs GPU time on this laptop's Intel graphics at 2880x1800 (see docs/MAC-FEEL.md). The state is the word in
+# ~/.config/omarchy-kit/glass, which the Hyprland module ~/.config/hypr/macglass.lua reads; this script reloads Hyprland so it takes effect.
+# Needs look/install-look to have been run (it installs the module).
+set -euo pipefail
+case "${1:-}" in on | off | status) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") on|off|status   (--help for details)" >&2; exit 2 ;; esac
+CONF=${XDG_CONFIG_HOME:-$HOME/.config}
+FILE=$CONF/omarchy-kit/glass
+state() { if [[ -f $FILE ]] && [[ $(tr -d '[:space:]' < "$FILE") == on ]]; then echo on; else echo off; fi; }
+if [[ $1 == status ]]; then echo "glass: $(state)"; exit 0; fi
+[[ -f $CONF/hypr/macglass.lua ]] || { echo "the glass module is not installed: run look/install-look first" >&2; exit 1; }
+mkdir -p "$CONF/omarchy-kit"
+echo "$1" > "$FILE"
+hyprctl reload >/dev/null
+sleep 1
+errs=$(hyprctl configerrors)
+[[ -z $errs ]] || { echo "Hyprland reported config errors:"; echo "$errs"; exit 1; }
+echo "glass: $(state)"

@@ -25,8 +25,10 @@ THEMES = {   # theme -> (generator script, variant)
     "mecha-unit-red": ("mecha/walls.py", "red"),
     "solarpunk": ("solarpunk.py", "day"),
     "solarpunk-dusk": ("solarpunk.py", "dusk"),
+    "golden-gate": ("golden_gate.py", "day"),
+    "golden-gate-night": ("golden_gate.py", "night"),
 }
-NEEDS_SVG = {"kawaii.py", "solarpunk.py"}
+NEEDS_SVG = {"kawaii.py", "solarpunk.py", "golden_gate.py"}
 
 
 def missing_tools(scripts):
