@@ -1,0 +1,69 @@
+#!/bin/bash
+# Install the Mac-style Dock and ⌘Tab app switcher (a small Quickshell program) for this user; no root needed.
+# Usage: install-dock [--remove]
+#
+# Puts the program in ~/.local/share/macdock, your settings in ~/.config/macdock/dock.json (kept on --remove), the Hyprland module
+# ~/.config/hypr/macdock.lua (starts the dock with your session, binds ⌘Tab, ⌘`, ⌘Q and ⌥⌘D) and starts the dock now.
+# Super+Tab and Super+Shift+Tab (next / previous workspace in Omarchy) now open the app switcher; the workspace moves are on
+# Super+Ctrl+Shift+Right and Left. See dock/README.md for everything it changes.
+# Undo: ./install-dock --remove      (stops the dock, removes the program and the module; your dock.json stays)
+set -euo pipefail
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
+cd "$(dirname "$0")"
+
+CFG=${XDG_CONFIG_HOME:-$HOME/.config}
+SHARE=${XDG_DATA_HOME:-$HOME/.local/share}/macdock
+HYPR=$CFG/hypr
+LINE='require("hypr.macdock")'
+FILES=(shell.qml qmldir Theme.qml Config.qml Apps.qml IconIndex.qml AppIcon.qml DockIcon.qml ItemMenu.qml Dock.qml Switcher.qml)
+
+stop_dock() {   # stop only the Quickshell that runs this program (not Omarchy's own shell)
+  local p a
+  for p in $(pgrep -x quickshell || true); do
+    a=$(tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null || true)
+    case "$a" in *"-p $SHARE"* | *"omarchy-kit/dock"*) kill "$p" 2>/dev/null || true ;; esac
+  done
+}
+
+if [[ ${1:-} == --remove ]]; then
+  stop_dock
+  if [[ -f $HYPR/hyprland.lua ]] && grep -qF "$LINE" "$HYPR/hyprland.lua"; then
+    grep -vF "$LINE" "$HYPR/hyprland.lua" > "$HYPR/hyprland.lua.tmp" && mv "$HYPR/hyprland.lua.tmp" "$HYPR/hyprland.lua"
+  fi
+  rm -f "$HYPR/macdock.lua"
+  rm -rf -- "${SHARE:?}"
+  command -v hyprctl >/dev/null && hyprctl reload >/dev/null || true
+  echo "removed (your settings are still in $CFG/macdock/dock.json)"; exit 0
+fi
+
+command -v quickshell >/dev/null || { echo "quickshell is not installed" >&2; exit 1; }
+for f in "${FILES[@]}"; do [[ -f $f ]] || { echo "missing $f next to this script" >&2; exit 1; }; done
+
+stop_dock
+mkdir -p "$SHARE" "$CFG/macdock"
+for f in "${FILES[@]}"; do install -m644 "$f" "$SHARE/$f"; done
+[[ -f $CFG/macdock/dock.json ]] || cat > "$CFG/macdock/dock.json" <<'JSON'
+{
+  "pinned": ["org.gnome.Nautilus", "brave-browser", "foot", "obsidian", "org.telegram.desktop", "signal", "WhatsApp", "Omarchy Kit"],
+  "iconSize": 52,
+  "zoom": 1.6,
+  "autohide": false,
+  "showTrash": true
+}
+JSON
+
+[[ -f $HYPR/hyprland.lua.bak-macdock ]] || cp "$HYPR/hyprland.lua" "$HYPR/hyprland.lua.bak-macdock"
+install -Dm644 macdock.lua "$HYPR/macdock.lua"
+if ! grep -qF "$LINE" "$HYPR/hyprland.lua"; then
+  sed -i "/^require(\"hypr.gpu\")/a $LINE  -- Mac Dock and app switcher (omarchy-kit/dock)" "$HYPR/hyprland.lua"
+  grep -qF "$LINE" "$HYPR/hyprland.lua" || { echo "could not add the require line to hyprland.lua" >&2; exit 1; }
+fi
+hyprctl reload >/dev/null
+sleep 1
+errs=$(hyprctl configerrors)
+[[ -z $errs ]] || { echo "Hyprland reported config errors:"; echo "$errs"; exit 1; }
+
+nohup uwsm-app -- quickshell -n -p "$SHARE" >/dev/null 2>&1 &
+for _ in $(seq 1 50); do hyprctl layers | grep -q macdock && break; sleep 0.2; done   # up to 10 s for the surface to appear
+hyprctl layers | grep -q macdock || { echo "the dock did not start; run: quickshell -p $SHARE" >&2; exit 1; }
+echo "installed: the dock is running; ⌘Tab (Super+Tab) opens the app switcher"

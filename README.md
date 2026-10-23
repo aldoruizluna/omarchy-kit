@@ -85,7 +85,7 @@ that disagrees with the code.
 |---|---|
 | **Start** | Your progress (XP, levels, streak, 16 badges), a live machine panel, and a gallery to switch the Omarchy theme |
 | **Learn** | 34 hands-on lessons in six levels, verified live against Hyprland (opening windows, switching spaces, the scratchpad…) |
-| **From macOS** | "How do I…?" for 55 Mac habits, translated to the shortcuts on *this* system |
+| **From macOS** | "How do I…?" for 58 Mac habits, translated to the shortcuts on *this* system |
 | **Your MacBook** | What works on 2014 MacBook hardware, with live readings and fixes |
 | **System** | Live graphs (2 s samples, 30 min history) of CPU temperature, fans, load, memory, network and battery, plus the busiest apps |
 | **Games** | Retro library status per console, disk budget, BIOS checklist, PS4 controller battery and hotkeys |
@@ -131,6 +131,21 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
   dark at night, switching only when the period changes so a hand-picked theme sticks.
 - **Opt-in ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P** (`keys/mac-key-extras`): Omarchy already uses those Super keys, so you choose key by key;
   terminals always keep the Omarchy meaning.
+- **The ⌘ key as Ctrl everywhere** (`keys/install-keyd`, needs sudo, off until you install it): the left ⌘ key acts as Ctrl
+  for every shortcut in every app (so ⌘C, ⌘T, ⌘-click and ⌘-scroll just work), ⌘Space, ⌘Tab, ⌘Q, ⌘H, ⌘M, ⇧⌘3/4/5 become Super
+  chords for Hyprland, ⌘←/→ are Home/End and ⌥←/→ move by words. A terminal never gets ⌘ as Ctrl+letter (⌘C copies, it does not
+  interrupt). The right ⌘ key stays Super for Omarchy's own shortcuts. Preview with `--dry-run`; if the keyboard misbehaves,
+  Backspace + Escape + Enter together stop keyd. Details and limits: [keys/README](keys/README.md).
+- **A real Caps Lock** (`keys/caps-lock`, no root): Omarchy makes Caps Lock its Compose key; this gives it back as a Caps Lock
+  with the light on the key, like a Mac (with the keyd layer above it also needs a deliberate 150 ms press). `caps-lock compose` undoes it.
+- **Mac icons and pointer** (`icons/`, no root): the WhiteSur icon theme and an open-source macOS cursor, kept in step with the light or dark
+  mode of whichever Omarchy theme is active. Two pinned downloads, checksums verified. `icons/install-icons --remove` undoes it.
+- **A Dock and a ⌘Tab app switcher** (`dock/`, no root): a Mac-style Dock with magnification, running dots, bounce, a right-click menu, Downloads and
+  Trash; ⌘Tab (Super+Tab) steps through running apps and letting go of ⌘ switches; ⌘`, ⌘Q, ⌘H and ⌥⌘D too. A small Quickshell program of its own.
+  Super+Tab used to be "next workspace"; that moved to Super+Ctrl+Shift+Right. Details and limits: [dock/README](dock/README.md).
+- **A Mac menu bar** (`menubar/`, no root): the Apple-style menu, the focused app's name in bold and File / Edit / View / Window / Help at the left, workspaces in the
+  middle, the clock at the right. The menus send the matching ⌘ shortcut to the app, because almost no Wayland app publishes a real menu.
+  Your bar layout is saved first and `--remove` restores it. [menubar/README](menubar/README.md).
 - **A Time Machine for your files** (`backup/install-backups`, needs sudo): hourly `/home` snapshots with snapper plus
   Pika Backup for the real backup. Preview with `--dry-run`.
 - **Six themes of our own** (`themes/`, `docs/THEMES.md`): Kawaii Bow (light and night), Mecha Unit (purple and red) and Solarpunk

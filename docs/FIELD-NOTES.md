@@ -54,7 +54,22 @@ recorded. If you are a person or an assistant about to change something on this 
   margin: the CSS rounds colours to 8 bits.
 * **Fail closed.** A lock policy that cannot find the real lock script must still lock (it falls back to `omarchy-system-lock`, then
   `loginctl lock-session`), and the no-lock installer refuses when the hibernate image is not on an encrypted volume.
+* **keyd: list a keyboard as `k:vendor:product`, never as a bare id, and know the panic sequence.** This MacBook's keyboard and trackpad share the id `05ac:0262`; a bare id makes keyd grab the
+  trackpad too (the keyd README has a section on it). If a keyd configuration ever makes the keyboard unusable, press Backspace + Escape + Enter together: keyd quits. `keys/install-keyd` runs `keyd check` before
+  activating anything. keyd's `bind` command applies to every managed keyboard (read in its source), and a binding with a wrong key name (`return` instead of `enter`) fails only when it is applied, so
+  `test/test_keyd.py` feeds every overlay binding to keyd's real engine.
+* **Do not put the user in the `keyd` group.** The group can make keyd run commands as root (it is root-equivalent), so a browser tab could too. `keys/keyd-appmap` runs as a sandboxed root service instead.
 * **Quote what goes into a service command.** The `power-lab` rescue line is parsed by systemd; an empty value without `=` broke it.
+
+## The Mac look (Quickshell, Hyprland Lua)
+
+* **Omarchy resets the icon theme on every theme change.** `omarchy-theme-set-gnome` sets Yaru again, so a different icon theme has to be re-applied by a `theme-set` hook (`icons/mac-icons-hook`).
+* **`Quickshell.iconPath()` returns `image://icon/<name>`, never a file path.** You cannot tell from it which theme drew the icon, and extra query parameters make the provider fail; the Dock reads the theme's folder (`IconIndex.qml`).
+* **A bar widget that is already on screen is not rebuilt when its files change** (the log says "reloading" and nothing happens), and a new `IpcHandler` is not registered by a hot reload. Restart: `omarchy restart shell`, or restart the Dock program.
+* **Keep new surfaces out of `omarchy-shell`.** The Dock and the switcher are a separate Quickshell process on purpose: a crash in the shell takes the bar, notifications and the lock screen with it.
+* **`wtype` reaches a focused layer surface, but not Hyprland's binds**, and `hl.is_key_down` does not see its virtual keys either. Test a surface's own key handling with `wtype`; test a bind through `hyprctl eval` on the handler, and the real chord by hand. Stub any destructive action first: a wrong route once could close the terminal you are working in.
+* **Chromium web-app windows are classed by address**: `brave-<host>__<path>-Default`. Match them to the launcher that opens the same address, or the Dock shows a second, nameless icon.
+* **Hyprland's Lua API answers synchronously** (`hl.get_windows()`, `hl.get_layers()`, `hl.get_active_window()`): use it to decide inside a bind, instead of asking another process.
 
 ## Working in the `!` prompt
 

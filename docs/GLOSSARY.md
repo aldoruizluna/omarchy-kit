@@ -7,6 +7,8 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 
 ## A to C
 
+**App switcher.** The ⌘Tab panel: one big icon per running app, most recently used first, and letting go of ⌘ switches. Here it is part of the Dock's Quickshell program and replaces Omarchy's "next workspace" on Super+Tab. See [dock/README](../dock/README.md).
+
 **ASPM** (Active State Power Management). Lets a PCIe link drop into low-power states (L0s, L1) when idle. The kernel can refuse to enable it on a link; on this Mac the Thunderbolt links refused. See [POWER-LAB](POWER-LAB.md).
 
 **Binding description (`"k"`).** The name Omarchy gives a shortcut (for example "Terminal"). Lessons and Mac habits refer to shortcuts by it, so pages show *your current keys* and a shortcut that no longer exists shows as "not bound". See [ARCHITECTURE](ARCHITECTURE.md#the-learning-engine).
@@ -26,6 +28,8 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 **Deep sleep (S3).** The classic suspend: almost everything is off. On this MacBook, opening the lid does not wake it from this state (the embedded controller's firmware decides, and Linux cannot change it). See [SLEEP](SLEEP.md).
 
 **Delay inhibitor (`PrepareForSleep`).** A lock systemd-logind honours so a program can finish work (here: lock the screen) before the machine sleeps. Omarchy's lock monitor holds one. See [SLEEP](SLEEP.md#one-password-the-no-lock-shim).
+
+**Dock.** The Mac-style bar of app icons at the bottom of the screen, with magnification, running dots and a right-click menu. Here a small Quickshell program, not part of Omarchy's shell. See [dock/README](../dock/README.md).
 
 **Drop-in.** A small file in `name.service.d/` that overrides part of a systemd unit without editing it. The no-lock installer uses one to set `OMARCHY_PATH` for a single service. See [sleep/README](../sleep/README.md).
 
@@ -53,6 +57,8 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 
 **Installer contract.** Idempotent; `--remove` undoes it; `--help` prints usage; an unknown option exits 2 without installing; fails closed. See [ARCHITECTURE](ARCHITECTURE.md#the-scripts-that-change-the-machine).
 
+**keyd.** A key-remapping daemon that works below the compositor (so in every app, on Wayland or in a console). Here it makes the left ⌘ key act as Ctrl; `keyd bind` changes bindings while it runs. Panic sequence: Backspace + Escape + Enter. See [keys/README](../keys/README.md).
+
 **Light sleep (s2idle).** The machine keeps running at a whisper, so opening the lid wakes it at once. Costs: fans keep spinning and the battery drains faster. See [SLEEP](SLEEP.md#light-sleep-and-its-price).
 
 **LUKS.** Disk encryption. The disk passphrase typed at start-up is what protects the hibernate image, which is why the no-lock installer refuses without it. See [SLEEP](SLEEP.md).
@@ -66,6 +72,8 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 **Package C-state (PC2 to PC7).** How deeply the whole CPU package sleeps when idle. This Mac sits in PC2 or PC3 and never reaches PC6/PC7, which costs battery; the cause was not found. See [POWER-LAB](POWER-LAB.md).
 
 **Power lab.** `power/power-lab`: measures real battery draw and tries power-saving changes one at a time, reverting each. See [POWER-LAB](POWER-LAB.md).
+
+**Quickshell.** The toolkit Omarchy's shell, bar and menus are written in (QML). The Dock and the app switcher are a second, separate Quickshell program, so a mistake in them cannot take the bar or the lock screen down. See [dock/README](../dock/README.md).
 
 ## R to Z
 
@@ -86,6 +94,8 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 **tmpfiles.d.** systemd's way to write a value at boot; `install-s2idle` uses one line to set `/sys/power/mem_sleep`. See [sleep/README](../sleep/README.md).
 
 **vga_switcheroo.** The kernel interface that switches or powers off a hybrid GPU. `gpu/nvidia-off` writes OFF to it; never ON. See [gpu/README](../gpu/README.md).
+
+**WhiteSur.** A community icon theme in the macOS (Big Sur) style, installed by `icons/install-icons` with a macOS-style pointer. Not Apple's artwork. See [icons/README](../icons/README.md).
 
 ---
 

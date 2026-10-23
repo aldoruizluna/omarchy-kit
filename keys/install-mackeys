@@ -25,4 +25,6 @@ hyprctl reload >/dev/null
 sleep 1
 errs=$(hyprctl configerrors)
 [[ -z $errs ]] || { echo "Hyprland reported config errors:"; echo "$errs"; exit 1; }
-echo "installed: $(hyprctl binds -j | grep -o '⌘[^"]*' | wc -l) ⌘ shortcuts are bound"
+# count the shortcuts this module declares that Hyprland now has (other kit modules also put ⌘ in their descriptions)
+n=$(hyprctl binds -j | python3 -I -c 'import json,re,sys; own=set(re.findall(r"\{\s*\"SUPER[^\"]*\",\s*\"[^\"]*\",\s*\"[^\"]*\",\s*\"([^\"]+)\"\s*\}", open(sys.argv[1]).read())); print(sum(1 for b in json.load(sys.stdin) if b.get("description") in own))' "$HYPR/mackeys.lua")
+echo "installed: $n ⌘ shortcuts are bound"

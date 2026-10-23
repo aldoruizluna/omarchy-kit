@@ -100,7 +100,7 @@ that disagrees with the code.
 |---|---|
 | **Start** | Your progress (XP, levels, streak, 16 badges), a live machine panel, and a gallery to switch the Omarchy theme |
 | **Learn** | 34 hands-on lessons in six levels, verified live against Hyprland (opening windows, switching spaces, the scratchpad…) |
-| **From macOS** | "How do I…?" for 55 Mac habits, translated to the shortcuts on *this* system |
+| **From macOS** | "How do I…?" for 58 Mac habits, translated to the shortcuts on *this* system |
 | **Your MacBook** | What works on 2014 MacBook hardware, with live readings and fixes |
 | **System** | Live graphs (2 s samples, 30 min history) of CPU temperature, fans, load, memory, network and battery, plus the busiest apps |
 | **Games** | Retro library status per console, disk budget, BIOS checklist, PS4 controller battery and hotkeys |
@@ -146,6 +146,21 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
   dark at night, switching only when the period changes so a hand-picked theme sticks.
 - **Opt-in ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P** (`keys/mac-key-extras`): Omarchy already uses those Super keys, so you choose key by key;
   terminals always keep the Omarchy meaning.
+- **The ⌘ key as Ctrl everywhere** (`keys/install-keyd`, needs sudo, off until you install it): the left ⌘ key acts as Ctrl
+  for every shortcut in every app (so ⌘C, ⌘T, ⌘-click and ⌘-scroll just work), ⌘Space, ⌘Tab, ⌘Q, ⌘H, ⌘M, ⇧⌘3/4/5 become Super
+  chords for Hyprland, ⌘←/→ are Home/End and ⌥←/→ move by words. A terminal never gets ⌘ as Ctrl+letter (⌘C copies, it does not
+  interrupt). The right ⌘ key stays Super for Omarchy's own shortcuts. Preview with `--dry-run`; if the keyboard misbehaves,
+  Backspace + Escape + Enter together stop keyd. Details and limits: [keys/README](keys/README.md).
+- **A real Caps Lock** (`keys/caps-lock`, no root): Omarchy makes Caps Lock its Compose key; this gives it back as a Caps Lock
+  with the light on the key, like a Mac (with the keyd layer above it also needs a deliberate 150 ms press). `caps-lock compose` undoes it.
+- **Mac icons and pointer** (`icons/`, no root): the WhiteSur icon theme and an open-source macOS cursor, kept in step with the light or dark
+  mode of whichever Omarchy theme is active. Two pinned downloads, checksums verified. `icons/install-icons --remove` undoes it.
+- **A Dock and a ⌘Tab app switcher** (`dock/`, no root): a Mac-style Dock with magnification, running dots, bounce, a right-click menu, Downloads and
+  Trash; ⌘Tab (Super+Tab) steps through running apps and letting go of ⌘ switches; ⌘`, ⌘Q, ⌘H and ⌥⌘D too. A small Quickshell program of its own.
+  Super+Tab used to be "next workspace"; that moved to Super+Ctrl+Shift+Right. Details and limits: [dock/README](dock/README.md).
+- **A Mac menu bar** (`menubar/`, no root): the Apple-style menu, the focused app's name in bold and File / Edit / View / Window / Help at the left, workspaces in the
+  middle, the clock at the right. The menus send the matching ⌘ shortcut to the app, because almost no Wayland app publishes a real menu.
+  Your bar layout is saved first and `--remove` restores it. [menubar/README](menubar/README.md).
 - **A Time Machine for your files** (`backup/install-backups`, needs sudo): hourly `/home` snapshots with snapper plus
   Pika Backup for the real backup. Preview with `--dry-run`.
 - **Six themes of our own** (`themes/`, `docs/THEMES.md`): Kawaii Bow (light and night), Mecha Unit (purple and red) and Solarpunk
@@ -299,7 +314,7 @@ Omarchy Kit is a bilingual (English / Spanish) learning portal and a set of reve
 | `*.template.html`, `kit.js`, `kit.css`, `portal*.js`, `portal.css` | the pages and shared browser code |
 | `portal_lessons.py`, `portal_content.py` | the learning path (6 levels), Mac habits, glossary, hardware cards |
 | `build_setup.py` | the Setup log: live `checks()`, and the records of every change with its undo |
-| `sleep/`, `power/`, `themes/`, `gpu/`, `audio/`, `keys/`, `trackpad/`, `appearance/`, `backup/`, `boot/`, `games/` | scripts that change the machine; each folder has a README |
+| `sleep/`, `power/`, `themes/`, `gpu/`, `audio/`, `keys/`, `icons/`, `dock/`, `menubar/`, `trackpad/`, `appearance/`, `backup/`, `boot/`, `games/` | scripts that change the machine; each folder has a README |
 | `test/` | `run-all`, hermetic Python tests, browser suites; see [test/README.md](test/README.md) |
 | `docs/` | the documentation; [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how it fits together |
 
@@ -375,7 +390,7 @@ Related: [README](../README.md) · [ARCHITECTURE](ARCHITECTURE.md) · [DEVELOPIN
 | work on it as an AI coding assistant | [AGENTS](../AGENTS.md), then [FIELD-NOTES](FIELD-NOTES.md) |
 | fix closing the lid, sleep or hibernate | [SLEEP](SLEEP.md), [sleep/README](../sleep/README.md) |
 | find where the battery goes, or save power | [POWER-LAB](POWER-LAB.md), [power/README](../power/README.md) |
-| feel like on a Mac (keys, accents, gestures) | [MAC-FEEL](MAC-FEEL.md), [keys/README](../keys/README.md), [trackpad/README](../trackpad/README.md) |
+| feel like on a Mac (keys, accents, gestures, icons, Dock, ⌘Tab, menu bar) | [MAC-FEEL](MAC-FEEL.md), [keys/README](../keys/README.md), [trackpad/README](../trackpad/README.md), [icons/README](../icons/README.md), [dock/README](../dock/README.md), [menubar/README](../menubar/README.md) |
 | use or change the themes | [THEMES](THEMES.md), [themes/README](../themes/README.md) |
 | keep the NVIDIA GPU off and the fans quiet | [gpu/README](../gpu/README.md), [FIELD-NOTES](FIELD-NOTES.md) |
 | set up retro games | [README: Retro gaming](../README.md#retro-gaming), [games/README](../games/README.md), [DUMPING-GUIDE](DUMPING-GUIDE.md), [GAME-STORE-ROADMAP](GAME-STORE-ROADMAP.md) |
@@ -399,7 +414,7 @@ Related: [README](../README.md) · [ARCHITECTURE](ARCHITECTURE.md) · [DEVELOPIN
 | [GLOSSARY](GLOSSARY.md) | reference | one definition per term, with links | any unfamiliar term |
 | [DUMPING-GUIDE](DUMPING-GUIDE.md) | how-to | dumping your own games, tool per console | retro library |
 | [GAME-STORE-ROADMAP](GAME-STORE-ROADMAP.md) | design | the signed-catalog store: what is built, what is planned | store work |
-| folder READMEs: [sleep](../sleep/README.md), [power](../power/README.md), [themes](../themes/README.md), [gpu](../gpu/README.md), [audio](../audio/README.md), [keys](../keys/README.md), [trackpad](../trackpad/README.md), [appearance](../appearance/README.md), [backup](../backup/README.md), [boot](../boot/README.md), [games](../games/README.md), [test](../test/README.md) | reference | what each folder's scripts do, how to use and undo them, how they are checked | working in that folder |
+| folder READMEs: [sleep](../sleep/README.md), [power](../power/README.md), [themes](../themes/README.md), [gpu](../gpu/README.md), [audio](../audio/README.md), [keys](../keys/README.md), [icons](../icons/README.md), [dock](../dock/README.md), [menubar](../menubar/README.md), [trackpad](../trackpad/README.md), [appearance](../appearance/README.md), [backup](../backup/README.md), [boot](../boot/README.md), [games](../games/README.md), [test](../test/README.md) | reference | what each folder's scripts do, how to use and undo them, how they are checked | working in that folder |
 | `themes/*/THEME.md` | explanation | one theme's palette rationale, contrast table, credits | that theme |
 | [llms.txt](../llms.txt), [llms-full.txt](../llms-full.txt) | machine index | the documentation for language models: an index and a single-file copy | tools |
 
@@ -576,7 +591,8 @@ Each topic folder has its own README; all installers share one contract.
 | `themes/` | six original themes with generated wallpapers | [themes/README.md](../themes/README.md) |
 | `gpu/` | keep the NVIDIA GPU off, firmware boot GPU | [gpu/README.md](../gpu/README.md) |
 | `audio/` | speaker EQ and the headphone watcher | [audio/README.md](../audio/README.md) |
-| `keys/`, `trackpad/` | Mac ⌘ shortcuts, three-finger behaviour | [keys/README.md](../keys/README.md), [trackpad/README.md](../trackpad/README.md) |
+| `keys/`, `trackpad/` | Mac ⌘ shortcuts (Hyprland binds, or the keyd layer that makes ⌘ act as Ctrl), a real Caps Lock, three-finger behaviour | [keys/README.md](../keys/README.md), [trackpad/README.md](../trackpad/README.md) |
+| `icons/`, `dock/`, `menubar/` | Mac icons and pointer; the Dock and ⌘Tab switcher (a separate Quickshell program); the Mac menu bar (a bar widget plugin) | [icons/README.md](../icons/README.md), [dock/README.md](../dock/README.md), [menubar/README.md](../menubar/README.md) |
 | `appearance/` | light by day, dark at night | [appearance/README.md](../appearance/README.md) |
 | `backup/`, `boot/` | snapshots and Pika Backup, a faster themed boot | [backup/README.md](../backup/README.md), [boot/README.md](../boot/README.md) |
 | `games/` | retro library, free games, a signed catalog client | [games/README.md](../games/README.md) |
@@ -735,6 +751,8 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 
 ## A to C
 
+**App switcher.** The ⌘Tab panel: one big icon per running app, most recently used first, and letting go of ⌘ switches. Here it is part of the Dock's Quickshell program and replaces Omarchy's "next workspace" on Super+Tab. See [dock/README](../dock/README.md).
+
 **ASPM** (Active State Power Management). Lets a PCIe link drop into low-power states (L0s, L1) when idle. The kernel can refuse to enable it on a link; on this Mac the Thunderbolt links refused. See [POWER-LAB](POWER-LAB.md).
 
 **Binding description (`"k"`).** The name Omarchy gives a shortcut (for example "Terminal"). Lessons and Mac habits refer to shortcuts by it, so pages show *your current keys* and a shortcut that no longer exists shows as "not bound". See [ARCHITECTURE](ARCHITECTURE.md#the-learning-engine).
@@ -754,6 +772,8 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 **Deep sleep (S3).** The classic suspend: almost everything is off. On this MacBook, opening the lid does not wake it from this state (the embedded controller's firmware decides, and Linux cannot change it). See [SLEEP](SLEEP.md).
 
 **Delay inhibitor (`PrepareForSleep`).** A lock systemd-logind honours so a program can finish work (here: lock the screen) before the machine sleeps. Omarchy's lock monitor holds one. See [SLEEP](SLEEP.md#one-password-the-no-lock-shim).
+
+**Dock.** The Mac-style bar of app icons at the bottom of the screen, with magnification, running dots and a right-click menu. Here a small Quickshell program, not part of Omarchy's shell. See [dock/README](../dock/README.md).
 
 **Drop-in.** A small file in `name.service.d/` that overrides part of a systemd unit without editing it. The no-lock installer uses one to set `OMARCHY_PATH` for a single service. See [sleep/README](../sleep/README.md).
 
@@ -781,6 +801,8 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 
 **Installer contract.** Idempotent; `--remove` undoes it; `--help` prints usage; an unknown option exits 2 without installing; fails closed. See [ARCHITECTURE](ARCHITECTURE.md#the-scripts-that-change-the-machine).
 
+**keyd.** A key-remapping daemon that works below the compositor (so in every app, on Wayland or in a console). Here it makes the left ⌘ key act as Ctrl; `keyd bind` changes bindings while it runs. Panic sequence: Backspace + Escape + Enter. See [keys/README](../keys/README.md).
+
 **Light sleep (s2idle).** The machine keeps running at a whisper, so opening the lid wakes it at once. Costs: fans keep spinning and the battery drains faster. See [SLEEP](SLEEP.md#light-sleep-and-its-price).
 
 **LUKS.** Disk encryption. The disk passphrase typed at start-up is what protects the hibernate image, which is why the no-lock installer refuses without it. See [SLEEP](SLEEP.md).
@@ -794,6 +816,8 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 **Package C-state (PC2 to PC7).** How deeply the whole CPU package sleeps when idle. This Mac sits in PC2 or PC3 and never reaches PC6/PC7, which costs battery; the cause was not found. See [POWER-LAB](POWER-LAB.md).
 
 **Power lab.** `power/power-lab`: measures real battery draw and tries power-saving changes one at a time, reverting each. See [POWER-LAB](POWER-LAB.md).
+
+**Quickshell.** The toolkit Omarchy's shell, bar and menus are written in (QML). The Dock and the app switcher are a second, separate Quickshell program, so a mistake in them cannot take the bar or the lock screen down. See [dock/README](../dock/README.md).
 
 ## R to Z
 
@@ -814,6 +838,8 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 **tmpfiles.d.** systemd's way to write a value at boot; `install-s2idle` uses one line to set `/sys/power/mem_sleep`. See [sleep/README](../sleep/README.md).
 
 **vga_switcheroo.** The kernel interface that switches or powers off a hybrid GPU. `gpu/nvidia-off` writes OFF to it; never ON. See [gpu/README](../gpu/README.md).
+
+**WhiteSur.** A community icon theme in the macOS (Big Sur) style, installed by `icons/install-icons` with a macOS-style pointer. Not Apple's artwork. See [icons/README](../icons/README.md).
 
 ---
 
@@ -880,7 +906,22 @@ recorded. If you are a person or an assistant about to change something on this 
   margin: the CSS rounds colours to 8 bits.
 * **Fail closed.** A lock policy that cannot find the real lock script must still lock (it falls back to `omarchy-system-lock`, then
   `loginctl lock-session`), and the no-lock installer refuses when the hibernate image is not on an encrypted volume.
+* **keyd: list a keyboard as `k:vendor:product`, never as a bare id, and know the panic sequence.** This MacBook's keyboard and trackpad share the id `05ac:0262`; a bare id makes keyd grab the
+  trackpad too (the keyd README has a section on it). If a keyd configuration ever makes the keyboard unusable, press Backspace + Escape + Enter together: keyd quits. `keys/install-keyd` runs `keyd check` before
+  activating anything. keyd's `bind` command applies to every managed keyboard (read in its source), and a binding with a wrong key name (`return` instead of `enter`) fails only when it is applied, so
+  `test/test_keyd.py` feeds every overlay binding to keyd's real engine.
+* **Do not put the user in the `keyd` group.** The group can make keyd run commands as root (it is root-equivalent), so a browser tab could too. `keys/keyd-appmap` runs as a sandboxed root service instead.
 * **Quote what goes into a service command.** The `power-lab` rescue line is parsed by systemd; an empty value without `=` broke it.
+
+## The Mac look (Quickshell, Hyprland Lua)
+
+* **Omarchy resets the icon theme on every theme change.** `omarchy-theme-set-gnome` sets Yaru again, so a different icon theme has to be re-applied by a `theme-set` hook (`icons/mac-icons-hook`).
+* **`Quickshell.iconPath()` returns `image://icon/<name>`, never a file path.** You cannot tell from it which theme drew the icon, and extra query parameters make the provider fail; the Dock reads the theme's folder (`IconIndex.qml`).
+* **A bar widget that is already on screen is not rebuilt when its files change** (the log says "reloading" and nothing happens), and a new `IpcHandler` is not registered by a hot reload. Restart: `omarchy restart shell`, or restart the Dock program.
+* **Keep new surfaces out of `omarchy-shell`.** The Dock and the switcher are a separate Quickshell process on purpose: a crash in the shell takes the bar, notifications and the lock screen with it.
+* **`wtype` reaches a focused layer surface, but not Hyprland's binds**, and `hl.is_key_down` does not see its virtual keys either. Test a surface's own key handling with `wtype`; test a bind through `hyprctl eval` on the handler, and the real chord by hand. Stub any destructive action first: a wrong route once could close the terminal you are working in.
+* **Chromium web-app windows are classed by address**: `brave-<host>__<path>-Default`. Match them to the launcher that opens the same address, or the Dock shows a second, nameless icon.
+* **Hyprland's Lua API answers synchronously** (`hl.get_windows()`, `hl.get_layers()`, `hl.get_active_window()`): use it to decide inside a bind, instead of asking another process.
 
 ## Working in the `!` prompt
 
@@ -1336,9 +1377,9 @@ FILE: docs/MAC-FEEL.md  (Mac feel)
 
 # Making Omarchy feel like a Mac
 
-> **TL;DR.** Everything the kit changes so a macOS user feels at home: right-Option accents, ⌘ shortcuts in apps, three-finger behaviour, the power profile following the charger, a menu-bar clock with the date, Auto appearance, working sleep and hibernate, Wi-Fi saving and six themes. Each row says where it lives, how it was verified and how to undo it; the decisions that still wait for a person follow.
+> **TL;DR.** Everything the kit changes so a macOS user feels at home: right-Option accents, a real Caps Lock, ⌘ shortcuts in apps (and, prepared, ⌘ as Ctrl everywhere), the macOS icons and pointer, a Dock, a ⌘Tab app switcher, a Mac menu bar, three-finger behaviour, the power profile following the charger, a menu-bar clock with the date, Auto appearance, working sleep and hibernate, Wi-Fi saving and six themes. Each row says where it lives, how it was verified and how to undo it; the decisions that still wait for a person follow.
 
-Related: [keys/README](../keys/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)
+Related: [keys/README](../keys/README.md) · [icons/README](../icons/README.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)
 
 What the kit changes so a macOS user feels at home on this MacBook, how each piece was checked, how to undo it, and
 what is still waiting for a person. The live version of this (with real-time status) is the **Setup log** page.
@@ -1349,6 +1390,11 @@ what is still waiting for a person. The live version of this (with real-time sta
 |---|---|---|---|
 | Accents on the **right Option key** (⌥e e = é, ⌥n n = ñ, ⌥1 = ¡, ⌥⇧/ = ¿); left ⌥ stays Alt | `kb_variant = "mac"` in `input.lua` | every key checked with libxkbcommon | delete the line, `hyprctl reload`, restart fcitx5 |
 | **13 ⌘ shortcuts** in apps (⌘A ⌘Z ⇧⌘Z ⌘R ⇧⌘R ⌘N ⇧⌘T ⌘D ⌘B ⌘I ⌘U ⌘[ ⌘]); terminals skipped | `keys/` | `test/verify-mackeys.mjs`: 32 checks against a real Brave window | `keys/install-mackeys --remove` |
+| **Caps Lock is a real Caps Lock**: it capitalises, the light follows it, Shift does not cancel it. Removed: Omarchy's Compose key on Caps Lock, and Caps Lock on both Shifts (right Option still types every accent) | a marked block in `input.lua` (`keys/caps-lock`; the file as it was is kept as `input.lua.bak-caps`) | `hyprctl` shows `kb_options` empty on every keyboard; libxkbcommon compiles `<CAPS>` as `Caps_Lock` with plain Shift keys (before: `Multi_key` and Shift+Shift); `test/test_keyd.py`; not with a physical press | `keys/caps-lock compose` |
+| **Mac icons and pointer**: the WhiteSur icon theme (a free re-drawing of the macOS icon style, not Apple's art) and an open-source macOS cursor set; the icon variant follows each Omarchy theme's light or dark mode | `icons/` (no root; downloads two pinned releases, checksums verified) | install on the real desktop, a real theme round trip (`mecha-unit`, `flexoki-light`, back), screenshots; `test/test_macdesktop.py` | `icons/install-icons --remove` |
+| **A Dock** at the bottom: magnification, running dots, bounce on launch, right-click menu, Downloads and Trash, autohide (⌥⌘D), tinted glass that follows the Omarchy theme | `dock/` (a small Quickshell program, no root) | screenshots of the real compositor, pointer hover, autohide, a light and a dark theme, a real web app; idle cost 0.1 % of one core; `test/test_macdesktop.py`. Not verified: mouse clicks, start at login | `dock/install-dock --remove` (your `dock.json` stays) |
+| **⌘Tab app switcher**: running apps, most recently used first; Tab to step, let go of ⌘ to switch; Q quits and H hides the selected app. Replaces *Next / Previous workspace* on Super+Tab (moved to Super+Ctrl+Shift+Right / Left) | `dock/` | real switcher over three apps; Tab, Return, and Ctrl or Super release driven with `wtype` while it had the keyboard; the Lua routing of ⌘Q with the switcher open or closed. Not verified: the real Super+Tab key chord | `dock/install-dock --remove` |
+| **Mac menu bar**: Apple-style menu, the focused app's name in bold, File / Edit / View / Window / Help; workspaces in the middle, clock last on the right. The menus send the matching ⌘ shortcut to the focused app (almost no Wayland app publishes a real menu) | `menubar/` (a bar widget plugin and a Hyprland module, no root) | screenshots in both themes, a menu opened and an item run (File > New Window opened a window); layout moved and restored exactly in tests | `menubar/install-menubar --remove` (puts your layout back) |
 | **Three fingers**: swipe between spaces (default) or drag, never both | `THREE_FINGERS` in `input.lua` | trackpad page test in both modes | `trackpad/three-fingers swipe` |
 | **Power profile follows the charger** | `power/` (user service, no root) | simulated charger against the real power daemon | `power/install-power-auto --remove` |
 | **Menu-bar clock with the date** (Wed 7 Oct 15:08) | `omarchy bar set omarchy.clock format …` | screenshot of the bar | `omarchy bar set omarchy.clock format "dddd HH:mm"` |
@@ -1376,7 +1422,9 @@ Everything is reversible and logged, with its undo command, on the Setup log pag
 - **Backups** (needs a password): `sudo backup/install-backups` (preview with `--dry-run`) sets up hourly `/home`
   snapshots and installs Pika Backup. Snapshots on the same disk undo mistakes, not a dead disk, so also point Pika
   Backup at an external drive.
-- **A decision about ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P**, below.
+- **Try the real keys** for the Dock and switcher (a real keyboard is needed; the tests could only send virtual keys): hold ⌘ and press Tab a few times, then let go; Super+Q with the switcher open; log out and in to see the Dock start by itself; click, right-click and drag over the Dock and the menu bar titles. What to expect is in [dock/README](../dock/README.md) and [menubar/README](../menubar/README.md).
+- **Decide whether ⌘ should be Ctrl everywhere** (needs a password; prepared and tested, not installed): `sudo keys/install-keyd`, preview with `--dry-run`. See the section below.
+- **A decision about ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P**, below (not needed if you install the keyd layer: they are plain Ctrl in apps then).
 - Optional: turn on Auto appearance (`auto-appearance on`).
 
 ## The decision: Mac keys that Omarchy already uses
@@ -1399,6 +1447,22 @@ keeps its Omarchy meaning; and the Omarchy action stays reachable in every windo
 less (a four-finger swipe down still toggles the scratchpad). L, G and P are rarer on both sides, so leave them until
 they are missed.
 
+## Prepared: the ⌘ key as Ctrl everywhere (keyd)
+
+`keys/install-keyd` (one sudo command; `--dry-run` previews it) makes the **left ⌘ key act as Ctrl for every key in every app**, so every shortcut, ⌘-click and ⌘-scroll work, which the Hyprland
+binds above cannot do. Mac system chords (⌘Space, ⌘Tab, ⌘`, ⌘Q, ⌘H, ⌘M, ⇧⌘3/4/5, ⌃⌘Q, ⌃⌘Space, ⌃⌘F) reach Hyprland as Super chords; ⌘←/→ are Home/End and ⌥←/→ move by words; Caps Lock needs a
+deliberate 150 ms press. A terminal never receives ⌘ as Ctrl+letter: a small root service, `keyd-appmap`, reads Hyprland's terminal tag and switches the overlay (⌘C copies, ⌘D and ⌘Z do nothing).
+Ctrl, Option, the **right ⌘ key** (still Super: all of Omarchy's shortcuts keep working on it), other keyboards and the trackpad are untouched.
+
+- **The price.** The left ⌘ key no longer starts Omarchy's Super+Return or Super+1…9; use the right ⌘ key, or the trackpad gestures for spaces.
+- **Safety.** If the keyboard ever misbehaves, Backspace + Escape + Enter together make keyd quit. The installer runs keyd's own checker before activating anything, refuses if another keyd configuration exists,
+  and is undone by `sudo keys/install-keyd --remove`. If the service is down, ⌘C and ⌘V fall back to Ctrl+Insert and Shift+Insert, which terminals accept.
+- **Why not the keyd group.** It would make every process in your session root-equivalent; the service runs as root instead, sandboxed.
+- **Verified:** keyd 2.6.0's own checker on every configuration the generator writes; 17 tests drive keyd's real engine (compiled from its source) with key events and compare the keys that come out; the service against fake
+  Hyprland sockets and its focus query against the live compositor; the installer as fake root in a namespace; the unit with `systemd-analyze verify`. **Not verified:** the daemon on the physical keyboard (needs root), how
+  the keys feel, and whether 150 ms matches a real Mac's Caps Lock delay (Apple does not publish it).
+- Details, the full chord table and the limits: [keys/README](../keys/README.md).
+
 ## Looked at and left alone
 
 - **System font.** GTK apps and `system-ui` pages already use Adwaita Sans (GNOME's UI font, derived from Inter, the
@@ -1407,8 +1471,11 @@ they are missed.
   metric-compatible. Omarchy's generic `sans-serif` is a deliberate choice, so it was not overridden.
 - **Optimized Battery Charging (80% limit).** The battery exposes no charge-limit control to Linux.
 - **Press-and-hold accent picker.** No general equivalent on Linux; the right Option key does the same job.
-- **A Dock.** Not installed: it fights the tiling idea. `nwg-dock-hyprland` is in the extra repo if wanted, and should be
-  built and tested rather than added on a guess.
+- **A Dock** was left alone in the first pass (it fights the tiling idea) and has since been built, because it is the most recognisable part of the Mac desktop: [dock/](../dock/README.md). It
+  is a Quickshell program rather than `nwg-dock-hyprland`, because the Mac Dock's magnification and the shared switcher need one program that knows what is running. It can be hidden (⌥⌘D, or `autohide` in its settings).
+- **Blur behind the glass** (what "Liquid Glass" is) is not enabled. Hyprland's blur costs GPU time on this laptop's Intel graphics at 2880x1800 and heat was this machine's biggest problem, so the
+  glass is a tinted translucent surface. Measure with the [power lab](POWER-LAB.md) before turning it on.
+- **Window corners, shadows and traffic-light buttons, and Apple's fonts.** Not changed: not asked for, and Omarchy's square tiled windows are a deliberate part of its look.
 
 ## Tests
 
@@ -1422,30 +1489,347 @@ CDP_ATTACH=9334 node test/verify-trackpad.mjs   # same, in a real GPU Brave (use
 
 ---
 
-Related: [keys/README](../keys/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)
+Related: [keys/README](../keys/README.md) · [icons/README](../icons/README.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)
 
 
 ====================================================================================================
 FILE: keys/README.md  (keys/ scripts)
 ====================================================================================================
 
-# keys/: Mac ⌘ shortcuts inside apps
+# keys/: Mac ⌘ shortcuts, the keyd command layer and Caps Lock
 
-> **TL;DR.** `mackeys.lua` turns Super+A, Z, ⇧Z, R, ⇧R, N, ⇧T, D, B, I, U, [ and ] into the Ctrl chord the focused app expects, and skips terminals. It only uses
-> keys Omarchy leaves free. Seven more (⌘W T F S L G P) are opt-in because Omarchy already uses those Super keys.
+> **TL;DR.** Two ways to get your ⌘ shortcuts. `mackeys.lua` (no root) turns a list of Super+key chords into the Ctrl chord the focused app expects. `install-keyd`
+> (needs sudo) goes all the way: the left ⌘ key acts as Ctrl for every key in every app, ⌘Tab, ⌘Space and ⌘Q reach Hyprland as Super chords, a terminal never receives ⌘ as
+> Ctrl+letter, and the right ⌘ key stays Super for Omarchy's own shortcuts. `caps-lock` makes Caps Lock a real Caps Lock. If the keyboard ever misbehaves under keyd,
+> press **Backspace + Escape + Enter** together and keyd quits.
 
 | Script | What | Undo |
 |---|---|---|
 | `install-mackeys` | no root: installs `mackeys.lua` into the Hyprland config | `--remove` |
 | `mackeys.lua` | the shortcut definitions | n/a |
 | `mac-key-extras` | choose which of ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P also work in apps (`W T F S`, `all`, `none`); in terminals they keep their Omarchy meaning, and the Omarchy action stays reachable at a new chord in every window | `mac-key-extras none` |
+| `install-keyd` | **root.** Installs keyd and the Mac command layer below, plus the `keyd-appmap` service; `--dry-run` previews every step and prints the configuration without sudo; `--caps-delay MS` | `sudo install-keyd --remove` |
+| `keyd-config` | prints the keyd configuration, the app overlays, the Super-chord table and the Apple keyboards it finds; changes nothing | n/a |
+| `keyd-appmap` | the service that tells terminals from apps (see below) | removed by `install-keyd --remove` |
+| `caps-lock` | no root: `real` (a Mac-style Caps Lock) or `compose` (Omarchy's default) | `caps-lock compose` |
+
+## Which one do I want?
+
+| | `mackeys.lua` | the keyd layer |
+|---|---|---|
+| Root | no | once (a service and a package) |
+| Which ⌘ shortcuts | the 13 listed, plus the opt-in extras | every key: ⌘C ⌘T ⌘W ⌘F ⌘L ⌘1…9 and the rest are plain Ctrl |
+| ⌘-click, ⌘-scroll, ⌘-drag | no (a bind sees keys, not the pointer) | yes: Ctrl is really held |
+| Terminals | skipped | ⌘C copies, ⌘V pastes, ⌘K clears, ⌘W closes; the dangerous Ctrl chords are blocked |
+| What it costs | nothing | the left ⌘ key is no longer Super (the right one is) |
+
+They coexist. `mackeys.lua` keeps serving the right ⌘ key (a Hyprland bind sees Super, so right ⌘+Z is still undo) and is the fallback if keyd is never installed. With the
+keyd layer the opt-in extras (`mac-key-extras`) are not needed: ⌘W, ⌘T, ⌘F, ⌘S, ⌘L, ⌘G and ⌘P are already plain Ctrl in apps.
+
+## The keyd layer
+
+Only Apple keyboards (found in `/proc/bus/input/devices`, written as `k:vendor:product`; the `k:` keeps the trackpad, which has the same id, out of it) are remapped. An external
+PC keyboard keeps its keys. Nothing else about Ctrl, Option or the right ⌘ key changes.
+
+| You press | Apps receive | Note |
+|---|---|---|
+| ⌘ + any key not listed below | Ctrl + that key | ⌘T ⌘W ⌘F ⌘L ⌘R ⌘A ⌘Z ⇧⌘Z ⇧⌘T ⌘1…9 … |
+| ⌘C / ⌘V | Ctrl+C / Ctrl+V (Ctrl+Insert / Shift+Insert until the helper runs) | the helper switches them, see Terminals |
+| ⌘← / ⌘→ | Home / End | ⇧ extends the selection |
+| ⌘↑ / ⌘↓ | Ctrl+Home / Ctrl+End | top and bottom of the document |
+| ⌥← / ⌥→ | Ctrl+← / Ctrl+→ | move by words (also on the right ⌥) |
+| ⌥⌫ / ⌥⌦ | Ctrl+Backspace / Ctrl+Delete | delete a word (a terminal keeps Alt+Backspace) |
+| ⌘[ / ⌘] | Alt+← / Alt+→ | back and forward |
+| ⇧⌘[ / ⇧⌘] | Ctrl+Shift+Tab / Ctrl+Tab | previous and next tab |
+| ⌥⌘I / ⌥⌘J / ⌥⌘C / ⌥⌘U | Ctrl+Shift+I / J / C, Ctrl+U | developer tools, console, inspect, view source |
+| ⌥⌘← / ⌥⌘→ | Ctrl+PageUp / PageDown | previous and next tab |
+| ⇧⌘. | Ctrl+H | show hidden files in Files |
+
+These ⌘ chords are Mac *system* chords, so they go to Hyprland as **Super chords**; `keyd-config chords` prints the table, and the Hyprland side has to bind the ones marked "to bind":
+
+| You press | Hyprland receives | Today in Omarchy |
+|---|---|---|
+| ⌘Space | Super+Alt+Space | Apps menu (searchable) |
+| ⌘Tab / ⇧⌘Tab | Super+Tab / Super+Shift+Tab, with Super held until ⌘ is released | next / previous workspace |
+| ⌘` and, while the switcher is up, ← → | Super+grave; Super+Shift+Tab, Super+Tab | unbound |
+| ⌘Q / ⌘H / ⌘M | Super+Q / Super+H / Super+M | unbound |
+| Esc while the switcher is up | Super+Alt+Escape (never Super+Esc, which is Omarchy's system menu) | unbound |
+| ⇧⌘3 / ⇧⌘4 / ⇧⌘5 | Shift+Print / Print / Super+Ctrl+C | Shift+Print unbound; Print is the screenshot; the capture menu |
+| ⌃⌘Q / ⌃⌘Space / ⌃⌘F | Super+Ctrl+L / Super+Ctrl+E / Super+F | lock, emoji picker, full screen |
+| ⌘W / ⌘N in a terminal | Super+W / Super+Return | close window / new terminal |
+
+**Super stays held for the app switcher.** After the first ⌘Tab, keyd keeps Super pressed (and not Ctrl) until ⌘ is released, so a switcher bound to Super+Tab can see ⌘ being released and
+commit, exactly like a Mac. Verified against keyd's engine (see below).
+
+### Terminals
+
+A terminal reads Ctrl+C as "interrupt", Ctrl+D as "end of input", Ctrl+Z as "stop", Ctrl+S as "freeze". On a Mac none of those is ⌘'s business, so a terminal must never receive ⌘ as
+Ctrl+letter. keyd's own `keyd-application-mapper` speaks X, Sway and GNOME but not Hyprland, so `keyd-appmap` does the same job here: it listens on Hyprland's event socket, asks the
+compositor whether the focused window carries Omarchy's `terminal` tag (so a terminal added to Omarchy's rule works here too), and applies one of two overlays with `keyd bind`:
+
+- **app:** ⌘C = Ctrl+C, ⌘V = Ctrl+V (a file manager does not take Ctrl+Insert). A launcher, a menu or no window at all counts as an app.
+- **terminal:** ⌘C = Ctrl+Insert, ⌘V = Shift+Insert, ⇧⌘C / ⇧⌘V = Ctrl+Shift+C / V, ⌘K clears, ⌘W closes the window, ⌘N opens a terminal, ⌘. = Ctrl+C (as in Terminal and iTerm),
+  ⌥⌫ = Alt+Backspace, and ⌘A ⌘B ⌘D ⌘E ⌘F ⌘G ⌘I ⌘J ⌘O ⌘P ⌘R ⌘S ⌘T ⌘U ⌘X ⌘Y ⌘Z do nothing. Physical Ctrl still sends every one of them, the way a Mac's Control does.
+
+**It fails closed.** If the service is down, keyd falls back to its static configuration, which is the terminal-safe one: ⌘C and ⌘V are Ctrl+Insert and Shift+Insert, which GTK, Chromium and
+every Omarchy terminal accept (a file manager may ignore them: copy then does nothing, which is a nuisance and not a danger). The remaining Ctrl+letter chords (⌘D, ⌘Z) would reach a shell
+until the service is back; systemd restarts it after 2 seconds.
+
+**Why a root service and not the `keyd` group.** `keyd bind` needs the keyd socket. A user in the `keyd` group can make keyd run commands as root, so the group is root-equivalent for everything
+in the session (a browser tab included). The service runs as root instead, with only the two capabilities it needs to read the session's sockets, no network, no home directories and a
+read-only file system; it takes its bindings from a root-owned file, and from the focused window it uses a single bit: terminal or not. It refuses sockets that are symlinks or not
+owned by the session's user.
+
+### Caps Lock
+
+With the keyd layer Caps Lock needs a deliberate press of 150 ms, as on a Mac (a quick brush does nothing; `--caps-delay 0` turns that off). Apple does not publish the delay, so 150 ms is an
+estimate: tune it with `sudo install-keyd --caps-delay MS`. The light on the key should follow Caps Lock (keyd passes the light's state on, which was read in its source and not tried on this keyboard).
+
+### Install, preview, undo
+
+```bash
+~/labspace/omarchy-kit/keys/install-keyd --dry-run     # no sudo: every step, and the configuration it would write
+sudo ~/labspace/omarchy-kit/keys/install-keyd          # install (keyd package, /etc/keyd/omarchy-kit-mac.conf, the service)
+sudo ~/labspace/omarchy-kit/keys/install-keyd --remove # undo; the keyd package stays (sudo pacman -Rns keyd removes it)
+```
+
+It refuses (and changes nothing) if keyd's own `keyd check` rejects the configuration, if another keyd configuration exists (a keyboard can be in only one file), if there is no Apple keyboard,
+or if it was not started with sudo from your own account. Running it twice changes nothing.
+
+After installing: press Caps Lock briefly (nothing), then hold it a moment (the light comes on); try ⌘C and ⌘V in Brave, in Files and in a terminal (in the terminal ⌘C must copy, not
+interrupt a running program); try ⌘←, ⌥← and ⌘[ in a text field. Left ⌘ no longer starts Omarchy's Super shortcuts: use the right ⌘ key (or the trackpad gestures for spaces).
+
+### Limits
+
+- Written for an ANSI keyboard: the `` ` `` key is the one left of the 1 key. An ISO keyboard needs `102nd` bound as well.
+- ⌘← and ⌘→ are Home and End, which on a web page scroll to the top and the bottom; a Mac's browsers use them for back and forward (use ⌘[ and ⌘]).
+- `sudo keyd reload` drops the overlays until the focus next changes (the installer restarts the service, so this only matters if you reload by hand).
+- Only the physical Apple keyboards are remapped. Typing through fcitx5 or a virtual keyboard (wtype) is not.
+
+### How it was checked
+
+`test/test_keyd.py` (about 7 seconds). Always: the generator, the helper against fake Hyprland sockets and a fake keyd, the installer run as fake root in a private namespace (install, again, remove twice,
+refusals, the unit through `systemd-analyze verify`), `caps-lock`. With `KEYD_BIN=/path/to/keyd`: keyd's own `keyd check` on every configuration the generator can write. With `KEYD_SRC=/path/to/keyd/source`
+(and gcc): `test/keyd-trace.c` links keyd's real engine, and 17 tests feed it key events and compare the keys that come out (every chord above, the switcher hold, both overlays, the Caps Lock delay).
+Not checked without root and a physical keyboard: the daemon grabbing the device, how the keys feel, and the real length of a Caps Lock press.
+
+## Caps Lock
+
+Omarchy's default (`compose:caps,shift:both_capslock_cancel`) makes Caps Lock the **Compose key** (press, release, then `'` and `e` gives é) and moves Caps Lock to both Shift keys. `caps-lock real` empties
+those options in a marked block at the end of `~/.config/hypr/input.lua` (the file as it was is kept once as `input.lua.bak-caps`): Caps Lock capitalises, the light on the key follows it, Shift does not cancel it.
+What it removes: the Compose key and Caps Lock on both Shifts. The right Option key still types every accent (⌥e e = é). It keeps any other option Omarchy had (for example the Alt+Alt layout switch of
+a non-Latin install), reloads Hyprland, restarts fcitx5 (it copies the keymap when it starts) and rebuilds the kit pages. `caps-lock compose` brings Omarchy's default back exactly.
+
+## mackeys.lua
 
 Verified against a real compositor: `node test/verify-mackeys.mjs` calls each handler through `hyprctl eval` and a scratch Brave window reports the exact chord it
-receives (32 checks). Needs a running Hyprland session. Setup log rows: **⌘ shortcuts inside apps**, **⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P in apps (optional)**.
+receives (32 checks). Needs a running Hyprland session. Setup log rows: **⌘ shortcuts inside apps**, **⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P in apps (optional)**, **Command works like on a Mac (keyd)**,
+**Caps Lock is a real Caps Lock**.
 
 ---
 
 Related: [trackpad/](../trackpad/README.md) · [docs/MAC-FEEL](../docs/MAC-FEEL.md) · [test/](../test/README.md) · [docs/INDEX](../docs/INDEX.md)
+
+
+====================================================================================================
+FILE: icons/README.md  (icons/ scripts)
+====================================================================================================
+
+# icons/: Mac-style icons and pointer
+
+> **TL;DR.** `install-icons` gives the desktop the macOS icon look: the WhiteSur icon theme (the closest free relative of the macOS icon style) and an
+> open-source macOS pointer set. No root. It follows the light or dark mode of whichever Omarchy theme you pick, because a theme-set hook re-applies the
+> right WhiteSur variant every time Omarchy changes theme (Omarchy would otherwise put its Yaru icons back). `--remove` undoes all of it.
+
+| Command | What |
+|---|---|
+| `install-icons` | downloads two pinned releases, checks their checksums, installs the icons, the cursor, the hook and `maccursor.lua`, applies them now |
+| `install-icons --remove` | removes only what it installed and puts Omarchy's own icon choice back |
+| `mac-icons-hook` | the hook itself (installed as `~/.config/omarchy/hooks/theme-set.d/50-mac-icons`): light themes get `WhiteSur-light`, dark ones `WhiteSur-dark` |
+| `maccursor.lua` | the Hyprland module (cursor theme and size); loaded from `hyprland.lua` |
+
+## What it changes, and what it costs
+
+- **Icons for every app that follows the system icon theme** (Files, the Omarchy menu, GTK and Qt apps, the Dock and the app switcher). Omarchy's Yaru
+  folders and icons are replaced while this is installed. Apps that bring their own icons keep them.
+- **The pointer** becomes the macOS arrow, hand and I-beam, at size 24. From the next login on in new sessions; `install-icons` also sets it live.
+- **About 240 MB** under `~/.local/share/icons` (WhiteSur 124 MB, its dark and light variants 57 MB and 15 MB, two cursor sets 21 MB each).
+- **Downloads** (GitHub, over HTTPS): WhiteSur tag `2026-09-10` and the `macOS` cursors `v2.0.1`. Both checksums are pinned in the script and the install stops,
+  with nothing written, if either differs. Nothing from either project is stored in this repository.
+
+## Honest limits
+
+- **Not Apple's art.** macOS app icons are Apple's. WhiteSur is a community re-drawing in the same style (Big Sur era: rounded squares with a soft gradient); it
+  does not reproduce the layered "Liquid Glass" icons of macOS 26 and 27. Nothing free does.
+- **Coverage.** Of the 72 apps installed when this was written, WhiteSur drew 49. 19 more use icons that came with the app (mostly the Omarchy web apps) and 4
+  (Kagi, Omarchy Kit, RetroArch, Tailscale) have none in any installed theme. The Dock and the switcher put every icon the theme does not have on a neutral
+  rounded tile, which is what macOS does with apps that have not been given a new-style icon.
+- **Fonts** are not changed. Apple's system font is not redistributable; GTK apps already use Adwaita Sans, a close free relative. See [MAC-FEEL](../docs/MAC-FEEL.md).
+
+## How it was checked
+
+- The install ran against the real desktop: both checksums matched, `gsettings` reported `WhiteSur-dark` and `macOS`, the Files window and the Dock showed
+  the new icons in a screenshot.
+- A real theme round trip (`mecha-unit` to `flexoki-light` and back): the icon theme went `WhiteSur-dark`, `WhiteSur-light`, `WhiteSur-dark`.
+- `test/test_macdesktop.py` runs the installer in a sandbox with fake downloads: a wrong checksum installs nothing, an install is idempotent, `--remove` never
+  deletes a folder it did not create, and the hook picks the right variant.
+
+Undo: `icons/install-icons --remove`.
+
+---
+
+Related: [dock/](../dock/README.md) · [menubar/](../menubar/README.md) · [keys/](../keys/README.md) · [themes/](../themes/README.md) · [docs/MAC-FEEL](../docs/MAC-FEEL.md) · [docs/INDEX](../docs/INDEX.md)
+
+
+====================================================================================================
+FILE: dock/README.md  (dock/ scripts)
+====================================================================================================
+
+# dock/: the Dock and the ⌘Tab app switcher
+
+> **TL;DR.** A Mac-style Dock at the bottom of the screen and a ⌘Tab app switcher, in one small Quickshell program started with your session. The Dock
+> has the magnification, the running dots, the bounce while an app launches, a right-click menu and the Downloads and Trash icons. ⌘Tab (Super+Tab) cycles
+> through running apps, most recently used first, and letting go of ⌘ switches. It follows the Omarchy theme's colours and the icon theme. No root; `install-dock --remove` undoes it.
+
+| Command | What |
+|---|---|
+| `install-dock` | copies the program to `~/.local/share/macdock`, creates `~/.config/macdock/dock.json` if missing, adds the Hyprland module `macdock.lua` and starts the Dock |
+| `install-dock --remove` | stops it and removes the program and the module; **your `dock.json` stays** |
+| `quickshell -p ~/.local/share/macdock` | run it by hand in a terminal to see its log (stop the running one first) |
+| `quickshell ipc -p ~/.local/share/macdock call dock toggleAutohide` | hide or show the Dock (also ⌥⌘D, Super+Alt+D) |
+
+## The Dock
+
+| Part | Behaviour |
+|---|---|
+| Pinned apps, then the other running apps after a separator, then Downloads and Trash | the first group is `pinned` in `dock.json` (desktop file ids; ones that are not installed are skipped) |
+| Hover | the icon under the pointer grows (magnification), its neighbours spread, its name shows above it. The grown icon stays under the pointer |
+| Click | focuses the app (its most recently used window), or launches it with a bounce until its window appears; middle click opens a new instance |
+| Right click | the app's windows, its own actions (New Window and so on), **Keep in Dock** / **Remove from Dock**, **Quit** |
+| Dot under an icon | the app has a window (hidden ones too) |
+| Web apps | Omarchy's web apps (WhatsApp, Omarchy Kit, ...) are matched to their launcher, so the pinned icon lights up instead of a second icon appearing |
+| Icons the theme does not have | set on a neutral rounded tile, like macOS does for old-style icons |
+| Trash | full icon when there is something in it; right click: Open, Empty Trash |
+
+`~/.config/macdock/dock.json`: `pinned` (list), `iconSize` (32-96, default 52), `zoom` (1 = no magnification, default 1.6), `autohide` (default false),
+`showTrash` (default true). It is re-read when it changes. With `autohide` the Dock slides away and the windows get its space back (85 px at the default size).
+
+## ⌘Tab and the app shortcuts
+
+| Keys | What | What it replaced |
+|---|---|---|
+| Super+Tab, Super+Shift+Tab | the app switcher, forwards and backwards. Hold Super, press Tab to step, let go to switch. Also: arrows, Return, Esc (cancel), **Q** quits the selected app, **H** hides it | they were *Next / Previous workspace* |
+| Super+Ctrl+Shift+Right, Left | next / previous workspace | (moved here; three- and four-finger swipes and Super+1..9 still work) |
+| ``Super+` `` | the next window of the same app | free |
+| Super+Q | quit the app: closes every window of the focused app (apps that ask about unsaved work still ask) | free |
+| Super+H | hide the app: its windows go to a hidden workspace; clicking it in the Dock or picking it in the switcher brings them back | free |
+| Super+M | hide this one window (the nearest tiling has to "minimise") | free |
+| Super+Alt+D | hide or show the Dock | free |
+
+"Super" is the ⌘ key on this keyboard. With the keyboard remap in [keys/](../keys/README.md) the left ⌘ sends these chords for you.
+
+## What it does not do (yet)
+
+- No drag to reorder or to drag an icon out; reorder by editing `pinned`.
+- No minimised windows in the Dock (hidden ones keep the app's dot), no badges, no live window previews in the switcher.
+- No real blur behind the glass. Hyprland's blur costs GPU time on this laptop's Intel graphics at 2880x1800, so the glass is a tinted, translucent surface (the
+  switcher and menus are nearly opaque so text behind them cannot be read through them). It is a decision to measure before changing, not a missing line.
+- Bottom only (no left or right Dock).
+
+## How it was checked
+
+On the real desktop (screenshots of the real compositor, not a simulation):
+
+- Magnification, names, running dots, extra apps after the separator, autohide on and off (the reserved space went 85 px to 0 and back), light and dark
+  themes (a real round trip through `flexoki-light`).
+- The switcher: opened over three apps, Tab moved the selection, Return switched, and releasing Ctrl or Super committed (key events sent with `wtype` while the
+  switcher had the keyboard).
+- ``Super+` ``, `Super+Q`, hide and restore, on real Files and Obsidian windows, driven through `hyprctl eval`.
+- Web apps: a real Omarchy Kit window lit the pinned icon.
+- `test/test_macdesktop.py`: the installer in a sandbox (files, `dock.json` kept, one require line, clean removal), QML and Lua syntax, and that every QML file is installed.
+
+**Not verified, because it needs a real keyboard or pointer:** pressing the actual Super+Tab chord (Hyprland ignores `wtype`'s virtual keyboard for key binds, and the
+release watcher uses `hl.is_key_down`, which does not see it either), mouse clicks and right-click menus (no pointer injection here), and starting at login
+(`hyprland.start`). The checklist for those is on the Setup log page.
+
+## Files
+
+`shell.qml` (entry), `Dock.qml`, `DockIcon.qml`, `ItemMenu.qml`, `Switcher.qml`, `AppIcon.qml`, `Apps.qml` (what is running, pinned and hidden), `Config.qml`
+(`dock.json`), `Theme.qml` (colours from the Omarchy theme), `IconIndex.qml` (which icons the theme has), `macdock.lua` (the Hyprland side), `install-dock`.
+
+Undo: `dock/install-dock --remove`.
+
+---
+
+Related: [icons/](../icons/README.md) · [menubar/](../menubar/README.md) · [keys/](../keys/README.md) · [docs/MAC-FEEL](../docs/MAC-FEEL.md) · [docs/INDEX](../docs/INDEX.md)
+
+
+====================================================================================================
+FILE: menubar/README.md  (menubar/ scripts)
+====================================================================================================
+
+# menubar/: the Mac menu bar
+
+> **TL;DR.** Omarchy's top bar rearranged the way macOS lays out its menu bar: a system menu (Apple menu) and the **name of the focused app in bold** at the left, then File, Edit,
+> View, Window and Help menus; the workspaces in the middle; the status icons and the clock at the right. Almost no Wayland app publishes a real menu, so these are the
+> standard Mac menus and each item sends the matching ⌘ shortcut to the focused app. No root; your original bar layout is saved and `--remove` restores it exactly.
+
+| Command | What |
+|---|---|
+| `install-menubar` | adds the "Mac menu bar" widget to the bar, installs `macmenu.lua`, saves your layout, then rearranges the bar |
+| `install-menubar --remove` | restores the saved layout, removes the widget and the module |
+| `omarchy-shell omarchykit.macmenu open edit` | open a menu without the pointer (`apple`, `app`, `file`, `edit`, `view`, `window`, `help`); `close`, `current`, `activate <id>` also exist |
+
+## What you get
+
+| Menu | Items (each does what its ⌘ shortcut does in the focused app) |
+|---|---|
+| Omarchy logo (Apple menu) | About This Mac (the kit's MacBook page), System Settings, Software, Omarchy Menu, Force Quit, Sleep, Restart, Shut Down, Lock Screen, Log Out |
+| App name (bold) | Settings (⌘,), Hide (⌘H), Quit (⌘Q) |
+| File | New Window ⌘N, New Tab ⌘T, Open ⌘O, Close ⌘W, Save ⌘S, Print ⌘P |
+| Edit | Undo ⌘Z, Redo ⇧⌘Z, Cut ⌘X, Copy ⌘C, Paste ⌘V, Select All ⌘A, Find ⌘F, Find Next ⌘G |
+| View | Reload ⌘R, Zoom In, Zoom Out, Actual Size, Enter Full Screen |
+| Window | Float or Tile, Center, Move to Workspace 1 to 5, Next Window of This App, the app's open windows |
+| Help | Omarchy Kit, Keyboard Shortcuts |
+
+Moving across the titles while a menu is open switches menus, as on a Mac. The bar keeps its transparency; the clock keeps its format (`Fri 23 Oct 00:36`).
+
+## The honest part: these are not the app's own menus
+
+A real global menu needs a menu service on the desktop and every app to publish its menu to it. No such service runs on this desktop, and as far as I could find Brave, Chromium
+and Electron apps have no way to publish one on Wayland, so there is nothing real to show for most of the apps in the Dock. What this does instead is the same job at its most useful: the
+menus teach and run the shortcuts. The shortcuts are the common ones, so an app that uses different keys for something (a terminal, a game) can ignore an item. In terminals Copy and
+Paste are translated to the terminal's own keys and Close closes the window.
+
+## What the installer changes in the bar
+
+| Before (Omarchy's default arrangement) | After |
+|---|---|
+| left: Omarchy menu button, workspaces | left: the Mac menu bar widget |
+| centre: indicators, clock, keyboard layout, weather, updates | centre: workspaces |
+| right: tray, network, audio, power, ... | right: the same, plus indicators, updates, weather and keyboard layout, ending with the clock |
+
+Anything else you had in the bar (extra widgets, spacers, custom command modules) keeps its place on the right, before the clock, with its settings. The Omarchy menu button is gone from the
+bar (the Apple menu has an *Omarchy Menu* item and Super+Space still opens it). Your layout before the change is saved in `~/.config/omarchy-kit/menubar-layout-before.json`
+and `shell.json.bak-menubar` is a plain copy of the file; `--remove` puts the layout back exactly.
+
+## Notes
+
+- After the **plugin code** changes (not the layout), restart the shell once: `omarchy restart shell`. Omarchy reloads a placed widget's files but does not rebuild the widget that is already on screen.
+- `⌘Q` and `⌘H` in these menus use the Dock module (`dock/install-dock`); without it those two items do nothing.
+
+## How it was checked
+
+On the real desktop: a screenshot of the new bar, the Edit menu and the Apple menu open (dark and light themes); `File > New Window` opened a second Files window
+and the menu closed (menu to `hyprctl eval` to the app); the window actions (Ctrl+N, Ctrl+W, quit) on real Files windows. `test/test_macdesktop.py`: the layout moves to the Mac order and back
+to the exact original, nothing the user had is lost or duplicated, invalid `shell.json` is never touched, and every item id in the widget has a Lua action.
+**Not verified:** pointer clicks and hover-to-switch (no pointer injection here); they use the same code paths as the tested `open` and `activate` calls.
+
+Undo: `menubar/install-menubar --remove`.
+
+---
+
+Related: [dock/](../dock/README.md) · [icons/](../icons/README.md) · [keys/](../keys/README.md) · [docs/MAC-FEEL](../docs/MAC-FEEL.md) · [docs/INDEX](../docs/INDEX.md)
 
 
 ====================================================================================================
@@ -1951,6 +2335,8 @@ FILE: test/README.md  (Tests)
 | `test_lessons.py` | unit | the learning path: both languages, known check types, answer patterns, menu routes, no privileged commands handed out |
 | `test_docs.py` | unit | the documentation: links resolve, every doc is indexed, `llms.txt` and `llms-full.txt` are complete and current, README counts are true; with `KIT_PRIVATE_NAMES=a,b` also that no document names a private project |
 | `test_store.py`, `test_personal.py` | unit | the store client and your-own-backups library (signed snapshots, rollback, checksums; local matching with sockets blocked) |
+| `test_keyd.py` | unit | the keyboard pieces in `keys/`: the keyd configuration generator, the Hyprland-aware app helper (against fake sockets), `install-keyd` (as fake root in a namespace), `caps-lock`; with `KEYD_BIN` and `KEYD_SRC` also keyd's own checker and the real keyd engine (`keyd-trace.c`) |
+| `test_macdesktop.py` | unit | the Mac look: `icons/install-icons` (wrong checksum installs nothing, idempotent, `--remove` never deletes a folder it did not create), the theme-set hook, `dock/install-dock`, `menubar/install-menubar` (layout moved and restored exactly, bad JSON untouched), and the contracts between the pieces (every QML file installed, every menu item id has a Lua action, `luac` and `qmllint` parse) |
 | `verify-portal.mjs` | browser | all 12 pages, nav, lessons engine, palette, Setup log (including Spanish), skip links, EN/ES, phone width |
 | `verify-keyboard.mjs`, `verify-trackpad.mjs` | browser | the 3D keyboard and trackpad pages |
 | `verify-mackeys.mjs` | real compositor | each ⌘ shortcut through `hyprctl eval`, reported by a scratch Brave window (needs Hyprland) |

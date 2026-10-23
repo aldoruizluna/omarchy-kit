@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "omarchykit.macmenu",
+  "name": "Mac menu bar",
+  "version": "1.0.0",
+  "author": "Omarchy Kit",
+  "description": "Apple menu, the focused app's name and File, Edit, View, Window and Help menus, like the left side of the macOS menu bar",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Mac menu bar",
+    "description": "Apple menu, app name and standard app menus",
+    "category": "Compositor",
+    "allowMultiple": false,
+    "defaultSection": "left"
+  }
+}

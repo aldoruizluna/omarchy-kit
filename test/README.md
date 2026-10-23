@@ -10,6 +10,8 @@
 | `test_lessons.py` | unit | the learning path: both languages, known check types, answer patterns, menu routes, no privileged commands handed out |
 | `test_docs.py` | unit | the documentation: links resolve, every doc is indexed, `llms.txt` and `llms-full.txt` are complete and current, README counts are true; with `KIT_PRIVATE_NAMES=a,b` also that no document names a private project |
 | `test_store.py`, `test_personal.py` | unit | the store client and your-own-backups library (signed snapshots, rollback, checksums; local matching with sockets blocked) |
+| `test_keyd.py` | unit | the keyboard pieces in `keys/`: the keyd configuration generator, the Hyprland-aware app helper (against fake sockets), `install-keyd` (as fake root in a namespace), `caps-lock`; with `KEYD_BIN` and `KEYD_SRC` also keyd's own checker and the real keyd engine (`keyd-trace.c`) |
+| `test_macdesktop.py` | unit | the Mac look: `icons/install-icons` (wrong checksum installs nothing, idempotent, `--remove` never deletes a folder it did not create), the theme-set hook, `dock/install-dock`, `menubar/install-menubar` (layout moved and restored exactly, bad JSON untouched), and the contracts between the pieces (every QML file installed, every menu item id has a Lua action, `luac` and `qmllint` parse) |
 | `verify-portal.mjs` | browser | all 12 pages, nav, lessons engine, palette, Setup log (including Spanish), skip links, EN/ES, phone width |
 | `verify-keyboard.mjs`, `verify-trackpad.mjs` | browser | the 3D keyboard and trackpad pages |
 | `verify-mackeys.mjs` | real compositor | each ⌘ shortcut through `hyprctl eval`, reported by a scratch Brave window (needs Hyprland) |

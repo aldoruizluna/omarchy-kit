@@ -1,0 +1,10 @@
+#!/bin/bash
+# Installed by omarchy-kit/icons/install-icons as ~/.config/omarchy/hooks/theme-set.d/50-mac-icons.
+# Runs after every Omarchy theme change (Omarchy would otherwise put its Yaru icons back) and picks the WhiteSur variant that matches
+# the theme's light or dark mode, the same way Omarchy's own omarchy-theme-set-gnome decides.
+[[ -n ${DBUS_SESSION_BUS_ADDRESS:-} ]] || exit 0
+colors=$HOME/.local/state/omarchy/current/theme/colors.toml
+mode=$(omarchy-theme-color --file "$colors" mode 2>/dev/null || echo dark)
+if [[ $mode == light ]]; then icons=WhiteSur-light; else icons=WhiteSur-dark; fi
+[[ -d ${XDG_DATA_HOME:-$HOME/.local/share}/icons/$icons ]] || exit 0   # not installed (any more): leave Omarchy's choice alone
+gsettings set org.gnome.desktop.interface icon-theme "$icons"

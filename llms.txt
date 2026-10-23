@@ -33,7 +33,10 @@ Source: https://github.com/aldoruizluna/omarchy-kit. Code is MIT; the themes' pa
 ## Feeling like a Mac
 
 - [Mac feel](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/MAC-FEEL.md): accents, command-key shortcuts, gestures, the top row, power profile, what was verified and how to undo it
-- [keys/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/keys/README.md): Mac command-key shortcuts inside apps and the opt-in extras
+- [keys/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/keys/README.md): Mac command-key shortcuts inside apps, the opt-in extras, the keyd layer that makes ⌘ act as Ctrl everywhere, and a real Caps Lock
+- [icons/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/icons/README.md): the WhiteSur icon theme and macOS pointer, kept in step with the light or dark Omarchy theme
+- [dock/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/dock/README.md): the Mac-style Dock and the ⌘Tab app switcher (Quickshell), the keys it binds, what it does not do
+- [menubar/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/menubar/README.md): the Mac menu bar (Apple menu, app name, File Edit View Window Help) and how the bar is rearranged
 - [trackpad/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/trackpad/README.md): three-finger swipe or drag
 - [appearance/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/appearance/README.md): light by day, dark at night
 

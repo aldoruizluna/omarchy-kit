@@ -95,7 +95,10 @@ def themes():
         import subprocess
         cur = subprocess.run(["omarchy-theme-current"], capture_output=True, text=True, timeout=3).stdout.strip()
     except Exception: pass
-    return {"all": sorted(p.name for p in (OMARCHY / "themes").iterdir() if p.is_dir()), "current": cur}
+    # Omarchy's own themes, plus the ones installed for this user (the kit's six live there, and the current theme is often one of them)
+    mine = Path.home() / ".config" / "omarchy" / "themes"
+    names = {p.name for d in (OMARCHY / "themes", mine) if d.is_dir() for p in d.iterdir() if p.is_dir()}
+    return {"all": sorted(names), "current": cur}
 
 
 def build():

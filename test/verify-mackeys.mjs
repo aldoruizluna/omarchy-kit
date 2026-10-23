@@ -3,7 +3,7 @@
 // Needs a running Hyprland session. Usage: node test/verify-mackeys.mjs
 import { launch, checker } from "./cdp.mjs";
 import { spawn, execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -12,6 +12,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const LUA = join(HERE, "..", "keys", "mackeys.lua");
 const PORT = 9336;
 const c = checker("mackeys.lua");
+// The 13 shortcuts mackeys.lua itself declares: other kit modules (the Dock's ⌘Tab, ⌘Q, ⌘H) also carry ⌘ in their descriptions, and are not counted here.
+const OWN = new Set([...readFileSync(LUA, "utf8").matchAll(/\{\s*"SUPER[^"]*",\s*"[^"]*",\s*"[^"]*",\s*"([^"]+)"\s*\}/g)].map(m => m[1]));
 const hypr = (...a) => execFileSync("hyprctl", a, { encoding: "utf8" });
 const lua = (code) => hypr("eval", code);
 const focus = (addr) => hypr("dispatch", `hl.dsp.focus({ window = "address:${addr}" })`);
@@ -54,8 +56,8 @@ try {
 
   console.log("bindings");
   const binds = JSON.parse(hypr("binds", "-j"));
-  const mine = binds.filter(x => (x.description || "").includes("⌘"));
-  c.ok(mine.length === 13, "13 ⌘ shortcuts are bound", String(mine.length));
+  const mine = binds.filter(x => OWN.has(x.description || ""));
+  c.ok(OWN.size === 13 && mine.length === 13, "13 ⌘ shortcuts are bound", `${mine.length} bound of ${OWN.size} declared`);
   const chord = x => x.modmask + ":" + x.key.toUpperCase();
   const seen = new Map(); const dup = [];
   for (const x of binds) { if (x.key === "" || x.mouse) continue; const k = chord(x); if (seen.has(k) && (x.description || "").includes("⌘")) dup.push(`${x.description} vs ${seen.get(k)}`); seen.set(k, x.description); }
@@ -118,7 +120,7 @@ try {
   tag(addr, "-terminal"); await b.sleep(200);
   hypr("reload"); await b.sleep(1200); takeovers = false;
   const restored = JSON.parse(hypr("binds", "-j"));
-  c.ok(restored.filter(x => (x.description || "").includes("⌘")).length === 13 && restored.some(x => x.modmask === 64 && x.key.toUpperCase() === "T" && x.description === "Toggle window floating/tiling"),
+  c.ok(restored.filter(x => OWN.has(x.description || "")).length === 13 && restored.some(x => x.modmask === 64 && x.key.toUpperCase() === "T" && x.description === "Toggle window floating/tiling"),
     "a reload puts everything back (13 Mac shortcuts, Super+T is Omarchy's float toggle again)");
 
   console.log("window-opening shortcuts");

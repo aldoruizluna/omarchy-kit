@@ -1,0 +1,120 @@
+#!/bin/bash
+# Install the Mac-style menu bar for this user; no root needed.
+# Usage: install-menubar [--remove]
+#
+# Adds the "Mac menu bar" widget to Omarchy's bar (Apple menu, the focused app's name in bold, File / Edit / View / Window / Help),
+# the Hyprland module ~/.config/hypr/macmenu.lua that its items call, and rearranges the bar the way macOS does: the menus on the
+# left, the workspaces in the middle, the status icons and the clock on the right. Almost no Wayland app publishes a real menu, so
+# the menus are the standard Mac ones and send the matching ⌘ shortcut to the focused app (menubar/README.md says what works).
+# Your bar layout is saved first and --remove puts it back exactly.
+# Undo: ./install-menubar --remove
+set -euo pipefail
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
+cd "$(dirname "$0")"
+
+CFG=${XDG_CONFIG_HOME:-$HOME/.config}
+HYPR=$CFG/hypr
+SHELLJSON=$CFG/omarchy/shell.json
+PLUGIN_ID=omarchykit.macmenu
+PLUGIN_DIR=$CFG/omarchy/plugins/$PLUGIN_ID
+SAVED=$CFG/omarchy-kit/menubar-layout-before.json
+LINE='require("hypr.macmenu")'
+
+rescan() { command -v omarchy-shell >/dev/null && omarchy-shell shell rescanPlugins >/dev/null 2>&1 || true; }
+
+# Rewrites the bar section of shell.json atomically. $1 = install | remove
+edit_layout() {
+  python3 -I - "$SHELLJSON" "$SAVED" "$PLUGIN_ID" "$1" <<'PY'
+import json, os, sys, tempfile
+path, saved, pid, mode = sys.argv[1:5]
+cfg = json.load(open(path))
+bar = cfg.setdefault("bar", {})
+layout = bar.setdefault("layout", {})
+
+def ident(e): return e.get("id") if isinstance(e, dict) else e
+def take(entries, name):
+    for e in entries:
+        if ident(e) == name: return e
+    return None
+
+if mode == "install":
+    if not os.path.exists(saved):   # only the first run saves, so a re-run never overwrites the original
+        os.makedirs(os.path.dirname(saved), exist_ok=True)
+        json.dump({"layout": layout, "centerAnchor": bar.get("centerAnchor")}, open(saved, "w"), indent=2)
+    everything = [e for sec in ("left", "center", "right") for e in layout.get(sec, [])]
+    find = lambda name: take(everything, name)
+    used = set()
+    def pick(*names):
+        out = []
+        for n in names:
+            e = find(n)
+            if e is not None and n not in used:
+                out.append(e); used.add(n)
+        return out
+    left = [{"id": pid}]
+    center = pick("omarchy.workspaces")
+    right = pick("omarchy.tray", "omarchy.tailscale", "omarchy.agents", "omarchy.indicators", "omarchy.system-update",
+                 "omarchy.weather", "omarchy.keyboard-layout", "omarchy.bluetooth", "omarchy.network", "omarchy.audio",
+                 "omarchy.monitor", "omarchy.power")
+    # whatever else the user had (other widgets, spacers, custom modules) keeps its place on the right, before the clock;
+    # the Omarchy menu button is replaced by the Apple menu
+    for e in everything:
+        n = ident(e)
+        if n in used or n in (pid, "omarchy.menu", "omarchy.clock"): continue
+        right.append(e); used.add(n)
+    clock = find("omarchy.clock")
+    if clock is not None: right.append(clock)
+    layout["left"], layout["center"], layout["right"] = left, center, right
+    bar["centerAnchor"] = "omarchy.workspaces" if center else ""
+else:
+    prev = json.load(open(saved)) if os.path.exists(saved) else None
+    if prev:
+        bar["layout"] = prev["layout"]
+        if prev.get("centerAnchor") is None: bar.pop("centerAnchor", None)
+        else: bar["centerAnchor"] = prev["centerAnchor"]
+    else:
+        for sec in ("left", "center", "right"):
+            layout[sec] = [e for e in layout.get(sec, []) if ident(e) != pid]
+
+fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".shell.json.")
+with os.fdopen(fd, "w") as f: json.dump(cfg, f, indent=2); f.write("\n")
+os.replace(tmp, path)
+PY
+}
+
+if [[ ${1:-} == --remove ]]; then
+  [[ -f $SHELLJSON ]] && edit_layout remove
+  rm -rf -- "${PLUGIN_DIR:?}"
+  if [[ -f $HYPR/hyprland.lua ]] && grep -qF "$LINE" "$HYPR/hyprland.lua"; then
+    grep -vF "$LINE" "$HYPR/hyprland.lua" > "$HYPR/hyprland.lua.tmp" && mv "$HYPR/hyprland.lua.tmp" "$HYPR/hyprland.lua"
+  fi
+  rm -f "$HYPR/macmenu.lua" "$SAVED"
+  rescan
+  command -v hyprctl >/dev/null && hyprctl reload >/dev/null || true
+  echo "removed (the bar layout is back as it was)"; exit 0
+fi
+
+[[ -f $SHELLJSON ]] || { echo "no $SHELLJSON: start Omarchy's shell once first" >&2; exit 1; }
+[[ -f $HYPR/macdock.lua ]] || echo "note: the ⌘Q / ⌘\` actions need the dock module (dock/install-dock); the other items work without it" >&2
+python3 -I -c 'import json,sys; json.load(open(sys.argv[1]))' "$SHELLJSON" || { echo "$SHELLJSON is not valid JSON; not touching it" >&2; exit 1; }
+
+[[ -f $SHELLJSON.bak-menubar ]] || cp "$SHELLJSON" "$SHELLJSON.bak-menubar"
+rm -rf -- "${PLUGIN_DIR:?}"
+mkdir -p "$PLUGIN_DIR"
+install -m644 plugin/manifest.json plugin/BarWidget.qml "$PLUGIN_DIR/"
+omarchy plugin validate "$PLUGIN_DIR" >/dev/null
+rescan
+
+[[ -f $HYPR/hyprland.lua.bak-macmenu ]] || cp "$HYPR/hyprland.lua" "$HYPR/hyprland.lua.bak-macmenu"
+install -Dm644 macmenu.lua "$HYPR/macmenu.lua"
+if ! grep -qF "$LINE" "$HYPR/hyprland.lua"; then
+  sed -i "/^require(\"hypr.gpu\")/a $LINE  -- Mac menu bar actions (omarchy-kit/menubar)" "$HYPR/hyprland.lua"
+  grep -qF "$LINE" "$HYPR/hyprland.lua" || { echo "could not add the require line to hyprland.lua" >&2; exit 1; }
+fi
+hyprctl reload >/dev/null
+sleep 1
+errs=$(hyprctl configerrors)
+[[ -z $errs ]] || { echo "Hyprland reported config errors:"; echo "$errs"; exit 1; }
+
+edit_layout install
+echo "installed: the menu bar is in place (Apple menu, app name, File Edit View Window Help)"

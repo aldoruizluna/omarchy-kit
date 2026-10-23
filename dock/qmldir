@@ -1,0 +1,9 @@
+singleton Theme 1.0 Theme.qml
+singleton Config 1.0 Config.qml
+singleton Apps 1.0 Apps.qml
+AppIcon 1.0 AppIcon.qml
+DockIcon 1.0 DockIcon.qml
+Dock 1.0 Dock.qml
+Switcher 1.0 Switcher.qml
+ItemMenu 1.0 ItemMenu.qml
+singleton IconIndex 1.0 IconIndex.qml

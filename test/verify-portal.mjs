@@ -132,7 +132,7 @@ try {
   await b.eval(`document.querySelector('[data-tab=gloss]').click()`);
   c.ok(await b.eval(`document.querySelectorAll('.gl dt').length===Portal.data.glossary.length`), "every glossary term is listed", await b.eval(`document.querySelectorAll('.gl dt').length+' of '+Portal.data.glossary.length`));
   await b.eval(`document.querySelector('[data-tab=themes]').click()`);
-  c.ok(await b.eval(`document.querySelectorAll('.theme').length===22&&document.querySelectorAll('.theme.cur').length===1`), "22 themes, current one highlighted");
+  c.ok(await b.eval(`document.querySelectorAll('.theme').length>=22&&document.querySelectorAll('.theme.cur').length===1`), "at least the 22 stock themes (plus any installed ones), current one highlighted");
   await b.eval(`document.querySelector('[data-tab=menu]').click()`); await b.shot(`${OUT}/06-reference.png`);
 
   console.log("phone width + light theme");

@@ -1,0 +1,99 @@
+#!/bin/bash
+# Install a macOS-style icon theme (WhiteSur) and cursor (macOS) for this user; no root needed.
+# Usage: install-icons [--remove]
+#
+# Downloads two pinned open-source releases and refuses to continue if a checksum differs:
+#   WhiteSur icon theme, tag 2026-09-10 (GPL-3.0, github.com/vinceliuice/WhiteSur-icon-theme), the closest free relative of the macOS icon style
+#   macOS cursors v2.0.1 (GPL-3.0, github.com/ful1e5/apple_cursor), an open-source re-drawing of the macOS pointer set
+# Nothing from either project is stored in this repository; it is fetched when you run this.
+#
+# It installs into ~/.local/share/icons (WhiteSur, WhiteSur-light, WhiteSur-dark, macOS, macOS-White), a theme-set hook
+# (~/.config/omarchy/hooks/theme-set.d/50-mac-icons) that picks the light or dark icons to match the Omarchy theme every time the
+# theme changes, and ~/.config/hypr/maccursor.lua (the cursor, from the next login on; it is also applied to the running session).
+# Omarchy's own icon colour (Yaru) is replaced while this is installed and comes back with --remove.
+# Undo: ./install-icons --remove      (deletes only what this script put there, then re-applies the current theme's own icons)
+set -euo pipefail
+case "${1:-}" in "" | --remove) ;; -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0") [--remove]   (--help for details)" >&2; exit 2 ;; esac
+cd "$(dirname "$0")"
+
+WS_URL=https://github.com/vinceliuice/WhiteSur-icon-theme/archive/2026-09-10.tar.gz
+WS_SHA256=406c9cd59705583f1754b0eaca96cc48bafda042b88ef143f16d8ae1820ecd95
+CUR_URL=https://github.com/ful1e5/apple_cursor/releases/download/v2.0.1/macOS.tar.xz
+CUR_SHA512=3a826df8164cc8b8e924fa95cc726bd746bdbb9d18bfc3d4ae3b125bc81e6f251a8d4bde283601c074bb4b3ad6e3e23c59bc1de49270548d1d2702a00fd54e78
+
+CFG=${XDG_CONFIG_HOME:-$HOME/.config}
+ICONS=${XDG_DATA_HOME:-$HOME/.local/share}/icons
+HYPR=$CFG/hypr
+HOOKS=$CFG/omarchy/hooks/theme-set.d
+MARK=$ICONS/.omarchy-kit-mac-icons          # lists the directories this script installed, one per line
+LINE='require("hypr.maccursor")'
+DIRS=(WhiteSur WhiteSur-light WhiteSur-dark macOS macOS-White)
+
+reapply() {   # put the icon theme right for the current Omarchy theme (the hook is gone after --remove, so ask Omarchy itself)
+  if [[ -x $HOOKS/50-mac-icons ]]; then "$HOOKS/50-mac-icons" || true
+  else omarchy-theme-set-gnome 2>/dev/null || true; fi
+}
+
+if [[ ${1:-} == --remove ]]; then
+  rm -f "$HOOKS/50-mac-icons" "$HYPR/maccursor.lua"
+  if [[ -f $HYPR/hyprland.lua ]] && grep -qF "$LINE" "$HYPR/hyprland.lua"; then
+    grep -vF "$LINE" "$HYPR/hyprland.lua" > "$HYPR/hyprland.lua.tmp" && mv "$HYPR/hyprland.lua.tmp" "$HYPR/hyprland.lua"
+  fi
+  if [[ -f $MARK ]]; then
+    while IFS= read -r d; do
+      case "$d" in WhiteSur | WhiteSur-light | WhiteSur-dark | macOS | macOS-White) rm -rf -- "${ICONS:?}/$d" ;; esac
+    done < "$MARK"
+    rm -f "$MARK"
+  fi
+  command -v gsettings >/dev/null && gsettings reset org.gnome.desktop.interface cursor-theme || true
+  command -v hyprctl >/dev/null && { hyprctl reload >/dev/null || true; hyprctl setcursor default 24 >/dev/null 2>&1 || true; }
+  reapply
+  echo "removed"; exit 0
+fi
+
+# Never overwrite a directory this script did not create.
+for d in "${DIRS[@]}"; do
+  if [[ -e $ICONS/$d ]] && ! grep -qxF "$d" "$MARK" 2>/dev/null; then
+    echo "refusing: $ICONS/$d already exists and was not installed by this script" >&2; exit 1
+  fi
+done
+
+CACHE=${XDG_CACHE_HOME:-$HOME/.cache}
+mkdir -p "$CACHE"
+tmp=$(mktemp -d "$CACHE/omarchy-kit-icons.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/ws" "$tmp/cur" "$ICONS"
+
+echo "downloading WhiteSur 2026-09-10 ..."
+curl -fsSL --proto '=https' -o "$tmp/ws/ws.tar.gz" "$WS_URL"
+echo "$WS_SHA256  $tmp/ws/ws.tar.gz" | sha256sum -c --status || { echo "WhiteSur checksum mismatch; nothing was installed" >&2; exit 1; }
+echo "downloading macOS cursors v2.0.1 ..."
+curl -fsSL --proto '=https' -o "$tmp/cur/macOS.tar.xz" "$CUR_URL"
+echo "$CUR_SHA512  $tmp/cur/macOS.tar.xz" | sha512sum -c --status || { echo "cursor checksum mismatch; nothing was installed" >&2; exit 1; }
+
+tar -xzf "$tmp/ws/ws.tar.gz" -C "$tmp/ws"
+tar -xJf "$tmp/cur/macOS.tar.xz" -C "$tmp/cur"
+src=$(find "$tmp/ws" -maxdepth 1 -type d -name 'WhiteSur-icon-theme-*' | head -n1)
+[[ -x $src/install.sh && -d $tmp/cur/macOS && -d $tmp/cur/macOS-White ]] || { echo "unexpected archive layout; nothing was installed" >&2; exit 1; }
+
+# The marker is written first so a half-finished run can still be removed.
+printf '%s\n' "${DIRS[@]}" > "$MARK"
+# WhiteSur's installer only copies inside the directory given with -d (it removes only its own WhiteSur*/ folders there).
+(cd "$src" && ./install.sh -d "$ICONS" -t default >/dev/null)
+rm -rf "${ICONS:?}/macOS" "${ICONS:?}/macOS-White"
+cp -r "$tmp/cur/macOS" "$tmp/cur/macOS-White" "$ICONS/"
+for d in "${DIRS[@]}"; do [[ -d $ICONS/$d ]] || { echo "missing $ICONS/$d after install" >&2; exit 1; }; done
+
+install -Dm755 mac-icons-hook "$HOOKS/50-mac-icons"
+[[ -f $HYPR/hyprland.lua.bak-maccursor ]] || cp "$HYPR/hyprland.lua" "$HYPR/hyprland.lua.bak-maccursor"
+install -Dm644 maccursor.lua "$HYPR/maccursor.lua"
+if ! grep -qF "$LINE" "$HYPR/hyprland.lua"; then
+  sed -i "/^require(\"hypr.gpu\")/a $LINE  -- macOS cursor (omarchy-kit/icons)" "$HYPR/hyprland.lua"
+  grep -qF "$LINE" "$HYPR/hyprland.lua" || { echo "could not add the require line to hyprland.lua" >&2; exit 1; }
+fi
+
+"$HOOKS/50-mac-icons"
+hyprctl reload >/dev/null; sleep 1
+errs=$(hyprctl configerrors)
+[[ -z $errs ]] || { echo "Hyprland reported config errors:"; echo "$errs"; exit 1; }
+echo "installed: icons $(gsettings get org.gnome.desktop.interface icon-theme), cursor $(gsettings get org.gnome.desktop.interface cursor-theme)"
