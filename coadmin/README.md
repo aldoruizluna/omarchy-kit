@@ -33,7 +33,8 @@ Every path in a copied text file that named your home now names the new home (ch
 - **Tested** (`test/test_coadmin.py`, 36 tests): the installer as fake root with fakes for `useradd` and friends against a fixture home that holds both mirrored and forbidden files: refusals, the dry run, the groups, the mode of the home, the allowlist and denylist both ways, path rewriting, enablement links,
   `--remove` only for accounts it created, and the first-login helper against fakes (it refuses a clone address that is not GitHub and a theme name with shell characters).
 - **Rehearsed on the real home** as fake root, writing to a scratch folder: 160 MB, home mode 700, no reference to the owner's home left, no secret-looking file, the sleep-lock override absent, enablement links correct, in 2 seconds.
-- **Not verified:** a real run (`useradd`, `passwd` and a real login need root and a second person). After it, the Setup log's account check (wheel, home mode 700) and `id`, `ls -ld` and a login tell the rest. One thing to know: the kit's portal listens on one port, so the second account's copy cannot start while the first is logged in.
+- **A real run (2026-10-23), checked afterwards:** the account is in `wheel` and its own group, the home is owned by it, mode 700 and unreadable from the other account, the owner's sudo rules file is exactly `ALL=(ALL) ALL` so the rights are identical, the password is marked must-change, and the mirrored folders are in place; the other
+  folders in the new home come from Omarchy's own skeleton (`/etc/skel`), not from the allowlist. **Not yet verified:** the first login itself, which needs the other person to log in. One thing to know: the kit's portal listens on one port, so the second account's copy cannot start while the first is logged in.
 
 Undo: `sudo coadmin/install-coadmin --remove --user NAME`.
 
