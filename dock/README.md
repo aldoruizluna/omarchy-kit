@@ -1,7 +1,8 @@
 # dock/: the Dock, the ⌘Tab app switcher and Mission Control
 
 > **TL;DR.** A Mac-style Dock at the bottom of the screen and a ⌘Tab app switcher, in one small Quickshell program started with your session. The Dock
-> has the magnification, the running dots, the bounce while an app launches, a right-click menu and the Downloads and Trash icons. ⌘Tab (Super+Tab) cycles
+> has the magnification, the running dots (a lighter one for an app that runs with no window), drag to reorder, the bounce while an app launches, a right-click menu and the Downloads and Trash icons, and
+> **hot corners** (off until you choose). ⌘Tab (Super+Tab) cycles
 > through running apps, most recently used first, and letting go of ⌘ switches. F3 (the Mission Control key), Super+Ctrl+Up or four fingers up open **Mission Control**: every
 > space across the top and the windows of the selected one, as real pictures of them, below. It follows the Omarchy theme's colours and the icon theme. No root; `install-dock --remove` undoes it.
 
@@ -11,6 +12,7 @@
 | `install-dock --remove` | stops it and removes the program and the module; **your `dock.json` stays** |
 | `quickshell -p ~/.local/share/macdock` | run it by hand in a terminal to see its log (stop the running one first) |
 | `quickshell ipc -p ~/.local/share/macdock call dock toggleAutohide` | hide or show the Dock (also ⌥⌘D, Super+Alt+D) |
+| `hot-corners` | show or set what the four screen corners do (see Hot corners below); `hot-corners off` turns them all off |
 
 ## The Dock
 
@@ -20,13 +22,30 @@
 | Hover | the icon under the pointer grows (magnification), its neighbours spread, its name shows above it. The grown icon stays under the pointer |
 | Click | focuses the app (its most recently used window), or launches it with a bounce until its window appears; middle click opens a new instance |
 | Right click | the app's windows, its own actions (New Window and so on), **Keep in Dock** / **Remove from Dock**, **Quit** |
-| Dot under an icon | the app has a window (hidden ones too) |
+| Dot under an icon | the app has a window (hidden ones too). A **lighter dot** means the app runs with no window (closed to the tray, a service): the Dock reads the process list every four seconds (about 3 ms of work each) and an app counts when a process has the name of the program in its launcher. Launchers that start something else (`sh`, `flatpak`, web apps) never count, because their process is not the app's |
+| Drag a pinned icon | **sideways** to reorder (it is dropped before or after the pinned app nearest to where you let go); **pulled well above the Dock** and released, it is taken off the Dock, as on a Mac. The click that ends a drag does not launch anything |
 | Web apps | Omarchy's web apps (WhatsApp, Omarchy Kit, ...) are matched to their launcher, so the pinned icon lights up instead of a second icon appearing |
 | Icons the theme does not have | set on a neutral rounded tile, like macOS does for old-style icons |
 | Trash | full icon when there is something in it; right click: Open, Empty Trash |
 
 `~/.config/macdock/dock.json`: `pinned` (list), `iconSize` (32-96, default 52), `zoom` (1 = no magnification, default 1.6), `autohide` (default false),
-`showTrash` (default true). It is re-read when it changes. With `autohide` the Dock slides away and the windows get its space back (85 px at the default size).
+`showTrash` (default true), `hotCorners` (see below), `hotCornerDelay`. It is re-read when it changes. With `autohide` the Dock slides away and the windows get its space back (85 px at the default size).
+
+## Hot corners
+
+Rest the pointer in a screen corner for a moment (350 ms by default) and something happens. **They ship off**: a brush of the pointer should never start anything.
+
+```bash
+dock/hot-corners                                   # show the four corners
+dock/hot-corners bottom-right quicknote            # a new note, named by the minute, in ~/Documents/Quick Notes (opened in Omawrite)
+dock/hot-corners top-left missioncontrol           # Mission Control; the other actions: appexpose  apps  lock  notifications
+dock/hot-corners delay 500                         # how long the pointer must rest (100 to 2000 ms)
+dock/hot-corners off                               # all four off
+```
+
+Each active corner is a 3-pixel transparent surface that waits for the pointer to enter it; nothing polls the pointer, and a corner set to `none` has no surface at all (with all four off there are none). It fires once per
+visit: a full-screen overlay such as Mission Control takes the pointer away from the corner surface, and when it closes with the pointer still parked there the surface would see a fresh "enter" and fire
+again, so after a trigger the corner asks Hyprland where the pointer is (`hyprctl cursorpos`, a few times a second) until it has moved away. A Quick Note you never write leaves no empty file behind.
 
 ## ⌘Tab and the app shortcuts
 
@@ -69,7 +88,8 @@ on the primary screen; on several monitors it covers the one it opens on and lis
 
 ## What it does not do (yet)
 
-- No drag to reorder or to drag an icon out; reorder by editing `pinned`.
+- Dragging reorders only the pinned apps (an icon cannot be dragged onto the Dock to pin it, and the others do not slide aside while you drag: the icon follows the pointer and the order changes when you let go).
+- No stacks, no recent-apps section.
 - No minimised windows in the Dock (hidden ones keep the app's dot), no badges, no live window previews in the switcher.
 - Mission Control cannot drag a window onto another space's card, has no animation from the real window to its card (it fades in), and shows the picture of the window as it was when it
   opened. A window that cannot be captured shows its app icon on a dark card instead (none failed in the tests).
@@ -92,9 +112,13 @@ On the real desktop (screenshots of the real compositor, not a simulation):
   re-flowed the cards; **+** went to workspace 4; App Exposé listed the two Files windows from two spaces; the layout function is run in `node` by the tests (proportions kept, nothing
   overlaps or leaves the screen, up to eleven windows).
 - Web apps: a real Omarchy Kit window lit the pinned icon.
+- The lighter dot: a stand-in process named like a pinned app's program made the Dock show it (`dock describe` over IPC said `obsidian:b`, a screenshot showed the dim dot next to the terminal's full one) and dropped it again within seconds of the process ending.
+- Hot corners, with the real pointer (moved with Hyprland's own cursor dispatcher): nothing at 0.12 s, Mission Control open at 0.62 s; a 0.1 s brush did nothing; closing it with the pointer still parked did **not** reopen it (before the latch it did, which is how that bug was found); leaving, waiting and returning fired it again;
+  Quick Note opened Omawrite on a new file, and closing it unwritten removed the file. The 3 px surface appears at the corner (`hyprctl layers`) only for a corner that has an action.
+- Drag to reorder: the move itself (before/after, no-op cases, one save) is run in node by the tests.
 - `test/test_macdesktop.py`: the installer in a sandbox (files, `dock.json` kept, one require line, clean removal), QML and Lua syntax, and that every QML file is installed.
 
-**Not verified, because it needs a real keyboard or pointer:** pressing the actual F3, Super+Ctrl+Up, Super+Ctrl+Down and Super+Tab chords, the real four-finger swipe (the swipe handler runs the same
+**Not verified, because it needs a real keyboard or pointer:** the drag gesture itself (holding an icon and moving the pointer: no button events can be injected here), a hand-made trip into a corner, pressing the actual F3, Super+Ctrl+Up, Super+Ctrl+Down and Super+Tab chords, the real four-finger swipe (the swipe handler runs the same
 global shortcut as F3, which was tested; the gesture itself was not), hovering to show the close button and clicking cards (the same code runs through the tested IPC calls), Mission Control in a light theme
 (it uses the same theme colours as the Dock), pressing the actual Super+Tab chord (Hyprland ignores `wtype`'s virtual keyboard for key binds, and the
 release watcher uses `hl.is_key_down`, which does not see it either), mouse clicks and right-click menus (no pointer injection here), and starting at login
@@ -102,7 +126,7 @@ release watcher uses `hl.is_key_down`, which does not see it either), mouse clic
 
 ## Files
 
-`shell.qml` (entry), `Dock.qml`, `DockIcon.qml`, `ItemMenu.qml`, `Switcher.qml`, `MissionControl.qml`, `AppIcon.qml`, `Apps.qml` (what is running, pinned and hidden), `Config.qml`
+`shell.qml` (entry), `Dock.qml`, `DockIcon.qml`, `ItemMenu.qml`, `Switcher.qml`, `MissionControl.qml`, `HotCorners.qml`, `hot-corners` (the command), `AppIcon.qml`, `Apps.qml` (what is running, pinned and hidden), `Config.qml`
 (`dock.json`), `Theme.qml` (colours from the Omarchy theme), `IconIndex.qml` (which icons the theme has), `macdock.lua` (the Hyprland side), `install-dock`.
 
 Undo: `dock/install-dock --remove`.

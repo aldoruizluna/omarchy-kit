@@ -11,6 +11,8 @@ What is covered:
   menubar/install-menubar the bar layout moves to the Mac order, the original is saved and restored exactly, bad JSON is never touched
   mission control         the overlay's binds, shortcuts and IPC agree, nothing is captured live, and its layout function (run in node)
                           keeps every window's proportions, fits the screen and never overlaps
+  dock/hot-corners        choosing a corner's action: other keys kept, bad JSON untouched, bad arguments refused, nothing left behind
+  dock polish             the Dock's own functions run in node: which program name `ps` shows for an app, and the drag-to-reorder move
   contracts               every QML file the dock needs is installed; every item id in the menu widget has a Lua action; Lua and QML parse
 """
 import hashlib, io, json, os, pathlib, re, shutil, stat, subprocess, sys, tarfile, tempfile, textwrap, unittest
@@ -271,6 +273,8 @@ class InstallDock(Sandbox):
         conf = json.loads((self.cfg / "macdock" / "dock.json").read_text())
         self.assertIn("org.gnome.Nautilus", conf["pinned"])
         self.assertIs(conf["autohide"], False)
+        self.assertEqual(set(conf["hotCorners"]), {"topLeft", "topRight", "bottomLeft", "bottomRight"})
+        self.assertEqual(set(conf["hotCorners"].values()), {"none"}, "hot corners ship off: a brush of the pointer must never start anything")
         self.assertTrue((self.hypr / "hyprland.lua.bak-macdock").exists())
         self.assertTrue(any(c.startswith("quickshell -n -p") for c in calls(self.fb)))
 
@@ -573,6 +577,186 @@ class MissionControl(unittest.TestCase):
             "\nprocess.stdout.write(JSON.stringify(t));")
         r = run([node, "-e", code])
         self.assertEqual(json.loads(r.stdout), [True, True, False, False, False])
+
+
+# ======================================================================================================================
+# dock/hot-corners, and the Dock's own functions
+# ======================================================================================================================
+class HotCornersTool(Sandbox):
+    def setUp(self):
+        super().setUp()
+        self.json = self.tmp / "dock.json"
+        self.json.write_text(json.dumps({"pinned": ["a", "b"], "iconSize": 60, "autohide": True}, indent=2) + "\n")
+        self.tool = KIT / "dock" / "hot-corners"
+
+    def go(self, *args):
+        return run([sys.executable, "-I", str(self.tool), *args], env={"PATH": SAFE_PATH, "HOME": str(self.home), "MACDOCK_JSON": str(self.json)})
+
+    def conf(self):
+        return json.loads(self.json.read_text())
+
+    def test_it_is_executable_and_help_prints_the_usage_and_changes_nothing(self):
+        self.assertTrue(os.access(self.tool, os.X_OK))
+        before = self.json.read_text()
+        r = self.go("--help")
+        self.assertEqual(r.returncode, 0)
+        for word in ("bottom-right", "quicknote", "missioncontrol", "hot-corners off"):
+            self.assertIn(word, r.stdout)
+        self.assertEqual(self.json.read_text(), before)
+
+    def test_unknown_arguments_exit_2_and_change_nothing(self):
+        before = self.json.read_text()
+        for args in (["bogus"], ["top-left"], ["top-left", "bogus"], ["nowhere", "apps"], ["top-left", "apps", "x"], ["delay"], ["delay", "x"],
+                     ["delay", "99"], ["delay", "2001"], ["delay", "-5"], ["off", "now"], ["--nope"]):
+            with self.subTest(args=args):
+                self.assertEqual(self.go(*args).returncode, 2)
+                self.assertEqual(self.json.read_text(), before)
+
+    def test_showing_needs_no_change_and_defaults_to_off(self):
+        r = self.go()
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual([l.split()[1] for l in r.stdout.splitlines()[:4]], ["none"] * 4)
+        self.assertIn("350 ms", r.stdout)
+
+    def test_setting_a_corner_keeps_every_other_key_and_doing_it_twice_changes_nothing_more(self):
+        r = self.go("bottom-right", "quicknote")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        c = self.conf()
+        self.assertEqual(c["hotCorners"], {"topLeft": "none", "topRight": "none", "bottomLeft": "none", "bottomRight": "quicknote"})
+        self.assertEqual((c["pinned"], c["iconSize"], c["autohide"]), (["a", "b"], 60, True))
+        once = self.json.read_text()
+        self.go("bottom-right", "quicknote")
+        self.assertEqual(self.json.read_text(), once)
+        self.go("top-left", "missioncontrol")
+        self.assertEqual(self.conf()["hotCorners"]["bottomRight"], "quicknote", "one corner does not undo another")
+        self.assertIn("bottom-right  quicknote", self.go().stdout)
+
+    def test_every_action_is_accepted_and_off_turns_all_four_off(self):
+        for action in ("none", "missioncontrol", "appexpose", "apps", "quicknote", "lock", "notifications"):
+            self.assertEqual(self.go("top-right", action).returncode, 0, action)
+            self.assertEqual(self.conf()["hotCorners"]["topRight"], action)
+        for corner in ("top-left", "top-right", "bottom-left", "bottom-right"):
+            self.go(corner, "apps")
+        self.assertEqual(self.go("off").returncode, 0)
+        self.assertEqual(set(self.conf()["hotCorners"].values()), {"none"})
+        self.assertEqual(self.conf()["pinned"], ["a", "b"])
+
+    def test_the_delay_is_stored_as_a_number(self):
+        self.assertEqual(self.go("delay", "500").returncode, 0)
+        self.assertEqual(self.conf()["hotCornerDelay"], 500)
+        self.assertEqual(self.go("delay", "100").returncode, 0)
+        self.assertEqual(self.go("delay", "2000").returncode, 0)
+
+    def test_a_missing_or_broken_dock_json_is_never_created_or_overwritten(self):
+        self.json.unlink()
+        r = self.go("top-left", "apps")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("install-dock", r.stderr)
+        self.assertFalse(self.json.exists())
+        for text in ("{not json", "[1, 2]", ""):
+            self.json.write_text(text)
+            r = self.go("top-left", "apps")
+            self.assertEqual((r.returncode, self.json.read_text()), (1, text), text)
+
+    def test_no_temporary_file_is_left_behind_and_the_file_ends_with_a_newline(self):
+        self.go("bottom-left", "lock")
+        self.assertEqual(sorted(p.name for p in self.tmp.iterdir() if p.name.startswith("dock")), ["dock.json"])
+        self.assertTrue(self.json.read_text().endswith("\n"))
+
+    def test_an_unknown_action_already_in_the_file_is_shown_as_none(self):
+        self.json.write_text(json.dumps({"hotCorners": {"topLeft": "format-the-disk", "bottomRight": "apps"}}))
+        lines = self.go().stdout.splitlines()
+        self.assertEqual((lines[0].split()[1], lines[3].split()[1]), ("none", "apps"))
+
+
+class DockPolish(unittest.TestCase):
+    """The Dock's own JavaScript (in Apps.qml and Config.qml), taken out of the QML text and run in node."""
+    APPS = (KIT / "dock" / "Apps.qml").read_text()
+    CONFIG = (KIT / "dock" / "Config.qml").read_text()
+
+    def node(self, code):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not installed")
+        r = run([node, "-e", code])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return json.loads(r.stdout)
+
+    def wrappers(self):
+        return re.search(r"readonly property var wrappers: (\(\{.*?\}\))", self.APPS, re.S).group(1)
+
+    def process_names(self, commands, procs=()):
+        code = (f"const root = {{ wrappers: {self.wrappers()}, procs: {json.dumps({p: True for p in procs})} }};\n" +
+                js_function(self.APPS, "processName") + "\n" + js_function(self.APPS, "inBackground") + "\n" +
+                f"process.stdout.write(JSON.stringify({json.dumps(commands)}.map(c => [processName({{ command: c }}), inBackground({{ command: c }})])));")
+        return self.node(code)
+
+    def test_the_process_name_is_the_first_word_of_the_launcher_cut_to_what_the_kernel_keeps(self):
+        got = self.process_names([["/usr/bin/obsidian", "--no-sandbox"], ["env", "A=1", "B=2", "telegram-desktop"], ["Telegram"], []])
+        self.assertEqual([g[0] for g in got], ["obsidian", "telegram-deskto", "Telegram", ""])
+
+    def test_launchers_that_start_something_else_answer_cannot_tell(self):
+        got = self.process_names([["sh", "-c", "x"], ["uwsm-app", "--", "foo"], ["flatpak", "run", "org.x.App"], ["omarchy-launch-webapp", "https://x.y"], ["xdg-terminal-exec", "nvim"]])
+        self.assertEqual([g[0] for g in got], [""] * 5)
+
+    def test_an_app_is_in_the_background_when_a_process_has_its_name(self):
+        got = self.process_names([["/usr/bin/obsidian"], ["signal-desktop"], ["sh", "-c", "obsidian"]], procs=["obsidian"])
+        self.assertEqual([g[1] for g in got], [True, False, False], "a wrapper never matches, and an app that is not running does not")
+
+    def test_the_dock_only_asks_apps_without_windows(self):
+        self.assertRegex(self.APPS, r"background: !run && inBackground\(e\)")
+
+    def moves(self, pinned, id_, target, after):
+        code = ("const root = { pinned: " + json.dumps(pinned) + " }; let saved = 0; const save = () => { saved++ };\n" +
+                js_function(self.CONFIG, "moveTo") + "\n" +
+                f"const r = moveTo({json.dumps(id_)}, {json.dumps(target)}, {json.dumps(after)});\n"
+                "process.stdout.write(JSON.stringify({ r, pinned: root.pinned, saved }));")
+        return self.node(code)
+
+    def test_dragging_puts_an_icon_before_or_after_another_and_saves_once(self):
+        abcd = ["a", "b", "c", "d"]
+        self.assertEqual(self.moves(abcd, "d", "a", False), {"r": True, "pinned": ["d", "a", "b", "c"], "saved": 1})
+        self.assertEqual(self.moves(abcd, "a", "c", True), {"r": True, "pinned": ["b", "c", "a", "d"], "saved": 1})
+        self.assertEqual(self.moves(abcd, "b", "d", False), {"r": True, "pinned": ["a", "c", "b", "d"], "saved": 1})
+
+    def test_dropping_where_it_already_is_or_on_nothing_changes_and_saves_nothing(self):
+        abcd = ["a", "b", "c", "d"]
+        for args in (("b", "a", True), ("a", "a", False), ("a", "b", False), ("zz", "a", False), ("a", "zz", False)):
+            with self.subTest(args=args):
+                self.assertEqual(self.moves(abcd, *args), {"r": False, "pinned": abcd, "saved": 0})
+
+
+class HotCornersContracts(unittest.TestCase):
+    QML = (KIT / "dock" / "HotCorners.qml").read_text()
+    CONFIG = (KIT / "dock" / "Config.qml").read_text()
+    TOOL = (KIT / "dock" / "hot-corners").read_text()
+
+    def test_the_actions_the_qml_runs_the_config_accepts_and_the_tool_offers_are_the_same_list(self):
+        run_cases = set(re.findall(r'case "(\w+)":', self.QML))
+        config = set(re.findall(r'"(\w+)"', re.search(r"cornerActions: (\[[^\]]*\])", self.CONFIG).group(1)))
+        tool = set(re.findall(r'"(\w+)"', re.search(r"ACTIONS = (\[[^\]]*\])", self.TOOL).group(1)))
+        self.assertEqual(config - {"none"}, run_cases)
+        self.assertEqual(tool, config)
+
+    def test_the_corner_names_agree(self):
+        config = set(re.findall(r'"(\w+)"', re.search(r"cornerNames: (\[[^\]]*\])", self.CONFIG).group(1)))
+        tool = set(re.findall(r'"(\w+)": "none"', re.search(r"DEFAULT = (\{[^\}]*\})", self.TOOL).group(1)))
+        self.assertEqual(config, tool)
+        self.assertEqual(len(config), 4)
+
+    def test_a_corner_that_is_off_has_no_surface_and_the_surface_has_a_layer_rule(self):
+        self.assertIn('!== "none"', self.QML)
+        self.assertIn('WlrLayershell.namespace: "machotcorner"', self.QML)
+        self.assertIn("machotcorner", (KIT / "dock" / "macdock.lua").read_text())
+
+    def test_it_is_instantiated_once_and_every_file_ships(self):
+        self.assertEqual((KIT / "dock" / "shell.qml").read_text().count("HotCorners {}"), 1)
+        self.assertIn("HotCorners.qml", (KIT / "dock" / "install-dock").read_text())
+        self.assertRegex((KIT / "dock" / "qmldir").read_text(), r"HotCorners 1\.0 HotCorners\.qml")
+
+    def test_one_trigger_per_visit_the_corner_latches_until_the_pointer_has_left(self):
+        for needle in ("property bool latched", "spot.latched = true", "hyprctl", "cursorpos"):
+            self.assertIn(needle, self.QML)
 
 
 # ======================================================================================================================

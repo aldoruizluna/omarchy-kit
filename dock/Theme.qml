@@ -22,6 +22,7 @@ Singleton {
   readonly property color highlight: Qt.rgba(foreground.r, foreground.g, foreground.b, dark ? 0.14 : 0.10)
   readonly property color label: foreground
   readonly property color dot: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.85)
+  readonly property color dotBackground: Qt.rgba(foreground.r, foreground.g, foreground.b, 0.38)   // an app that runs with no window
 
   function parse(text) {
     var out = {}

@@ -15,7 +15,7 @@ CFG=${XDG_CONFIG_HOME:-$HOME/.config}
 SHARE=${XDG_DATA_HOME:-$HOME/.local/share}/macdock
 HYPR=$CFG/hypr
 LINE='require("hypr.macdock")'
-FILES=(shell.qml qmldir Theme.qml Config.qml Apps.qml IconIndex.qml AppIcon.qml DockIcon.qml ItemMenu.qml Dock.qml Switcher.qml MissionControl.qml)
+FILES=(shell.qml qmldir Theme.qml Config.qml Apps.qml IconIndex.qml AppIcon.qml DockIcon.qml ItemMenu.qml Dock.qml Switcher.qml MissionControl.qml HotCorners.qml)
 
 stop_dock() {   # stop only the Quickshell that runs this program (not Omarchy's own shell)
   local p a
@@ -48,7 +48,9 @@ for f in "${FILES[@]}"; do install -m644 "$f" "$SHARE/$f"; done
   "iconSize": 52,
   "zoom": 1.6,
   "autohide": false,
-  "showTrash": true
+  "showTrash": true,
+  "hotCorners": { "topLeft": "none", "topRight": "none", "bottomLeft": "none", "bottomRight": "none" },
+  "hotCornerDelay": 350
 }
 JSON
 

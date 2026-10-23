@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+"""hot-corners: choose what happens when the pointer rests in a screen corner. No root; standard library only.
+
+  hot-corners                       show the four corners and the delay
+  hot-corners CORNER ACTION         for example:  hot-corners bottom-right quicknote
+  hot-corners off                   turn all four corners off (the way they ship)
+  hot-corners delay MS              how long the pointer must rest in the corner, 100 to 2000 ms (350 by default)
+
+  CORNER  top-left  top-right  bottom-left  bottom-right
+  ACTION  none  missioncontrol  appexpose  apps  quicknote  lock  notifications
+
+quicknote opens a new Markdown note, named by the minute, in ~/Documents/Quick Notes (in Omawrite, or the default editor); a note you never
+write leaves no empty file. It edits "hotCorners" in ~/.config/macdock/dock.json, which the Dock watches, so a change applies at once.
+Undo: hot-corners off
+"""
+import json
+import os
+import sys
+
+CORNERS = {"top-left": "topLeft", "top-right": "topRight", "bottom-left": "bottomLeft", "bottom-right": "bottomRight"}
+ACTIONS = ["none", "missioncontrol", "appexpose", "apps", "quicknote", "lock", "notifications"]
+DEFAULT = {"topLeft": "none", "topRight": "none", "bottomLeft": "none", "bottomRight": "none"}
+
+
+def path():
+    return os.environ.get("MACDOCK_JSON") or os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "macdock", "dock.json")
+
+
+def usage(code):
+    print(__doc__.strip(), file=sys.stderr if code else sys.stdout)
+    sys.exit(code)
+
+
+def load():
+    p = path()
+    try:
+        with open(p, encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        print(f"hot-corners: {p} does not exist; run dock/install-dock first", file=sys.stderr)
+        sys.exit(1)
+    except (OSError, ValueError) as e:
+        print(f"hot-corners: cannot read {p}: {e}", file=sys.stderr)
+        sys.exit(1)
+    if not isinstance(data, dict):
+        print(f"hot-corners: {p} is not a JSON object; nothing was changed", file=sys.stderr)
+        sys.exit(1)
+    return data
+
+
+def save(data):
+    p = path()
+    tmp = p + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+    os.replace(tmp, p)   # the Dock reloads on the file change; a rename is never seen half-written
+
+
+def corners(data):
+    have = data.get("hotCorners") if isinstance(data.get("hotCorners"), dict) else {}
+    return {k: (have.get(k) if have.get(k) in ACTIONS else DEFAULT[k]) for k in DEFAULT}
+
+
+def show(data):
+    c = corners(data)
+    for name, key in CORNERS.items():
+        print(f"{name:<13} {c[key]}")
+    print(f"{'delay':<13} {data.get('hotCornerDelay', 350)} ms")
+
+
+def main(argv):
+    if argv in (["-h"], ["--help"]):
+        usage(0)
+    if not argv:
+        show(load())
+    elif argv == ["off"]:
+        data = load()
+        data["hotCorners"] = dict(DEFAULT)
+        save(data)
+        show(data)
+    elif len(argv) == 2 and argv[0] == "delay":
+        if not argv[1].isdigit() or not 100 <= int(argv[1]) <= 2000:
+            print("hot-corners: the delay is a number of milliseconds, 100 to 2000", file=sys.stderr)
+            sys.exit(2)
+        data = load()
+        data["hotCornerDelay"] = int(argv[1])
+        save(data)
+        show(data)
+    elif len(argv) == 2 and argv[0] in CORNERS and argv[1] in ACTIONS:
+        data = load()
+        c = corners(data)
+        c[CORNERS[argv[0]]] = argv[1]
+        data["hotCorners"] = c
+        save(data)
+        show(data)
+    else:
+        usage(2)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

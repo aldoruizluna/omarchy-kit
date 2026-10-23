@@ -42,12 +42,14 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 | Control Center (multi-page, resizable, Controls Gallery) | separate popups for Wi-Fi, Bluetooth, sound, display and power instead of one panel | not done |
 | Battery icon redesigned, no percentage by default | Omarchy's battery icon, percentage on right-click | not done |
 | Dock: dot under running apps, magnification, Downloads, Trash, auto-hide, right-click menu | all of it | done |
-| Dock: lighter dot for apps running only in the background, stacks, recent apps, left and right positions, drag to reorder | not built | not done |
+| Dock: lighter dot for apps running only in the background | built: an app with no window but a live process of its launcher's name gets a dimmer dot (the process list is read every 4 s) | done |
+| Dock: stacks, recent apps, left and right positions | not built | not done |
+| Dock: drag to reorder, drag out to remove | built: sideways reorders the pinned apps, pulled well above the Dock takes the icon off; the logic is tested, the gesture itself needs a real pointer (see dock/README) | partial |
 | Cmd+Tab switcher, Cmd+\` between windows of an app | built, with Q to quit and H to hide the selected app | done |
 | Mission Control with a Spaces bar and window previews, App Exposé | built (real window pictures taken when it opens, never live); F3, Super+Ctrl+Up, four fingers up; Super+Ctrl+Down for App Exposé | done |
 | Spotlight on Cmd+Space: apps, files, actions, clipboard history (Cmd+1 to 4) | the Apps menu (⌘Space through the keyboard layer) lists and launches apps; the clipboard manager is a separate shortcut; no Files, Actions or Clipboard views | partial |
 | Launchpad is gone, Apps replaces it | F4 and a four-finger pinch open the Apps menu | done |
-| Hot corners (bottom right: Quick Note) | not built | not done |
+| Hot corners (bottom right: Quick Note) | built, **off until you choose** (`dock/hot-corners bottom-right quicknote`): Mission Control, App Exposé, Apps, Quick Note, lock or notifications after a 350 ms rest; fires once per visit; tested with the real pointer | done |
 | Stage Manager, Fill & Arrange tiling menus | the desktop already tiles; Stage Manager is not built | not done |
 | Notification banners top right, Notification Center from the clock | rounded banners top right, the calendar from the clock, notification history on a shortcut; no widget panel | partial |
 | Lock screen with a large clock and an avatar | the lock card is styled by the theme (rounded, translucent); no large clock or avatar | partial |
@@ -93,7 +95,8 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 2. **Press the real keys once** (⌘Tab, F3, F4, Super+Q in the switcher, a log out and in): the tests could send neither the chords nor mouse clicks.
 3. **Decide on blur** (`look/mac-glass on`): the real Liquid Glass look costs the GPU time measured above.
 4. Pick a theme: `omarchy theme set "Golden Gate"` or `"Golden Gate Night"`; `omarchy theme set "Mecha Unit"` returns.
-5. Not built and possible: a Control Center panel, hot corners, Spotlight's Clipboard and Actions views, system sounds, Control-A/E/K text keys, the background-app dot in the Dock.
+5. Not built and possible: a Control Center panel, Spotlight's Clipboard and Actions views, system sounds, Control-A/E/K text keys, Dock stacks.
+6. Turn a hot corner on if you want one: `dock/hot-corners bottom-right quicknote` (they ship off).
 
 ## How this was checked, and by whom
 

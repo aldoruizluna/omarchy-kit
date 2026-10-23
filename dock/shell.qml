@@ -5,4 +5,5 @@ ShellRoot {
   Dock {}
   Switcher {}
   MissionControl {}
+  HotCorners {}
 }

@@ -114,6 +114,7 @@ PanelWindow {
         spacing: 0
 
         Repeater {
+          id: rep
           model: ScriptModel { values: win.layout; objectProp: "key" }
           delegate: DockIcon {
             required property int index
@@ -122,10 +123,31 @@ PanelWindow {
             magnify: win.scales[index] || 1
             onClicked: function (it, button) { win.handleClick(it, button) }
             onMenuRequested: function (it, anchorItem) { win.openMenu(it, anchorItem) }
+            onDragFinished: function (it, dx, dy) { win.finishDrag(it, dx, dy) }
           }
         }
       }
     }
+  }
+
+  // A pinned icon was dragged by (dx, dy). Pulled well above the dock it is taken off (as on a Mac); sideways it is dropped before or
+  // after the pinned app whose middle is nearest to where it was let go.
+  function finishDrag(it, dx, dy) {
+    if (dy < -(win.pillH + 60)) { Config.unpin(it.key); return }
+    var me = -1, i
+    for (i = 0; i < win.layout.length; i++) if (win.layout[i].key === it.key) me = i
+    var mine = me >= 0 ? rep.itemAt(me) : null
+    if (!mine) return
+    var cx = mine.x + mine.width / 2 + dx, best = -1, bestDist = 1e9
+    for (i = 0; i < win.layout.length; i++) {
+      var other = win.layout[i], el = rep.itemAt(i)
+      if (!el || i === me || other.kind !== "app" || !other.pinned) continue
+      var d = Math.abs(cx - (el.x + el.width / 2))
+      if (d < bestDist) { bestDist = d; best = i }
+    }
+    if (best < 0) return
+    var target = rep.itemAt(best)
+    Config.moveTo(it.key, win.layout[best].key, cx > target.x + target.width / 2)
   }
 
   function handleClick(it, button) {
@@ -184,5 +206,18 @@ PanelWindow {
     target: "dock"
     function toggleAutohide(): void { Config.toggleAutohide() }
     function reveal(): void { revealHold.restart() }
+    // ---- for tests and the Setup log: what the dock shows, as "key:dots" in order (dots: window count, "b" = background, "-" = not running)
+    function describe(): string {
+      var out = []
+      for (var i = 0; i < win.layout.length; i++) {
+        var it = win.layout[i]
+        if (it.kind === "separator") { out.push("|"); continue }
+        var dots = it.windows && it.windows.length ? String(it.windows.length) : (it.background ? "b" : "-")
+        out.push(it.key + ":" + dots)
+      }
+      return out.join(" ")
+    }
+    function pinned(): string { return Config.pinned.join(",") }
+    function moveTo(id: string, target: string, after: bool): bool { return Config.moveTo(id, target, after) }
   }
 }

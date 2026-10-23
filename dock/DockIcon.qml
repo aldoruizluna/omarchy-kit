@@ -11,13 +11,22 @@ Item {
 
   signal clicked(var item, int button)
   signal menuRequested(var item, var anchorItem)
+  signal dragFinished(var item, real dx, real dy)   // the pointer moved by (dx, dy) while this pinned icon was held
 
   readonly property bool isSeparator: item.kind === "separator"
   readonly property bool running: !isSeparator && item.windows && item.windows.length > 0
+  readonly property bool background: !isSeparator && !running && item.background === true   // runs with no window: a lighter dot
+  readonly property bool canDrag: !isSeparator && item.kind === "app" && item.pinned === true
   readonly property real iconW: baseSize * magnify
 
   property bool launching: false
   property bool hovered: false
+  property bool dragging: false
+  property real dragDx: 0
+  property real dragDy: 0
+
+  z: dragging ? 100 : 0
+  transform: Translate { x: root.dragging ? root.dragDx : 0; y: root.dragging ? Math.min(0, root.dragDy) * 0.6 : 0 }   // follows the pointer; rises only gently when pulled up
 
   width: isSeparator ? 14 : iconW + 6
   height: baseSize
@@ -72,13 +81,13 @@ Item {
     }
   }
 
-  // Running indicator.
+  // Running indicator: a full dot while the app has a window, a lighter one while it only runs in the background.
   Rectangle {
-    visible: root.running
+    visible: root.running || root.background
     width: 4
     height: 4
     radius: 2
-    color: Theme.dot
+    color: root.running ? Theme.dot : Theme.dotBackground
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.top: parent.bottom
     anchors.topMargin: 2
@@ -108,10 +117,35 @@ Item {
     visible: !root.isSeparator
     hoverEnabled: true
     acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
-    cursorShape: Qt.PointingHandCursor
-    onEntered: root.hovered = true
+    cursorShape: root.dragging ? Qt.ClosedHandCursor : Qt.PointingHandCursor
+    preventStealing: root.dragging
+
+    // Drag to reorder (pinned apps only). Positions are measured in the window, because the icon itself moves while it is dragged.
+    property real pressX: 0
+    property real pressY: 0
+    property bool moved: false
+    onPressed: function (mouse) {
+      var p = mapToItem(null, mouse.x, mouse.y)
+      pressX = p.x; pressY = p.y; moved = false
+    }
+    onPositionChanged: function (mouse) {
+      if (!pressed || !root.canDrag || !(mouse.buttons & Qt.LeftButton)) return
+      var p = mapToItem(null, mouse.x, mouse.y)
+      var dx = p.x - pressX, dy = p.y - pressY
+      if (!root.dragging && Math.abs(dx) + Math.abs(dy) < 12) return
+      root.dragging = true; moved = true; root.hovered = false
+      root.dragDx = dx; root.dragDy = dy
+    }
+    onReleased: function (mouse) {
+      if (!root.dragging) return
+      var dx = root.dragDx, dy = root.dragDy
+      root.dragging = false; root.dragDx = 0; root.dragDy = 0
+      root.dragFinished(root.item, dx, dy)
+    }
+    onEntered: if (!root.dragging) root.hovered = true
     onExited: root.hovered = false
     onClicked: function (mouse) {
+      if (moved) { moved = false; return }          // the click that ends a drag is not a click
       if (mouse.button === Qt.RightButton) {
         root.hovered = false
         root.menuRequested(root.item, root)

@@ -1,6 +1,7 @@
 pragma Singleton
 import QtQuick
 import Quickshell
+import Quickshell.Io
 import Quickshell.Wayland
 
 // What is running and what is pinned, grouped by application. The dock and the switcher both read this.
@@ -81,6 +82,48 @@ Singleton {
     return { groups: groups, order: order }
   }
 
+  // Apps that run with no window (closed to the tray, a service in the background): the Dock shows them with a lighter dot. There is no
+  // window to ask, so the process list is read every few seconds and an app counts when a process carries the name of its launcher.
+  property var procs: ({})
+
+  Process {
+    id: psProbe
+    command: ["ps", "-eo", "comm="]
+    stdout: StdioCollector {
+      onStreamFinished: {
+        var names = {}, lines = text.split("\n")
+        for (var i = 0; i < lines.length; i++) if (lines[i].length) names[lines[i].trim()] = true
+        root.procs = names
+      }
+    }
+  }
+  Timer { interval: 4000; running: true; repeat: true; triggeredOnStart: true; onTriggered: psProbe.running = true }
+
+  // The launchers that start something else: the process to look for is not theirs, so these answer "cannot tell".
+  readonly property var wrappers: ({ "sh": 1, "bash": 1, "uwsm-app": 1, "flatpak": 1, "gtk-launch": 1, "setsid": 1, "nohup": 1, "xdg-terminal-exec": 1,
+                                     "omarchy-launch-webapp": 1, "omarchy-launch-or-focus": 1, "omarchy-launch-tui": 1, "omarchy-launch-browser": 1 })
+
+  // The name `ps` shows for an entry's program: the first word of its Exec line (past `env VAR=x`), cut to the 15 characters the kernel keeps.
+  function processName(entry) {
+    var cmd = entry && entry.command ? entry.command : []
+    var i = 0
+    while (i < cmd.length) {
+      var base = String(cmd[i]).split("/").pop()
+      if (base === "env") {
+        i++
+        while (i < cmd.length && (String(cmd[i]).indexOf("=") > 0 || String(cmd[i]).charAt(0) === "-")) i++
+        continue
+      }
+      return root.wrappers[base] ? "" : base.slice(0, 15)
+    }
+    return ""
+  }
+
+  function inBackground(entry) {
+    var n = processName(entry)
+    return n !== "" && root.procs[n] === true
+  }
+
   // Dock items: pinned first (in the order of dock.json), then the other running apps.
   function dockItems(tops, pinned) {
     var g = group(tops)
@@ -89,7 +132,7 @@ Singleton {
       var e = DesktopEntries.byId(pinned[i])
       if (!e) continue
       var run = g.groups[e.id]
-      items.push({ key: e.id, kind: "app", entry: e, name: e.name, icon: e.icon, pinned: true, windows: run ? run.windows : [] })
+      items.push({ key: e.id, kind: "app", entry: e, name: e.name, icon: e.icon, pinned: true, windows: run ? run.windows : [], background: !run && inBackground(e) })
       delete g.groups[e.id]
     }
     var extras = []
