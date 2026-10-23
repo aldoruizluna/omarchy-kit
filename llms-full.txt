@@ -319,7 +319,7 @@ Omarchy Kit is a bilingual (English / Spanish) learning portal and a set of reve
 | `*.template.html`, `kit.js`, `kit.css`, `portal*.js`, `portal.css` | the pages and shared browser code |
 | `portal_lessons.py`, `portal_content.py` | the learning path (6 levels), Mac habits, glossary, hardware cards |
 | `build_setup.py` | the Setup log: live `checks()`, and the records of every change with its undo |
-| `sleep/`, `power/`, `themes/`, `gpu/`, `audio/`, `keys/`, `icons/`, `dock/`, `menubar/`, `look/`, `coadmin/`, `trackpad/`, `appearance/`, `backup/`, `boot/`, `games/` | scripts that change the machine; each folder has a README |
+| `sleep/`, `power/`, `themes/`, `gpu/`, `audio/`, `keys/`, `icons/`, `dock/`, `menubar/`, `look/`, `coadmin/`, `login/`, `trackpad/`, `appearance/`, `backup/`, `boot/`, `games/` | scripts that change the machine; each folder has a README |
 | `test/` | `run-all`, hermetic Python tests, browser suites; see [test/README.md](test/README.md) |
 | `docs/` | the documentation; [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how it fits together |
 
@@ -422,7 +422,7 @@ Related: [README](../README.md) · [ARCHITECTURE](ARCHITECTURE.md) · [DEVELOPIN
 | [GLOSSARY](GLOSSARY.md) | reference | one definition per term, with links | any unfamiliar term |
 | [DUMPING-GUIDE](DUMPING-GUIDE.md) | how-to | dumping your own games, tool per console | retro library |
 | [GAME-STORE-ROADMAP](GAME-STORE-ROADMAP.md) | design | the signed-catalog store: what is built, what is planned | store work |
-| folder READMEs: [sleep](../sleep/README.md), [power](../power/README.md), [themes](../themes/README.md), [gpu](../gpu/README.md), [audio](../audio/README.md), [keys](../keys/README.md), [icons](../icons/README.md), [dock](../dock/README.md), [menubar](../menubar/README.md), [look](../look/README.md), [coadmin](../coadmin/README.md), [trackpad](../trackpad/README.md), [appearance](../appearance/README.md), [backup](../backup/README.md), [boot](../boot/README.md), [games](../games/README.md), [test](../test/README.md) | reference | what each folder's scripts do, how to use and undo them, how they are checked | working in that folder |
+| folder READMEs: [sleep](../sleep/README.md), [power](../power/README.md), [themes](../themes/README.md), [gpu](../gpu/README.md), [audio](../audio/README.md), [keys](../keys/README.md), [icons](../icons/README.md), [dock](../dock/README.md), [menubar](../menubar/README.md), [look](../look/README.md), [coadmin](../coadmin/README.md), [login](../login/README.md), [trackpad](../trackpad/README.md), [appearance](../appearance/README.md), [backup](../backup/README.md), [boot](../boot/README.md), [games](../games/README.md), [test](../test/README.md) | reference | what each folder's scripts do, how to use and undo them, how they are checked | working in that folder |
 | `themes/*/THEME.md` | explanation | one theme's palette rationale, contrast table, credits | that theme |
 | [llms.txt](../llms.txt), [llms-full.txt](../llms-full.txt) | machine index | the documentation for language models: an index and a single-file copy | tools |
 
@@ -601,6 +601,7 @@ Each topic folder has its own README; all installers share one contract.
 | `audio/` | speaker EQ and the headphone watcher | [audio/README.md](../audio/README.md) |
 | `keys/`, `trackpad/` | Mac ⌘ shortcuts (Hyprland binds, or the keyd layer that makes ⌘ act as Ctrl), a real Caps Lock, three-finger behaviour | [keys/README.md](../keys/README.md), [trackpad/README.md](../trackpad/README.md) |
 | `coadmin/` | a second administrator with the same privileges and a mirror of the settings (an allowlist, never credentials) | [coadmin/README.md](../coadmin/README.md) |
+| `login/` | a login screen that lists every account and auto-login that is really off (SDDM reads every file in its config folder) | [login/README.md](../login/README.md) |
 | `icons/`, `dock/`, `menubar/`, `look/` | Mac icons and pointer; the Dock and ⌘Tab switcher (a separate Quickshell program); the Mac menu bar (a bar widget plugin); the UI font, window buttons and glass switch | [icons/README.md](../icons/README.md), [dock/README.md](../dock/README.md), [menubar/README.md](../menubar/README.md), [look/README.md](../look/README.md) |
 | `appearance/` | light by day, dark at night | [appearance/README.md](../appearance/README.md) |
 | `backup/`, `boot/` | snapshots and Pika Backup, a faster themed boot | [backup/README.md](../backup/README.md), [boot/README.md](../boot/README.md) |
@@ -1484,7 +1485,7 @@ they are missed.
 had **matched and grabbed the Apple trackpad** (`bcm5974`) although the config used the keyboard-only `k:` id; keyd warned that mouse movement was likely to break, and pointer behaviour was not tested before the removal. Both ⌘ keys are Super again and nothing of the layer remains
 (the `keyd` package is still installed, disabled, with no configuration). Lesson: the daemon's device matching could only be tested with fakes before the install.
 
-**The redesign (prepared the same day, not installed).** Both ⌘ keys are one layer. The keyboard is listed by its full keyd id (`05ac:0262:f2d1f5c2` here): the keyboard and trackpad share vendor and product but not the hash, and keyd matches an id as a prefix, so the trackpad cannot match. The hash is keyd's own,
+**The redesign (installed the same day).** Both ⌘ keys are one layer. The keyboard is listed by its full keyd id (`05ac:0262:f2d1f5c2` here): the keyboard and trackpad share vendor and product but not the hash, and keyd matches an id as a prefix, so the trackpad cannot match. The hash is keyd's own,
 recomputed in Python from `/proc/bus/input/devices` and checked against the ids keyd logged for seven devices on this laptop (including both Apple devices). After starting keyd the installer reads its journal and takes everything back if keyd grabbed anything but that keyboard. You chose **no general Super**: neither ⌘ key starts
 Omarchy's Super shortcuts, which are reached through Mac chords instead (⌃←/→ and ⌃1…0 for Spaces, ⌃↑/↓ for Mission Control and App Exposé, ⌃⌥ with the arrows to focus a window, ⌥⌘Space for Omarchy's menu, ⇧⌘Q for the system menu, ⌥⌘W to close a window); [keys/README](../keys/README.md) lists what that costs.
 
@@ -1562,7 +1563,7 @@ FILE: keys/README.md  (keys/ scripts)
 > the Mac's Control chords switch Spaces, and a terminal never receives ⌘ as Ctrl+letter. No key is Super any more: Omarchy's own Super shortcuts are reached through those Mac chords
 > and Option+⌘+Space (its menu). `caps-lock` makes Caps Lock a real Caps Lock. If the keyboard ever misbehaves under keyd, press **Backspace + Escape + Enter** together and keyd quits.
 
-> **Status (2026-10-23): the first `install-keyd` was tried and removed; this is its redesign, prepared and not yet installed.** The first version made the left ⌘ act as Ctrl while the right ⌘ stayed Super,
+> **Status (2026-10-23): the first `install-keyd` was tried and removed; this is its redesign, installed the same day.** The first version made the left ⌘ act as Ctrl while the right ⌘ stayed Super,
 > which the owner rejected (both ⌘ keys must behave alike, as the two Ctrl keys do), and keyd's log showed it had matched and **grabbed the Apple trackpad** (`bcm5974`) despite the keyboard-only `k:` id.
 > The redesign: both ⌘ keys are the same layer; the keyboard is listed by its **full id** (`vendor:product:hash`, computed the way keyd computes it and checked against the ids keyd logged on this laptop),
 > which the trackpad cannot match; and after starting keyd the installer **reads keyd's journal and takes everything back** if keyd grabbed anything but that keyboard. `caps-lock` and `mackeys.lua` are unaffected and in use.
@@ -1625,7 +1626,8 @@ These ⌘ chords are Mac *system* chords, so they go to Hyprland as **Super chor
 | Esc while the switcher is up | Super+Alt+Escape (never Super+Esc, which is Omarchy's system menu) | cancels the switcher |
 | ⇧⌘3 / ⇧⌘4 / ⇧⌘5 | Shift+Print / Print / Super+Ctrl+C | `dock/macdock.lua` binds Shift+Print; Print is the screenshot; the capture menu |
 | ⌃⌘Q / ⌃⌘Space / ⌃⌘F | Super+Ctrl+L / Super+Ctrl+E / Super+F | lock, emoji picker, full screen |
-| ⌘W / ⌘N in a terminal | Super+W / Super+Return | close window / new terminal |
+| ⌘Enter | Super+Return | open a terminal, in any app (physical Ctrl+Enter still reaches the app) |
+| ⌘W / ⌘N / ⌘T in a terminal | Super+W / Super+Return / Super+Return | close window / new terminal / new terminal (a terminal has no tabs). In any other app ⌘W and ⌘T are plain Ctrl+W and Ctrl+T: close tab, new tab |
 
 And the Mac's **Control** chords, which Spaces and Mission Control use (they replace Ctrl+arrow and Ctrl+digit for everything, as on a Mac; ⌃⇧ with the arrows is untouched, so selecting by word with Ctrl still works):
 
@@ -1655,15 +1657,15 @@ Ctrl+letter. keyd's own `keyd-application-mapper` speaks X, Sway and GNOME but n
 compositor whether the focused window carries Omarchy's `terminal` tag (so a terminal added to Omarchy's rule works here too), and applies one of two overlays with `keyd bind`:
 
 - **app:** ⌘C = Ctrl+C, ⌘V = Ctrl+V (a file manager does not take Ctrl+Insert). A launcher, a menu or no window at all counts as an app.
-- **terminal:** ⌘C = Ctrl+Insert, ⌘V = Shift+Insert, ⇧⌘C / ⇧⌘V = Ctrl+Shift+C / V, ⌘K clears, ⌘W closes the window, ⌘N opens a terminal, ⌘. = Ctrl+C (as in Terminal and iTerm),
-  ⌥⌫ = Alt+Backspace, and ⌘A ⌘B ⌘D ⌘E ⌘F ⌘G ⌘I ⌘J ⌘O ⌘P ⌘R ⌘S ⌘T ⌘U ⌘X ⌘Y ⌘Z do nothing. Physical Ctrl still sends every one of them, the way a Mac's Control does.
+- **terminal:** ⌘C = Ctrl+Insert, ⌘V = Shift+Insert, ⇧⌘C / ⇧⌘V = Ctrl+Shift+C / V, ⌘K clears, ⌘W closes the window, ⌘N and ⌘T open a terminal, ⌘. = Ctrl+C (as in Terminal and iTerm),
+  ⌥⌫ = Alt+Backspace, and ⌘A ⌘B ⌘D ⌘E ⌘F ⌘G ⌘I ⌘J ⌘O ⌘P ⌘R ⌘S ⌘U ⌘X ⌘Y ⌘Z do nothing. Physical Ctrl still sends every one of them, the way a Mac's Control does.
 
 **It fails closed.** If the service is down, keyd falls back to its static configuration, which is the terminal-safe one: ⌘C and ⌘V are Ctrl+Insert and Shift+Insert, which GTK, Chromium and
 every Omarchy terminal accept (a file manager may ignore them: copy then does nothing, which is a nuisance and not a danger). The remaining Ctrl+letter chords (⌘D, ⌘Z) would reach a shell
 until the service is back; systemd restarts it after 2 seconds.
 
 **Why a root service and not the `keyd` group.** `keyd bind` needs the keyd socket. A user in the `keyd` group can make keyd run commands as root, so the group is root-equivalent for everything
-in the session (a browser tab included). The service runs as root instead, with only the two capabilities it needs to read the session's sockets, no network, no home directories and a
+in the session (a browser tab included). The service runs as root instead, with only the two capabilities it needs to read the session's sockets, no network, no /home or /root (but it can see the session's runtime directory, which `ProtectHome=yes` would also hide and which it needs) and a
 read-only file system; it takes its bindings from a root-owned file, and from the focused window it uses a single bit: terminal or not. It refuses sockets that are symlinks or not
 owned by the session's user.
 
@@ -1693,7 +1695,7 @@ The installer starts keyd, reads its journal and prints `keyd grabbed exactly: <
 
 - Written for an ANSI keyboard: the `` ` `` key is the one left of the 1 key. An ISO keyboard needs `102nd` bound as well.
 - ⌘← and ⌘→ are Home and End, which on a web page scroll to the top and the bottom; a Mac's browsers use them for back and forward (use ⌘[ and ⌘]).
-- `sudo keyd reload` drops the overlays until the focus next changes (the installer restarts the service, so this only matters if you reload by hand).
+- Do not run `sudo keyd reload`: keyd 2.6.0 frees its keyboards on reload but keeps a pointer to one, and the daemon crashes (SIGSEGV) a second or two later (it happened on 2026-10-23, after the first install over a running keyd). The installer restarts keyd instead; restart it by hand with `sudo systemctl restart keyd`. While keyd is down the keyboard is stock (⌘ is Super).
 - Only the physical Apple keyboards are remapped. Typing through fcitx5 or a virtual keyboard (wtype) is not.
 - The id's hash depends on the device name and its key count. If a kernel update changes either, keyd stops matching the keyboard (⌘ is Super again, which is safe) and the Setup log row says the id no longer fits; run `install-keyd` again.
 - Hyprland sees ⌘ as Ctrl, so a Hyprland bind on plain Ctrl+key also fires on ⌘+key. Omarchy's own Ctrl-only binds are few (the capture selection's Ctrl+Return and Ctrl+Tab, Ctrl+Alt+Tab for monitors).
@@ -1798,7 +1800,7 @@ FILE: dock/README.md  (dock/ scripts)
 | Part | Behaviour |
 |---|---|
 | Pinned apps, then the other running apps after a separator, then Downloads and Trash | the first group is `pinned` in `dock.json` (desktop file ids; ones that are not installed are skipped) |
-| Hover | the icon under the pointer grows (magnification), its neighbours spread, its name shows above it. The grown icon stays under the pointer |
+| Hover | the icon under the pointer grows (magnification), its neighbours spread, its name shows above it. The grown icon stays under the pointer. The dock reacts only when the pointer is ON it (the pill and the strip under it down to the screen edge): a few pixels away, beside it or above it, does nothing. Once you are on it the area grows upward to cover the grown icons (about 40 px above the pill) and the magnification ends when you leave that |
 | Click | focuses the app (its most recently used window), or launches it with a bounce until its window appears; middle click opens a new instance |
 | Right click | the app's windows, its own actions (New Window and so on), **Keep in Dock** / **Remove from Dock**, **Quit** |
 | Dot under an icon | the app has a window (hidden ones too). A **lighter dot** means the app runs with no window (closed to the tray, a service): the Dock reads the process names (`/proc/*/comm`, about 4 ms) every eight seconds and a second after a window opens or closes and an app counts when a process has the name of the program in its launcher. Launchers that start something else (`sh`, `flatpak`, web apps) never count, because their process is not the app's |
@@ -2162,10 +2164,10 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 | F1 and F2 brightness, F5 and F6 keyboard backlight, F7 to F9 media, F10 to F12 mute and volume | bound by Omarchy; brightness and backlight move in 5 % and 10 % steps, not the 16 steps of a Mac | done |
 | F3 Mission Control, F4 Launchpad | F3 opens Mission Control, F4 the Apps menu (both did nothing before; checked as bound, not with a real press) | done |
 | Eject key | this model most likely has none (Apple's spec lists 78 keys and names no Eject); Omarchy binds `XF86Eject` anyway | n/a |
-| Command is the shortcut key; Option and Control as on a Mac | ⌘ shortcuts through Hyprland binds, the same on both ⌘ keys. A keyd layer that makes ⌘ act as Ctrl in every app (⌘-click, ⌘-scroll, every shortcut) was **tried on 2026-10-23 and removed** (it made the left and right ⌘ differ and grabbed the trackpad) and has been **redesigned: both ⌘ keys identical, the keyboard matched by its full id, no key left as Super, the installer undoing itself if keyd grabs anything else. Prepared, not installed** | partial |
-| Command and Option arrows move to line start, word | in the redesigned keyd layer (⌘←/→ Home/End, ⌥←/→ words, ⌘⌫ to line start); not installed | not done |
+| Command is the shortcut key; Option and Control as on a Mac | ⌘ shortcuts through Hyprland binds, the same on both ⌘ keys. A keyd layer that makes ⌘ act as Ctrl in every app (⌘-click, ⌘-scroll, every shortcut) was **tried on 2026-10-23 and removed** (it made the left and right ⌘ differ and grabbed the trackpad) and has been **redesigned: both ⌘ keys identical, the keyboard matched by its full id, no key left as Super, the installer undoing itself if keyd grabs anything else. Installed 2026-10-23; real-key feel not yet checked** | partial |
+| Command and Option arrows move to line start, word | in the redesigned keyd layer (⌘←/→ Home/End, ⌥←/→ words, ⌘⌫ to line start); installed 2026-10-23, not checked on real keys | not done |
 | Control-A, E, K, F, B, P, N as text-editing keys in every field | not built | not done |
-| Caps Lock needs a deliberate press and lights up after | a real Caps Lock now (Compose removed); the press delay (150 ms) is in the redesigned keyd layer, not installed | partial |
+| Caps Lock needs a deliberate press and lights up after | a real Caps Lock now (Compose removed); the press delay (150 ms) is in the redesigned keyd layer, installed 2026-10-23, not checked on real keys | partial |
 | Fn+Return is Enter, Fn+Delete forward delete, Fn+arrows Home, End, Page Up and Down | the kernel table maps Fn+Return to Insert; the others are expected from `hid_apple` and not checked | not done |
 | Holding a letter opens the accent picker | no general equivalent; right Option types accents instead | impossible |
 | Key repeat | Omarchy's fast repeat (40 per second after 250 ms) is kept; a Mac's slower default is a taste, not a fix | not done |
@@ -2259,6 +2261,58 @@ Undo: `sudo coadmin/install-coadmin --remove --user NAME`.
 ---
 
 Related: [keys/](../keys/README.md) · [dock/](../dock/README.md) · [look/](../look/README.md) · [docs/MAC-FEEL](../docs/MAC-FEEL.md) · [docs/INDEX](../docs/INDEX.md)
+
+
+====================================================================================================
+FILE: login/README.md  (login/ scripts)
+====================================================================================================
+
+# login/: a login screen that lists the accounts, and auto-login that is really off
+
+> **TL;DR.** `install-login` makes the computer start at a login screen that **lists every account** (Left / Right / Tab or a click to choose, the last user first), and turns
+> auto-login **really** off. The two things that were wrong on 2026-10-23: SDDM reads **every** file in `/etc/sddm.conf.d`, whatever its name, so moving `autologin.conf` to
+> `autologin.conf.disabled` changed nothing (two boots in a row logged straight in); and Omarchy's login theme is a single password box for the last user, with no list.
+> Needs `sudo`; preview with `--dry-run`; `--remove` puts everything back. It never restarts SDDM (that would end your session): it shows at the next restart or log out.
+
+| Command | What |
+|---|---|
+| `install-login --dry-run` | prints every move and write; changes nothing, needs no `sudo` |
+| `sudo install-login` | moves every file that sets an auto-login user out of `/etc/sddm.conf.d` into `/etc/omarchy-kit/sddm-disabled/` (with a list), installs the theme, writes `/etc/sddm.conf.d/zz-omarchy-kit-login.conf` |
+| `sudo install-login --remove` | puts the moved files back where they were (so auto-login comes back if it was on) and removes the theme and the drop-in |
+| `install-login --stage DIR` | no `sudo`: assembles the theme in `DIR`, to try it with `sddm-greeter-qt6 --test-mode --theme DIR` (a window; it logs nobody in) |
+| `python3 -I sddm_conf.py get Autologin User` | what SDDM will really use, read the way SDDM reads it (also `autologin-files`, and `--root DIR` for a scratch tree) |
+
+## What it installs
+
+- **The theme `omarchy-kit-login`** in `/usr/share/sddm/themes`: Omarchy's own look (its logo, lock, entry and bullet pictures are **copied from its theme when you install**, none is committed
+  here) plus a row listing every account. The names come from SDDM (`userModel`), so none is written in the code. The chosen account is bright and bold; **Left / Up / Shift+Tab** and
+  **Right / Down / Tab** move along the row (and wrap), a click chooses one, **Return** signs in. Changing the account clears what you typed. The last user to sign in is chosen first.
+- **`/etc/sddm.conf.d/zz-omarchy-kit-login.conf`**: `Current=omarchy-kit-login`, remember the last user and session, and an empty `[Autologin] User=` on top. It sorts last, so it wins over
+  every other file (SDDM applies the files in name order; the later one wins).
+- It **reads the result back the way SDDM reads it** and undoes itself if auto-login would still be on or the theme is not the one selected.
+
+The Omarchy theme itself (`/usr/share/sddm/themes/omarchy`) belongs to the `omarchy-settings` package and is left alone, so an update cannot overwrite this.
+
+## If the login screen ever fails
+
+Press **Ctrl+Alt+F2** (a text login), sign in, then `sudo ~/labspace/omarchy-kit/login/install-login --remove`, or just `sudo rm /etc/sddm.conf.d/zz-omarchy-kit-login.conf` and
+`sudo systemctl restart sddm` from the text console.
+
+## What was verified, and what was not
+
+- **Verified:** the theme loads in the real SDDM greeter (`sddm-greeter-qt6 --test-mode`) on this screen; both accounts are listed; Right, Left and Tab change the chosen account and wrap;
+  typed characters appear as dots. The installer and the config reader have hermetic tests (`test/test_login.py`: a scratch tree, the real scripts, no root): auto-login is moved and
+  read back as off, a second run changes nothing, `--remove` restores the folder byte for byte, a missing Omarchy picture stops it before anything changes, and it undoes itself when
+  something it does not manage would still log in.
+- **Not verified:** a real boot (the PAM login, the pictures at the real resolution, the keys on the physical keyboard). That needs a restart; the Setup log row is `ok` only when the
+  live configuration really lists the accounts and no auto-login.
+- The **disk passphrase** (LUKS) still comes first, before this screen. A second account that should unlock the disk by itself needs its own slot (`cryptsetup luksAddKey`), see [coadmin/](../coadmin/README.md).
+
+Checked by the Setup log row **Login screen at boot** (live, from SDDM's real configuration) and its record, which also corrects the earlier claim that renaming the file had worked.
+
+---
+
+Related: [coadmin/](../coadmin/README.md) · [docs/FIELD-NOTES](../docs/FIELD-NOTES.md) · [docs/INDEX](../docs/INDEX.md)
 
 
 ====================================================================================================

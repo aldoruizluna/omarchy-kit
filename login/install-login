@@ -1,0 +1,143 @@
+#!/bin/bash
+# Make the computer start at a login screen that lists every account, with auto-login really off. Needs root: run it with sudo.
+# Usage: sudo install-login [--dry-run]
+#        sudo install-login --remove
+#        install-login --stage DIR        (no root: assemble the theme in DIR, to try it with  sddm-greeter-qt6 --test-mode --theme DIR)
+#
+# Why: SDDM reads EVERY file in /etc/sddm.conf.d, whatever its name, so moving autologin.conf to autologin.conf.disabled never turned auto-login
+# off (the machine logged straight in on two boots after that, 2026-10-23). And Omarchy's login theme shows one password box for the last user,
+# with no way to pick another account.
+#
+# What it does
+#   1. moves every file in /etc/sddm.conf.d that sets an [Autologin] User out of that folder, to /etc/omarchy-kit/sddm-disabled/ (a list is kept)
+#   2. installs the theme "omarchy-kit-login" in /usr/share/sddm/themes: Omarchy's own look (its pictures are copied from its theme, none are
+#      shipped here) plus a row of every account; Left / Right / Tab or a click picks who signs in, the last user is chosen first
+#   3. writes /etc/sddm.conf.d/zz-omarchy-kit-login.conf: that theme, remember the last user and session, and an empty [Autologin] User on top
+# It never restarts SDDM (that would end your session): the change shows at the next restart or log out.
+# If the login screen ever fails: Ctrl+Alt+F2, log in, then  sudo install-login --remove  (or:  sudo rm /etc/sddm.conf.d/zz-omarchy-kit-login.conf).
+# Undo: sudo install-login --remove   (puts the moved files back where they were, so auto-login returns if it was on, and removes the theme)
+set -euo pipefail
+usage() { echo "usage: $(basename "$0") [--dry-run] | --remove | --stage DIR   (--help for details)" >&2; }
+MODE=install; DRY=0; STAGE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run) DRY=1 ;;
+    --remove) MODE=remove ;;
+    --stage) shift; [[ $# -gt 0 ]] || { usage; exit 2; }; MODE=stage; STAGE=$1 ;;
+    -h | --help) sed -n '2,/^set -euo/{/^set -euo/d;s/^# \{0,1\}//p}' "$0"; exit 0 ;;
+    *) usage; exit 2 ;;
+  esac
+  shift
+done
+
+HERE=$(dirname "$(readlink -f "$0")")
+CONF_DIR=${LOGIN_KIT_CONF_DIR:-/etc/sddm.conf.d}          # the four LOGIN_KIT_* variables are hooks for the tests
+THEMES=${LOGIN_KIT_THEMES:-/usr/share/sddm/themes}
+STATE=${LOGIN_KIT_STATE:-/etc/omarchy-kit/sddm-disabled}
+SRC_THEME=${LOGIN_KIT_SRC_THEME:-$THEMES/omarchy}         # where Omarchy's own pictures are
+NAME=omarchy-kit-login
+DROPIN=$CONF_DIR/zz-$NAME.conf
+PICTURES=(logo.png lock.png lock-failed.png entry.png entry-failed.png bullet.png)
+SDDM_CONF=(python3 -I "$HERE/sddm_conf.py")
+
+run() { if ((DRY)); then echo "+ $*"; else "$@"; fi; }
+
+assemble() {   # assemble() DIR: the theme, ready to install
+  local dir=$1 f
+  for f in Main.qml metadata.desktop theme.conf; do
+    [[ -f $HERE/theme/$f ]] || { echo "missing theme/$f next to this script" >&2; return 1; }
+  done
+  for f in "${PICTURES[@]}"; do
+    [[ -f $SRC_THEME/$f ]] || { echo "Omarchy's login theme has no $f in $SRC_THEME: it changed, so this theme cannot copy its look. Nothing was changed." >&2; return 1; }
+  done
+  mkdir -p "$dir"
+  for f in Main.qml metadata.desktop theme.conf; do install -m644 "$HERE/theme/$f" "$dir/$f"; done
+  for f in "${PICTURES[@]}"; do install -m644 "$SRC_THEME/$f" "$dir/$f"; done
+}
+
+if [[ $MODE == stage ]]; then
+  assemble "$STAGE"
+  echo "staged in $STAGE: try it with  sddm-greeter-qt6 --test-mode --theme $STAGE"
+  exit 0
+fi
+
+if ((!DRY)) && [[ $EUID -ne 0 && -z ${LOGIN_KIT_TEST:-} ]]; then echo "needs root: sudo $0 $*   (or --dry-run to preview)" >&2; exit 1; fi
+
+remove_everything() {
+  local list=$STATE/LIST name
+  run rm -f "$DROPIN"
+  if [[ -f $list ]]; then
+    while IFS= read -r name; do
+      [[ -n $name && $name != */* && -f $STATE/$name ]] || continue
+      if [[ -e $CONF_DIR/$name ]]; then echo "left $STATE/$name where it is: $CONF_DIR/$name exists" >&2
+      else run mv "$STATE/$name" "$CONF_DIR/$name"; fi
+    done < "$list"
+    run rm -f "$list"
+  fi
+  run rmdir "$STATE" 2>/dev/null || true
+  run rmdir "$(dirname "$STATE")" 2>/dev/null || true
+  if [[ -f $THEMES/$NAME/metadata.desktop ]] && grep -q '^Author=Omarchy Kit$' "$THEMES/$NAME/metadata.desktop"; then run rm -rf -- "${THEMES:?}/$NAME"; fi
+}
+
+if [[ $MODE == remove ]]; then
+  remove_everything
+  echo "removed: SDDM uses its own theme and settings again. Files that were moved aside are back in $CONF_DIR."
+  exit 0
+fi
+
+# ---- install
+[[ -d $CONF_DIR ]] || { echo "no $CONF_DIR: is SDDM the display manager here? Nothing was changed." >&2; exit 1; }
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+assemble "$TMP/theme"
+
+mapfile -t FILES < <("${SDDM_CONF[@]}" autologin-files --root "${LOGIN_KIT_ROOT:-/}" | grep -F "$CONF_DIR/" || true)
+if ((${#FILES[@]})); then
+  run mkdir -p "$STATE"
+  for f in "${FILES[@]}"; do
+    n=$(basename "$f")
+    echo "auto-login is set in $f: moving it to $STATE/$n"
+    if [[ -e $STATE/$n ]]; then echo "$STATE/$n exists already: refusing to overwrite it. Nothing was changed." >&2; exit 1; fi
+    if ((DRY)); then echo "+ mv $f $STATE/$n"; else mv "$f" "$STATE/$n"; grep -qxF "$n" "$STATE/LIST" 2>/dev/null || echo "$n" >> "$STATE/LIST"; fi
+  done
+else
+  echo "no file in $CONF_DIR sets an auto-login user"
+fi
+
+run mkdir -p "$THEMES/$NAME"
+for f in Main.qml metadata.desktop theme.conf "${PICTURES[@]}"; do run install -Dm644 "$TMP/theme/$f" "$THEMES/$NAME/$f"; done
+
+if ((DRY)); then
+  echo "+ write $DROPIN"
+else
+  cat > "$DROPIN" <<CONF
+# Omarchy Kit: the login screen lists every account and nothing logs in by itself. Written by login/install-login; undo: sudo login/install-login --remove
+# (SDDM reads every file in this folder, whatever its name; this one sorts last, so it wins over the others.)
+[Theme]
+Current=$NAME
+
+[Users]
+RememberLastUser=true
+RememberLastSession=true
+
+[Autologin]
+User=
+Session=
+CONF
+  chmod 644 "$DROPIN"
+fi
+
+echo
+if ((DRY)); then
+  echo "(dry run: nothing was changed)"
+  exit 0
+fi
+# what SDDM will see, read the way SDDM reads it
+user=$("${SDDM_CONF[@]}" get Autologin User --root "${LOGIN_KIT_ROOT:-/}")
+theme=$("${SDDM_CONF[@]}" get Theme Current --root "${LOGIN_KIT_ROOT:-/}")
+if [[ -n $user || $theme != "$NAME" ]]; then
+  echo "SDDM would still see auto-login user '$user' and theme '$theme': undoing everything." >&2
+  remove_everything
+  exit 1
+fi
+echo "Done. SDDM will start at a login screen listing every account (theme $NAME); auto-login user: none."
+echo "It shows at the next restart or log out. If it ever fails: Ctrl+Alt+F2, log in, sudo $0 --remove"

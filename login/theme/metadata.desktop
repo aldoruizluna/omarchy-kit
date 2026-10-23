@@ -1,0 +1,9 @@
+[SddmGreeterTheme]
+Name=Omarchy Kit login
+Description=Omarchy's login look with a row that lists every account, so you choose who signs in
+Author=Omarchy Kit
+Type=sddm-theme
+MainScript=Main.qml
+ConfigFile=theme.conf
+Version=1.0
+QtVersion=6

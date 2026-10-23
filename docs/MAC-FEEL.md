@@ -79,7 +79,7 @@ they are missed.
 had **matched and grabbed the Apple trackpad** (`bcm5974`) although the config used the keyboard-only `k:` id; keyd warned that mouse movement was likely to break, and pointer behaviour was not tested before the removal. Both ⌘ keys are Super again and nothing of the layer remains
 (the `keyd` package is still installed, disabled, with no configuration). Lesson: the daemon's device matching could only be tested with fakes before the install.
 
-**The redesign (prepared the same day, not installed).** Both ⌘ keys are one layer. The keyboard is listed by its full keyd id (`05ac:0262:f2d1f5c2` here): the keyboard and trackpad share vendor and product but not the hash, and keyd matches an id as a prefix, so the trackpad cannot match. The hash is keyd's own,
+**The redesign (installed the same day).** Both ⌘ keys are one layer. The keyboard is listed by its full keyd id (`05ac:0262:f2d1f5c2` here): the keyboard and trackpad share vendor and product but not the hash, and keyd matches an id as a prefix, so the trackpad cannot match. The hash is keyd's own,
 recomputed in Python from `/proc/bus/input/devices` and checked against the ids keyd logged for seven devices on this laptop (including both Apple devices). After starting keyd the installer reads its journal and takes everything back if keyd grabbed anything but that keyboard. You chose **no general Super**: neither ⌘ key starts
 Omarchy's Super shortcuts, which are reached through Mac chords instead (⌃←/→ and ⌃1…0 for Spaces, ⌃↑/↓ for Mission Control and App Exposé, ⌃⌥ with the arrows to focus a window, ⌥⌘Space for Omarchy's menu, ⇧⌘Q for the system menu, ⌥⌘W to close a window); [keys/README](../keys/README.md) lists what that costs.
 

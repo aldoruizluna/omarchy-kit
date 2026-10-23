@@ -127,6 +127,7 @@ Each topic folder has its own README; all installers share one contract.
 | `audio/` | speaker EQ and the headphone watcher | [audio/README.md](../audio/README.md) |
 | `keys/`, `trackpad/` | Mac ⌘ shortcuts (Hyprland binds, or the keyd layer that makes ⌘ act as Ctrl), a real Caps Lock, three-finger behaviour | [keys/README.md](../keys/README.md), [trackpad/README.md](../trackpad/README.md) |
 | `coadmin/` | a second administrator with the same privileges and a mirror of the settings (an allowlist, never credentials) | [coadmin/README.md](../coadmin/README.md) |
+| `login/` | a login screen that lists every account and auto-login that is really off (SDDM reads every file in its config folder) | [login/README.md](../login/README.md) |
 | `icons/`, `dock/`, `menubar/`, `look/` | Mac icons and pointer; the Dock and ⌘Tab switcher (a separate Quickshell program); the Mac menu bar (a bar widget plugin); the UI font, window buttons and glass switch | [icons/README.md](../icons/README.md), [dock/README.md](../dock/README.md), [menubar/README.md](../menubar/README.md), [look/README.md](../look/README.md) |
 | `appearance/` | light by day, dark at night | [appearance/README.md](../appearance/README.md) |
 | `backup/`, `boot/` | snapshots and Pika Backup, a faster themed boot | [backup/README.md](../backup/README.md), [boot/README.md](../boot/README.md) |

@@ -40,6 +40,7 @@ Source: https://github.com/aldoruizluna/omarchy-kit. Code is MIT; the themes' pa
 - [look/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/look/README.md): the UI font for the shell and Dock, window buttons on the left, and the switch for blur behind the glass
 - [Golden Gate parity](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/GOLDEN-GATE.md): macOS 27 and this MacBook Pro row by row: done, partial, not done, impossible, with sources
 - [coadmin/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/coadmin/README.md): a second administrator with the same privileges and a mirror of your settings, never your credentials
+- [login/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/login/README.md): a login screen that lists every account, and auto-login that is really off (SDDM reads every file in its config folder, whatever its name)
 - [trackpad/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/trackpad/README.md): three-finger swipe or drag
 - [appearance/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/appearance/README.md): light by day, dark at night
 
