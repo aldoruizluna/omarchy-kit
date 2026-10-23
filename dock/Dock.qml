@@ -68,12 +68,21 @@ PanelWindow {
   WlrLayershell.layer: WlrLayer.Top
   mask: Region { item: hit }
 
+  // The part of the window that takes the pointer (and so decides when the icons magnify). Idle it is exactly the pill and the strip under
+  // it down to the screen edge, so the dock reacts only when the pointer is ON it, not a few pixels away. Once the pointer has come in it
+  // grows upward to cover the magnified icons (which rise above the pill) and stays hovered until the pointer leaves that taller area; while an
+  // icon is being dragged it covers the whole window, so pulling an icon up off the dock does not end the hover. Autohide's hidden dock
+  // keeps a thin strip along the pill's width, which is what reveals it.
+  readonly property real idleBand: gap + pillH
+  readonly property real magnifiedBand: idleBand + (reach - icon) + 10
+  property bool dragActive: false
+
   Item {
     id: hit
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.bottom: parent.bottom
-    width: pill.width + 24
-    height: win.revealed ? win.implicitHeight : 5
+    width: win.dragActive || !win.revealed ? pill.width + 24 : pill.width + (hover.hovered ? 16 : 0)
+    height: !win.revealed ? 5 : win.dragActive ? win.implicitHeight : hover.hovered ? win.magnifiedBand : win.idleBand
 
     HoverHandler {
       id: hover
@@ -121,6 +130,7 @@ PanelWindow {
             required property var modelData
             item: modelData
             magnify: win.scales[index] || 1
+            onDraggingChanged: win.dragActive = dragging
             onClicked: function (it, button) { win.handleClick(it, button) }
             onMenuRequested: function (it, anchorItem) { win.openMenu(it, anchorItem) }
             onDragFinished: function (it, dx, dy) { win.finishDrag(it, dx, dy) }
@@ -217,6 +227,8 @@ PanelWindow {
       }
       return out.join(" ")
     }
+    // for tests: how far the icons are magnified (0..1) and the dock's geometry in pixels, "level pillWidth pillHeight gap hitWidth hitHeight"
+    function magnification(): string { return [win.hoverLevel.toFixed(2), Math.round(pill.width), Math.round(pill.height), win.gap, Math.round(hit.width), Math.round(hit.height)].join(" ") }
     function pinned(): string { return Config.pinned.join(",") }
     function moveTo(id: string, target: string, after: bool): bool { return Config.moveTo(id, target, after) }
   }

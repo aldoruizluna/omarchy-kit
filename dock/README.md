@@ -19,7 +19,7 @@
 | Part | Behaviour |
 |---|---|
 | Pinned apps, then the other running apps after a separator, then Downloads and Trash | the first group is `pinned` in `dock.json` (desktop file ids; ones that are not installed are skipped) |
-| Hover | the icon under the pointer grows (magnification), its neighbours spread, its name shows above it. The grown icon stays under the pointer |
+| Hover | the icon under the pointer grows (magnification), its neighbours spread, its name shows above it. The grown icon stays under the pointer. The dock reacts only when the pointer is ON it (the pill and the strip under it down to the screen edge): a few pixels away, beside it or above it, does nothing. Once you are on it the area grows upward to cover the grown icons (about 40 px above the pill) and the magnification ends when you leave that |
 | Click | focuses the app (its most recently used window), or launches it with a bounce until its window appears; middle click opens a new instance |
 | Right click | the app's windows, its own actions (New Window and so on), **Keep in Dock** / **Remove from Dock**, **Quit** |
 | Dot under an icon | the app has a window (hidden ones too). A **lighter dot** means the app runs with no window (closed to the tray, a service): the Dock reads the process names (`/proc/*/comm`, about 4 ms) every eight seconds and a second after a window opens or closes and an app counts when a process has the name of the program in its launcher. Launchers that start something else (`sh`, `flatpak`, web apps) never count, because their process is not the app's |

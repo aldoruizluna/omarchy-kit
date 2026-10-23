@@ -478,6 +478,28 @@ def js_function(source, name):
     raise AssertionError(f"unbalanced braces in {name}")
 
 
+class DockHoverArea(unittest.TestCase):
+    """The icons magnify only when the pointer is ON the dock (2026-10-23: they grew when it was a few pixels away). The numbers were checked
+    on the real pointer: 0 at 20 px above, 3 and 10 px beside, 110 px above; 1 on the pill; still 1 at 30 px above once on it; 0 at 45 px."""
+    QML = (KIT / "dock" / "Dock.qml").read_text()
+
+    def test_the_idle_hit_area_is_the_pill_and_the_strip_under_it_not_the_whole_window(self):
+        self.assertIn("readonly property real idleBand: gap + pillH", self.QML)
+        height = re.search(r"\n\s+height: (.+)\n", self.QML[self.QML.index("id: hit"):]).group(1)
+        self.assertIn("win.idleBand", height)
+        self.assertIn("win.magnifiedBand", height, "it grows over the magnified icons only once the pointer is in")
+        self.assertIn("win.implicitHeight", height, "and covers the whole window only while an icon is being dragged")
+        self.assertIn("win.dragActive", height)
+        width = re.search(r"\n\s+width: (.+)\n", self.QML[self.QML.index("id: hit"):]).group(1)
+        self.assertIn("pill.width + (hover.hovered ? 16 : 0)", width, "no side margin while idle")
+
+    def test_a_dragged_icon_keeps_the_hover_so_pulling_it_off_the_dock_still_works(self):
+        self.assertIn("onDraggingChanged: win.dragActive = dragging", self.QML)
+
+    def test_the_test_hook_reports_the_magnification_and_the_geometry(self):
+        self.assertIn("function magnification(): string", self.QML)
+
+
 class MissionControl(unittest.TestCase):
     QML = (KIT / "dock" / "MissionControl.qml").read_text()
     LUA = (KIT / "dock" / "macdock.lua").read_text()
