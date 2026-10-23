@@ -55,7 +55,7 @@ remove_everything() {
   local others
   others=$(find /etc/keyd -maxdepth 1 -name '*.conf' 2>/dev/null | grep -vxF "$CONF" || true)
   if [[ -z $others ]]; then run systemctl disable --now keyd.service 2>/dev/null || true
-  else run keyd reload || true; fi
+  else run systemctl restart keyd.service || true; fi   # restart, never `keyd reload` (see the start section)
 }
 
 if [[ $MODE == remove ]]; then
@@ -118,7 +118,9 @@ RestartSec=2
 CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
 NoNewPrivileges=yes
 ProtectSystem=strict
-ProtectHome=yes
+# NOT ProtectHome=yes: that also hides /run/user, where Hyprland's sockets are, and the helper then never saw the session (it logged "waiting for
+# a Hyprland session" forever, so no overlay was ever applied and the terminal rules never ran; found 2026-10-23). Hide only /home and /root.
+InaccessiblePaths=/home /root
 PrivateTmp=yes
 PrivateDevices=yes
 ProtectKernelTunables=yes
@@ -145,8 +147,11 @@ fi
 SINCE=$(date '+%Y-%m-%d %H:%M:%S')
 run systemctl daemon-reload
 run systemctl enable keyd.service "$SERVICE"
-if ((DRY)); then echo "+ systemctl start keyd (or: keyd reload, if it is already running)"
-elif systemctl is-active --quiet keyd.service; then keyd reload
+# A running keyd is RESTARTED, never `keyd reload`: in keyd 2.6.0 reload() frees every keyboard but leaves the static active_kbd pointing at
+# one, so the daemon dies with a SIGSEGV a second or two later (seen 2026-10-23 at 15:37, two seconds after a reload; the check below
+# had already passed, which is why the final check now waits).
+if ((DRY)); then echo "+ systemctl start keyd (or: systemctl restart keyd, if it is already running)"
+elif systemctl is-active --quiet keyd.service; then systemctl restart keyd.service
 else systemctl start keyd.service; fi
 
 # ---- what did keyd take? Last time it grabbed the trackpad too, and only its journal said so. keyd logs one "DEVICE: match" line for
@@ -178,6 +183,7 @@ if ((DRY)); then
   cat "$TMP/mac.conf"
   exit 0
 fi
+sleep "$(( ${KEYD_KIT_SETTLE:-1} * 3 ))"   # a daemon that is going to fall over does it within a couple of seconds
 systemctl is-active --quiet keyd.service || { echo "keyd did not start: see  journalctl -u keyd -e   (your keyboard keeps working as before)" >&2; exit 1; }
 echo "Done. Both Command keys are now Ctrl in apps; none is Super (Ctrl+arrows and Ctrl+1..0 switch Spaces, Option+Cmd+Space is Omarchy's menu)."
 echo "If the keyboard ever misbehaves: Backspace + Escape + Enter together stops keyd."

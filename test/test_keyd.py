@@ -383,15 +383,34 @@ class Engine(unittest.TestCase):
                 self.assertEqual(self.chord("meta", *keys), self.chord("rightmeta", *keys))
 
     def test_no_key_is_super_any_more_unless_the_layer_says_so(self):
-        listed = {"c", "v", "left", "right", "up", "down", "[", "]", "space", "tab", "`", "q", "h", "m", "backspace"}
+        listed = {"c", "v", "left", "right", "up", "down", "[", "]", "space", "tab", "`", "q", "h", "m", "backspace", "enter"}
         for side in ("meta", "rightmeta"):
-            for key in "abdefgijklnoprstuwxyz0123456789" + "enter":
+            for key in "abdefgijklnoprstuwxyz0123456789":
                 if key in listed:
                     continue
                 with self.subTest(side=side, key=key):
                     chord = self.chord(side, key)
                     self.assertEqual(chord, [f"Ctrl+{key}"], "an unlisted key is plain Ctrl, never Super")
-        self.assertEqual(self.chord("rightmeta", "enter"), ["Ctrl+enter"])
+
+    def test_command_enter_opens_a_terminal_and_physical_control_enter_still_reaches_the_app(self):
+        for side in ("meta", "rightmeta"):
+            with self.subTest(side=side):
+                self.assertEqual(self.chord(side, "enter"), ["Super+enter"], "Omarchy's Terminal is Super+Return")
+        self.assertEqual(self.chord("control", "enter"), ["Ctrl+enter"], "Ctrl+Enter (send in a mail or chat app) is untouched")
+
+    def test_command_w_closes_a_tab_and_command_t_opens_one_in_an_app_and_a_terminal_has_no_tabs(self):
+        for state, want in (("app", {"w": "Ctrl+w", "t": "Ctrl+t", "enter": "Super+enter"}),
+                            ("terminal", {"w": "Super+w", "t": "Super+enter", "enter": "Super+enter"})):
+            for side in ("meta", "rightmeta"):
+                for key, chord in want.items():
+                    with self.subTest(state=state, side=side, key=key):
+                        self.assertEqual(self.chord(side, key, binds=self.overlays[state]), [chord])
+        self.assertEqual(self.chord("meta", "shift", "t", binds=self.overlays["app"]), ["Ctrl+Shift+t"], "reopen the closed tab")
+
+    def test_the_installer_never_uses_keyd_reload_which_crashes_keyd_2_6_0(self):
+        text = INSTALLER.read_text(encoding="utf-8")
+        code = [l for l in text.splitlines() if not l.lstrip().startswith("#")]
+        self.assertFalse([l for l in code if re.search(r"(?<![\w`])keyd reload", l.split("#")[0])], "keyd 2.6.0 dies after `keyd reload` (stale active_kbd)")
 
     def test_the_right_command_key_switches_apps_and_holds_super_like_the_left(self):
         chords, held = self.feed([["rightmeta down", "tab down", "tab up", "tab down", "tab up"]])
@@ -474,7 +493,7 @@ class Engine(unittest.TestCase):
     def test_terminal_overlay_keeps_the_dangerous_ctrl_chords_away_from_the_shell(self):
         t = self.overlays["terminal"]
         want = {("meta", "c"): ["Ctrl+insert"], ("meta", "v"): ["Shift+insert"], ("meta", "k"): ["Ctrl+l"], ("meta", "w"): ["Super+w"],
-                ("meta", "n"): ["Super+enter"], ("meta", "."): ["Ctrl+c"], ("meta", "shift", "c"): ["Ctrl+Shift+c"],
+                ("meta", "n"): ["Super+enter"], ("meta", "t"): ["Super+enter"], ("meta", "enter"): ["Super+enter"], ("meta", "."): ["Ctrl+c"], ("meta", "shift", "c"): ["Ctrl+Shift+c"],
                 ("meta", "shift", "v"): ["Ctrl+Shift+v"], ("alt", "backspace"): ["Alt+backspace"], ("rightalt", "backspace"): ["Alt+backspace"],
                 ("meta", "q"): ["Super+q"], ("control", "c"): ["Ctrl+c"], ("control", "d"): ["Ctrl+d"], ("control", "z"): ["Ctrl+z"]}
         for key in CONFIG.TERMINAL_NOOP:
@@ -974,9 +993,9 @@ class InstallerInNamespace(Sandbox):
         log = calls(fb)
         self.assertEqual(log.count("pacman -S --needed --noconfirm keyd"), 1, "keyd is installed when it is missing, and not again once it is there")
         for expect in ("systemctl daemon-reload", "systemctl enable keyd.service omarchy-kit-keyd-appmap.service", "systemctl start keyd.service",
-                       "keyd reload", "systemctl restart omarchy-kit-keyd-appmap.service", "systemctl disable --now omarchy-kit-keyd-appmap.service",
+                       "systemctl restart keyd.service", "systemctl restart omarchy-kit-keyd-appmap.service", "systemctl disable --now omarchy-kit-keyd-appmap.service",
                        "systemctl disable --now keyd.service"):
-            self.assertIn(expect, log, "start on the first install, reload on the second")
+            self.assertIn(expect, log, "start on the first install, restart on the second")
         self.assertLess(log.index("pacman -S --needed --noconfirm keyd"), min(i for i, c in enumerate(log) if c.startswith("keyd check")), "keyd is installed before its check runs")
 
     def check_unit(self, unit):
@@ -995,6 +1014,31 @@ class InstallerInNamespace(Sandbox):
         for must in ("CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH", "NoNewPrivileges=yes", "ProtectSystem=strict", "RestrictAddressFamilies=AF_UNIX",
                      "PartOf=keyd.service", "Requires=keyd.service", "Restart=always", "ExecStopPost=-/usr/bin/keyd bind reset"):
             self.assertIn(must, text)
+
+    def test_the_sandbox_hides_home_but_not_the_runtime_directory_the_helper_must_see(self):
+        """2026-10-23: ProtectHome=yes also hides /run/user, so the helper never saw Hyprland's sockets and no overlay was ever applied."""
+        fb = self.fakes()
+        o = in_userns(self.DRIVER, str(INSTALLER), env=self.env(fb))
+        if "MOUNT_FAIL" in o:
+            self.skipTest("cannot mount tmpfs in the namespace")
+        text = (self.tmp / "unit.service").read_text()
+        self.assertNotRegex(text, r"(?m)^ProtectHome=(yes|true|tmpfs)", "it would hide /run/user")
+        self.assertIn("InaccessiblePaths=/home /root", text)
+        # and the real thing: the same filesystem rules, applied to a throwaway user service, still show the session's runtime directory
+        runtime = pathlib.Path(f"/run/user/{os.getuid()}")
+        if not shutil.which("systemd-run") or not runtime.is_dir():
+            return
+        props = []
+        for line in text.splitlines():
+            key, _, val = line.partition("=")
+            if key in ("ProtectSystem", "ProtectHome", "InaccessiblePaths", "PrivateTmp", "PrivateDevices"):
+                props += ["-p", line]
+        probe = run(["systemd-run", "--user", "--quiet", "--wait", "--pipe", *props, "/usr/bin/ls", str(runtime)])
+        if "Failed to" in probe.stderr or "Access denied" in probe.stderr:
+            return   # no user manager here
+        self.assertEqual(probe.returncode, 0, "the helper must be able to list the runtime directory: " + probe.stderr)
+        hidden = run(["systemd-run", "--user", "--quiet", "--wait", "--pipe", *props, "/usr/bin/ls", "/home"])
+        self.assertNotEqual(hidden.returncode, 0, "/home stays hidden from it")
 
     ROLLBACK_DRIVER = r'''
         S=$1; mount -t tmpfs none /etc && mount -t tmpfs none /usr/local || { echo MOUNT_FAIL=1; exit 0; }
@@ -1070,7 +1114,7 @@ class InstallerInNamespace(Sandbox):
             self.skipTest("cannot mount tmpfs in the namespace")
         self.assertEqual((o["RC"], o["MSG"], o["MINE"], o["THEIRS"], o["RCR"], o["THEIRS2"]), ("1", "1", "0", "1", "0", "1"))
         self.assertNotIn("systemctl disable --now keyd.service", calls(fb), "remove must not switch keyd off while someone else's configuration needs it")
-        self.assertIn("keyd reload", calls(fb))
+        self.assertIn("systemctl restart keyd.service", calls(fb))
 
     def test_without_sudo_uid_it_refuses_instead_of_guessing_whose_session(self):
         fb = self.fakes()

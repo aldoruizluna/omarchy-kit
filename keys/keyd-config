@@ -28,7 +28,7 @@ APPLE_VENDORS = ("05ac", "004c")  # Apple's USB and Bluetooth vendor ids
 
 # The terminal chords that must never reach a shell as Ctrl+letter. ⌘ is Ctrl, and in a terminal Ctrl+D ends the shell,
 # Ctrl+Z stops the program, Ctrl+S freezes the output. Physical Ctrl still sends all of these, the way a Mac's Control does.
-TERMINAL_NOOP = "a b d e f g i j o p r s t u x y z".split()
+TERMINAL_NOOP = "a b d e f g i j o p r s u x y z".split()
 
 # Layer sections of the static configuration: (header, [(key, action, why)]).
 # Comments go on their own lines because keyd does not accept a trailing comment after a binding.
@@ -48,6 +48,7 @@ CMD_KEYS = [
     ("q", "M-q", "⌘Q: quit the app"),
     ("h", "M-h", "⌘H: hide the app"),
     ("m", "M-m", "⌘M: minimise the window"),
+    ("enter", "M-enter", "⌘Enter: open a terminal (Super+Return); physical Ctrl+Enter still reaches the app"),
 ]
 SWITCH_KEYS = [
     ("tab", "M-tab", "next app"),
@@ -112,6 +113,7 @@ OVERLAYS = {
          "cmd.k = C-l",        # ⌘K: clear the screen
          "cmd.w = M-w",        # ⌘W: close the window (Super+W)
          "cmd.n = M-enter",    # ⌘N: new terminal (Super+Return)
+         "cmd.t = M-enter",    # ⌘T: a terminal has no tabs, so a new terminal window (Super+Return)
          "cmd.dot = C-c",      # ⌘. cancels, as in Terminal and iTerm
          "cmd+shift.c = C-S-c",   # ⇧⌘C and ⇧⌘V: the Ctrl+Shift forms every Omarchy terminal takes
          "cmd+shift.v = C-S-v",
@@ -151,6 +153,8 @@ SUPER_CHORDS = [
     ("⌃⌥←↑→↓", "Super+←↑→↓", "focus the window in that direction (exists)", "Omarchy"),
     ("⌘W in a terminal", "Super+W", "Close window (exists)", "Omarchy"),
     ("⌘N in a terminal", "Super+Return", "Terminal (exists)", "Omarchy"),
+    ("⌘T in a terminal", "Super+Return", "Terminal (exists)", "Omarchy"),
+    ("⌘Enter", "Super+Return", "Terminal (exists)", "Omarchy"),
 ]
 
 _MOD_WORD = {"M": "Super", "C": "Ctrl", "A": "Alt", "S": "Shift", "G": "AltGr"}

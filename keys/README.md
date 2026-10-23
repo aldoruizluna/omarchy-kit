@@ -5,7 +5,7 @@
 > the Mac's Control chords switch Spaces, and a terminal never receives ⌘ as Ctrl+letter. No key is Super any more: Omarchy's own Super shortcuts are reached through those Mac chords
 > and Option+⌘+Space (its menu). `caps-lock` makes Caps Lock a real Caps Lock. If the keyboard ever misbehaves under keyd, press **Backspace + Escape + Enter** together and keyd quits.
 
-> **Status (2026-10-23): the first `install-keyd` was tried and removed; this is its redesign, prepared and not yet installed.** The first version made the left ⌘ act as Ctrl while the right ⌘ stayed Super,
+> **Status (2026-10-23): the first `install-keyd` was tried and removed; this is its redesign, installed the same day.** The first version made the left ⌘ act as Ctrl while the right ⌘ stayed Super,
 > which the owner rejected (both ⌘ keys must behave alike, as the two Ctrl keys do), and keyd's log showed it had matched and **grabbed the Apple trackpad** (`bcm5974`) despite the keyboard-only `k:` id.
 > The redesign: both ⌘ keys are the same layer; the keyboard is listed by its **full id** (`vendor:product:hash`, computed the way keyd computes it and checked against the ids keyd logged on this laptop),
 > which the trackpad cannot match; and after starting keyd the installer **reads keyd's journal and takes everything back** if keyd grabbed anything but that keyboard. `caps-lock` and `mackeys.lua` are unaffected and in use.
@@ -68,7 +68,8 @@ These ⌘ chords are Mac *system* chords, so they go to Hyprland as **Super chor
 | Esc while the switcher is up | Super+Alt+Escape (never Super+Esc, which is Omarchy's system menu) | cancels the switcher |
 | ⇧⌘3 / ⇧⌘4 / ⇧⌘5 | Shift+Print / Print / Super+Ctrl+C | `dock/macdock.lua` binds Shift+Print; Print is the screenshot; the capture menu |
 | ⌃⌘Q / ⌃⌘Space / ⌃⌘F | Super+Ctrl+L / Super+Ctrl+E / Super+F | lock, emoji picker, full screen |
-| ⌘W / ⌘N in a terminal | Super+W / Super+Return | close window / new terminal |
+| ⌘Enter | Super+Return | open a terminal, in any app (physical Ctrl+Enter still reaches the app) |
+| ⌘W / ⌘N / ⌘T in a terminal | Super+W / Super+Return / Super+Return | close window / new terminal / new terminal (a terminal has no tabs). In any other app ⌘W and ⌘T are plain Ctrl+W and Ctrl+T: close tab, new tab |
 
 And the Mac's **Control** chords, which Spaces and Mission Control use (they replace Ctrl+arrow and Ctrl+digit for everything, as on a Mac; ⌃⇧ with the arrows is untouched, so selecting by word with Ctrl still works):
 
@@ -98,15 +99,15 @@ Ctrl+letter. keyd's own `keyd-application-mapper` speaks X, Sway and GNOME but n
 compositor whether the focused window carries Omarchy's `terminal` tag (so a terminal added to Omarchy's rule works here too), and applies one of two overlays with `keyd bind`:
 
 - **app:** ⌘C = Ctrl+C, ⌘V = Ctrl+V (a file manager does not take Ctrl+Insert). A launcher, a menu or no window at all counts as an app.
-- **terminal:** ⌘C = Ctrl+Insert, ⌘V = Shift+Insert, ⇧⌘C / ⇧⌘V = Ctrl+Shift+C / V, ⌘K clears, ⌘W closes the window, ⌘N opens a terminal, ⌘. = Ctrl+C (as in Terminal and iTerm),
-  ⌥⌫ = Alt+Backspace, and ⌘A ⌘B ⌘D ⌘E ⌘F ⌘G ⌘I ⌘J ⌘O ⌘P ⌘R ⌘S ⌘T ⌘U ⌘X ⌘Y ⌘Z do nothing. Physical Ctrl still sends every one of them, the way a Mac's Control does.
+- **terminal:** ⌘C = Ctrl+Insert, ⌘V = Shift+Insert, ⇧⌘C / ⇧⌘V = Ctrl+Shift+C / V, ⌘K clears, ⌘W closes the window, ⌘N and ⌘T open a terminal, ⌘. = Ctrl+C (as in Terminal and iTerm),
+  ⌥⌫ = Alt+Backspace, and ⌘A ⌘B ⌘D ⌘E ⌘F ⌘G ⌘I ⌘J ⌘O ⌘P ⌘R ⌘S ⌘U ⌘X ⌘Y ⌘Z do nothing. Physical Ctrl still sends every one of them, the way a Mac's Control does.
 
 **It fails closed.** If the service is down, keyd falls back to its static configuration, which is the terminal-safe one: ⌘C and ⌘V are Ctrl+Insert and Shift+Insert, which GTK, Chromium and
 every Omarchy terminal accept (a file manager may ignore them: copy then does nothing, which is a nuisance and not a danger). The remaining Ctrl+letter chords (⌘D, ⌘Z) would reach a shell
 until the service is back; systemd restarts it after 2 seconds.
 
 **Why a root service and not the `keyd` group.** `keyd bind` needs the keyd socket. A user in the `keyd` group can make keyd run commands as root, so the group is root-equivalent for everything
-in the session (a browser tab included). The service runs as root instead, with only the two capabilities it needs to read the session's sockets, no network, no home directories and a
+in the session (a browser tab included). The service runs as root instead, with only the two capabilities it needs to read the session's sockets, no network, no /home or /root (but it can see the session's runtime directory, which `ProtectHome=yes` would also hide and which it needs) and a
 read-only file system; it takes its bindings from a root-owned file, and from the focused window it uses a single bit: terminal or not. It refuses sockets that are symlinks or not
 owned by the session's user.
 
@@ -136,7 +137,7 @@ The installer starts keyd, reads its journal and prints `keyd grabbed exactly: <
 
 - Written for an ANSI keyboard: the `` ` `` key is the one left of the 1 key. An ISO keyboard needs `102nd` bound as well.
 - ⌘← and ⌘→ are Home and End, which on a web page scroll to the top and the bottom; a Mac's browsers use them for back and forward (use ⌘[ and ⌘]).
-- `sudo keyd reload` drops the overlays until the focus next changes (the installer restarts the service, so this only matters if you reload by hand).
+- Do not run `sudo keyd reload`: keyd 2.6.0 frees its keyboards on reload but keeps a pointer to one, and the daemon crashes (SIGSEGV) a second or two later (it happened on 2026-10-23, after the first install over a running keyd). The installer restarts keyd instead; restart it by hand with `sudo systemctl restart keyd`. While keyd is down the keyboard is stock (⌘ is Super).
 - Only the physical Apple keyboards are remapped. Typing through fcitx5 or a virtual keyboard (wtype) is not.
 - The id's hash depends on the device name and its key count. If a kernel update changes either, keyd stops matching the keyboard (⌘ is Super again, which is safe) and the Setup log row says the id no longer fits; run `install-keyd` again.
 - Hyprland sees ⌘ as Ctrl, so a Hyprland bind on plain Ctrl+key also fires on ⌘+key. Omarchy's own Ctrl-only binds are few (the capture selection's Ctrl+Return and Ctrl+Tab, Ctrl+Alt+Tab for monitors).
