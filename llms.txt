@@ -35,14 +35,16 @@ Source: https://github.com/aldoruizluna/omarchy-kit. Code is MIT; the themes' pa
 - [Mac feel](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/MAC-FEEL.md): accents, command-key shortcuts, gestures, the top row, power profile, what was verified and how to undo it
 - [keys/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/keys/README.md): Mac command-key shortcuts inside apps, the opt-in extras, the keyd layer that makes ⌘ act as Ctrl everywhere, and a real Caps Lock
 - [icons/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/icons/README.md): the WhiteSur icon theme and macOS pointer, kept in step with the light or dark Omarchy theme
-- [dock/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/dock/README.md): the Mac-style Dock and the ⌘Tab app switcher (Quickshell), the keys it binds, what it does not do
+- [dock/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/dock/README.md): the Mac-style Dock, the ⌘Tab app switcher and Mission Control (Quickshell), the keys it binds, what it does not do
 - [menubar/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/menubar/README.md): the Mac menu bar (Apple menu, app name, File Edit View Window Help) and how the bar is rearranged
+- [look/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/look/README.md): the UI font for the shell and Dock, window buttons on the left, and the switch for blur behind the glass
+- [Golden Gate parity](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/GOLDEN-GATE.md): macOS 27 and this MacBook Pro row by row: done, partial, not done, impossible, with sources
 - [trackpad/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/trackpad/README.md): three-finger swipe or drag
 - [appearance/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/appearance/README.md): light by day, dark at night
 
 ## Themes
 
-- [Themes](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/THEMES.md): the six original themes, their inspiration chain, how to try them, licence and decisions
+- [Themes](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/THEMES.md): the eight original themes, their inspiration chain, how to try them, licence and decisions
 - [themes/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/README.md): install-themes, make-wallpapers, the generators and the CC BY 4.0 licence
 
 ## Games
@@ -57,6 +59,8 @@ Source: https://github.com/aldoruizluna/omarchy-kit. Code is MIT; the themes' pa
 
 ## Optional
 
+- [Golden Gate theme](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/golden-gate/THEME.md): the macOS 27 look, light: palette, contrast table, window style
+- [Golden Gate Night theme](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/golden-gate-night/THEME.md): the dark partner
 - [Kawaii Bow theme](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/kawaii-bow/THEME.md): palette rationale, contrast table, credits
 - [Kawaii Bow Night theme](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/kawaii-bow-night/THEME.md): the dark variant
 - [Mecha Unit theme](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/themes/mecha-unit/THEME.md): purple and acid green command centre

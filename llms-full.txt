@@ -20,7 +20,7 @@ laptop: the 15" MacBook Pro, mid-2014 (MacBookPro11,3, Intel Haswell + NVIDIA GT
 
 It teaches Omarchy with your own machine's real shortcuts, gestures, menus and hardware, checks live that you did each step,
 and carries the fixes that make this old Mac quiet, cool and usable: the NVIDIA GPU switched off, a speaker EQ, Mac-style
-accents and shortcuts, working sleep and hibernate, a battery power lab and six original themes. Python standard library
+accents and shortcuts, working sleep and hibernate, a battery power lab and eight original themes. Python standard library
 only (Pillow, if present, shrinks the home wallpaper and, with librsvg, draws the theme wallpapers), no build tools; it listens on
 127.0.0.1 only.
 
@@ -81,7 +81,8 @@ Start at the [documentation map](docs/INDEX.md): it says which document answers 
 | [docs/SLEEP.md](docs/SLEEP.md) | Lid, sleep, hibernate and the battery log: what works, what does not, and why |
 | [docs/POWER-LAB.md](docs/POWER-LAB.md) | Where the battery goes (about 20 W idle), what was tried and what was ruled out |
 | [docs/MAC-FEEL.md](docs/MAC-FEEL.md) | Everything done to feel like a Mac, how it was verified, what still waits for you |
-| [docs/THEMES.md](docs/THEMES.md) | The six original themes, where their looks come from, and their CC BY 4.0 licence |
+| [docs/THEMES.md](docs/THEMES.md) | The eight original themes, where their looks come from, and their CC BY 4.0 licence |
+| [docs/GOLDEN-GATE.md](docs/GOLDEN-GATE.md) | macOS 27 Golden Gate and this MacBook Pro, row by row: what matches, what does not, and why |
 | [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md) | Short, checkable rules learned the hard way (read before changing this machine) |
 | [docs/DUMPING-GUIDE.md](docs/DUMPING-GUIDE.md), [docs/GAME-STORE-ROADMAP.md](docs/GAME-STORE-ROADMAP.md) | Retro library: your own dumps, the signed catalog |
 
@@ -100,7 +101,7 @@ that disagrees with the code.
 |---|---|
 | **Start** | Your progress (XP, levels, streak, 16 badges), a live machine panel, and a gallery to switch the Omarchy theme |
 | **Learn** | 34 hands-on lessons in six levels, verified live against Hyprland (opening windows, switching spaces, the scratchpad…) |
-| **From macOS** | "How do I…?" for 58 Mac habits, translated to the shortcuts on *this* system |
+| **From macOS** | "How do I…?" for 59 Mac habits, translated to the shortcuts on *this* system |
 | **Your MacBook** | What works on 2014 MacBook hardware, with live readings and fixes |
 | **System** | Live graphs (2 s samples, 30 min history) of CPU temperature, fans, load, memory, network and battery, plus the busiest apps |
 | **Games** | Retro library status per console, disk budget, BIOS checklist, PS4 controller battery and hotkeys |
@@ -123,7 +124,7 @@ Across every page:
 - `gpu/`: keep the hot NVIDIA GT 750M **off** (`nvidia-off.service`) and the panel on Intel. Fans dropped from about 5,900 to about 2,100 to 2,200 RPM.
 - `audio/`: a measured speaker EQ in Omarchy's speaker-tuning layout, automatically bypassed for headphones.
 - `sleep/` and `power/`: sleep, hibernate and battery work (below, and in [docs/SLEEP.md](docs/SLEEP.md) and [docs/POWER-LAB.md](docs/POWER-LAB.md)).
-- `themes/`: six original themes of our own ([docs/THEMES.md](docs/THEMES.md)).
+- `themes/`: eight original themes of our own ([docs/THEMES.md](docs/THEMES.md)).
 - The Setup log documents each change with its undo command, and [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md) holds the rules learned the hard way.
 
 ## Making it feel like a Mac
@@ -156,14 +157,18 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
 - **Mac icons and pointer** (`icons/`, no root): the WhiteSur icon theme and an open-source macOS cursor, kept in step with the light or dark
   mode of whichever Omarchy theme is active. Two pinned downloads, checksums verified. `icons/install-icons --remove` undoes it.
 - **A Dock and a ⌘Tab app switcher** (`dock/`, no root): a Mac-style Dock with magnification, running dots, bounce, a right-click menu, Downloads and
-  Trash; ⌘Tab (Super+Tab) steps through running apps and letting go of ⌘ switches; ⌘`, ⌘Q, ⌘H and ⌥⌘D too. A small Quickshell program of its own.
+  Trash; ⌘Tab (Super+Tab) steps through running apps and letting go of ⌘ switches; ⌘`, ⌘Q, ⌘H and ⌥⌘D too; **Mission Control** (F3, Super+Ctrl+Up, four fingers up) shows every space
+  and real pictures of its windows, and Super+Ctrl+Down is App Exposé; F4 opens the Apps menu. A small Quickshell program of its own.
   Super+Tab used to be "next workspace"; that moved to Super+Ctrl+Shift+Right. Details and limits: [dock/README](dock/README.md).
 - **A Mac menu bar** (`menubar/`, no root): the Apple-style menu, the focused app's name in bold and File / Edit / View / Window / Help at the left, workspaces in the
   middle, the clock at the right. The menus send the matching ⌘ shortcut to the app, because almost no Wayland app publishes a real menu.
   Your bar layout is saved first and `--remove` restores it. [menubar/README](menubar/README.md).
+- **UI font, window buttons and glass** (`look/`, no root): the bar, menus and Dock in Adwaita Sans (a free relative of San Francisco) instead of monospace, the close button of GTK apps on the left, and a switch for real
+  blur behind the glass that is off because it measurably costs GPU time on this laptop. [look/README](look/README.md).
+- **Golden Gate, row by row** ([docs/GOLDEN-GATE.md](docs/GOLDEN-GATE.md)): what matches macOS 27 and this MacBook Pro's behaviour under macOS, what does not, and what is impossible, with sources.
 - **A Time Machine for your files** (`backup/install-backups`, needs sudo): hourly `/home` snapshots with snapper plus
   Pika Backup for the real backup. Preview with `--dry-run`.
-- **Six themes of our own** (`themes/`, `docs/THEMES.md`): Kawaii Bow (light and night), Mecha Unit (purple and red) and Solarpunk
+- **Eight themes of our own** (`themes/`, `docs/THEMES.md`): Golden Gate and Golden Gate Night (the macOS 27 look: rounded windows, soft shadows, translucent menus, a bridge in the fog), Kawaii Bow (light and night), Mecha Unit (purple and red) and Solarpunk
   (light and dusk), with original wallpapers, contrast-checked palettes and credits for the open-source works they were inspired by.
   The wallpapers are drawn by generator scripts (`themes/generators/`) and not stored. `themes/install-themes` puts the themes in
   Omarchy, drawing the wallpapers as it goes, without switching yours (`--remove` takes them out).
@@ -314,7 +319,7 @@ Omarchy Kit is a bilingual (English / Spanish) learning portal and a set of reve
 | `*.template.html`, `kit.js`, `kit.css`, `portal*.js`, `portal.css` | the pages and shared browser code |
 | `portal_lessons.py`, `portal_content.py` | the learning path (6 levels), Mac habits, glossary, hardware cards |
 | `build_setup.py` | the Setup log: live `checks()`, and the records of every change with its undo |
-| `sleep/`, `power/`, `themes/`, `gpu/`, `audio/`, `keys/`, `icons/`, `dock/`, `menubar/`, `trackpad/`, `appearance/`, `backup/`, `boot/`, `games/` | scripts that change the machine; each folder has a README |
+| `sleep/`, `power/`, `themes/`, `gpu/`, `audio/`, `keys/`, `icons/`, `dock/`, `menubar/`, `look/`, `trackpad/`, `appearance/`, `backup/`, `boot/`, `games/` | scripts that change the machine; each folder has a README |
 | `test/` | `run-all`, hermetic Python tests, browser suites; see [test/README.md](test/README.md) |
 | `docs/` | the documentation; [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how it fits together |
 
@@ -363,6 +368,7 @@ Documents start with a TL;DR and end with a **Related** line; a new one must be 
 | How does the lid, sleep or hibernate work here? | [docs/SLEEP.md](docs/SLEEP.md) |
 | Where does the battery go? | [docs/POWER-LAB.md](docs/POWER-LAB.md) |
 | What did we change to feel like a Mac? | [docs/MAC-FEEL.md](docs/MAC-FEEL.md) |
+| How close is this to macOS 27 Golden Gate and to a MacBook Pro under macOS? | [docs/GOLDEN-GATE.md](docs/GOLDEN-GATE.md) |
 | What are the themes and their licence? | [docs/THEMES.md](docs/THEMES.md) |
 | What must I not do on this machine? | [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md) |
 | How is it built and served? | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
@@ -390,7 +396,8 @@ Related: [README](../README.md) · [ARCHITECTURE](ARCHITECTURE.md) · [DEVELOPIN
 | work on it as an AI coding assistant | [AGENTS](../AGENTS.md), then [FIELD-NOTES](FIELD-NOTES.md) |
 | fix closing the lid, sleep or hibernate | [SLEEP](SLEEP.md), [sleep/README](../sleep/README.md) |
 | find where the battery goes, or save power | [POWER-LAB](POWER-LAB.md), [power/README](../power/README.md) |
-| feel like on a Mac (keys, accents, gestures, icons, Dock, ⌘Tab, menu bar) | [MAC-FEEL](MAC-FEEL.md), [keys/README](../keys/README.md), [trackpad/README](../trackpad/README.md), [icons/README](../icons/README.md), [dock/README](../dock/README.md), [menubar/README](../menubar/README.md) |
+| feel like on a Mac (keys, accents, gestures, icons, Dock, ⌘Tab, menu bar) | [MAC-FEEL](MAC-FEEL.md), [keys/README](../keys/README.md), [trackpad/README](../trackpad/README.md), [icons/README](../icons/README.md), [dock/README](../dock/README.md), [menubar/README](../menubar/README.md), [look/README](../look/README.md) |
+| see how close this is to macOS 27 and to a MacBook Pro | [GOLDEN-GATE](GOLDEN-GATE.md) |
 | use or change the themes | [THEMES](THEMES.md), [themes/README](../themes/README.md) |
 | keep the NVIDIA GPU off and the fans quiet | [gpu/README](../gpu/README.md), [FIELD-NOTES](FIELD-NOTES.md) |
 | set up retro games | [README: Retro gaming](../README.md#retro-gaming), [games/README](../games/README.md), [DUMPING-GUIDE](DUMPING-GUIDE.md), [GAME-STORE-ROADMAP](GAME-STORE-ROADMAP.md) |
@@ -408,13 +415,14 @@ Related: [README](../README.md) · [ARCHITECTURE](ARCHITECTURE.md) · [DEVELOPIN
 | [AGENTS](../AGENTS.md) | contract | rules and a map for AI coding assistants | before an assistant edits anything |
 | [SLEEP](SLEEP.md) | explanation + log | the lid, sleep and hibernate: measurements, what is installed, trade-offs, the open decision | sleep problems |
 | [POWER-LAB](POWER-LAB.md) | explanation + log | where the 20 W goes, what was tried, what was ruled out, how to use the tool | battery questions |
+| [GOLDEN-GATE](GOLDEN-GATE.md) | comparison | macOS 27 Golden Gate and this MacBook Pro's behaviour under macOS, row by row: done, partial, not done, impossible, with sources | judging how Mac-like this is |
 | [MAC-FEEL](MAC-FEEL.md) | log | everything done to feel like a Mac, how it was verified, how to undo, what waits for a person | before changing input or gestures |
-| [THEMES](THEMES.md) | explanation | the six themes, their inspiration chain, how to try them, licence and decisions | theme work |
+| [THEMES](THEMES.md) | explanation | the eight themes, their inspiration chain, how to try them, licence and decisions | theme work |
 | [FIELD-NOTES](FIELD-NOTES.md) | rules | short, checkable rules learned the hard way | before touching the machine |
 | [GLOSSARY](GLOSSARY.md) | reference | one definition per term, with links | any unfamiliar term |
 | [DUMPING-GUIDE](DUMPING-GUIDE.md) | how-to | dumping your own games, tool per console | retro library |
 | [GAME-STORE-ROADMAP](GAME-STORE-ROADMAP.md) | design | the signed-catalog store: what is built, what is planned | store work |
-| folder READMEs: [sleep](../sleep/README.md), [power](../power/README.md), [themes](../themes/README.md), [gpu](../gpu/README.md), [audio](../audio/README.md), [keys](../keys/README.md), [icons](../icons/README.md), [dock](../dock/README.md), [menubar](../menubar/README.md), [trackpad](../trackpad/README.md), [appearance](../appearance/README.md), [backup](../backup/README.md), [boot](../boot/README.md), [games](../games/README.md), [test](../test/README.md) | reference | what each folder's scripts do, how to use and undo them, how they are checked | working in that folder |
+| folder READMEs: [sleep](../sleep/README.md), [power](../power/README.md), [themes](../themes/README.md), [gpu](../gpu/README.md), [audio](../audio/README.md), [keys](../keys/README.md), [icons](../icons/README.md), [dock](../dock/README.md), [menubar](../menubar/README.md), [look](../look/README.md), [trackpad](../trackpad/README.md), [appearance](../appearance/README.md), [backup](../backup/README.md), [boot](../boot/README.md), [games](../games/README.md), [test](../test/README.md) | reference | what each folder's scripts do, how to use and undo them, how they are checked | working in that folder |
 | `themes/*/THEME.md` | explanation | one theme's palette rationale, contrast table, credits | that theme |
 | [llms.txt](../llms.txt), [llms-full.txt](../llms-full.txt) | machine index | the documentation for language models: an index and a single-file copy | tools |
 
@@ -588,11 +596,11 @@ Each topic folder has its own README; all installers share one contract.
 |---|---|---|
 | `sleep/` | lid wake (light sleep), hibernate that stays off, one password, battery log | [sleep/README.md](../sleep/README.md) |
 | `power/` | power profile follows the charger, Wi-Fi power saving, the power lab | [power/README.md](../power/README.md) |
-| `themes/` | six original themes with generated wallpapers | [themes/README.md](../themes/README.md) |
+| `themes/` | eight original themes (the Golden Gate pair carries the window style and shell-surface overrides) with generated wallpapers | [themes/README.md](../themes/README.md) |
 | `gpu/` | keep the NVIDIA GPU off, firmware boot GPU | [gpu/README.md](../gpu/README.md) |
 | `audio/` | speaker EQ and the headphone watcher | [audio/README.md](../audio/README.md) |
 | `keys/`, `trackpad/` | Mac ⌘ shortcuts (Hyprland binds, or the keyd layer that makes ⌘ act as Ctrl), a real Caps Lock, three-finger behaviour | [keys/README.md](../keys/README.md), [trackpad/README.md](../trackpad/README.md) |
-| `icons/`, `dock/`, `menubar/` | Mac icons and pointer; the Dock and ⌘Tab switcher (a separate Quickshell program); the Mac menu bar (a bar widget plugin) | [icons/README.md](../icons/README.md), [dock/README.md](../dock/README.md), [menubar/README.md](../menubar/README.md) |
+| `icons/`, `dock/`, `menubar/`, `look/` | Mac icons and pointer; the Dock and ⌘Tab switcher (a separate Quickshell program); the Mac menu bar (a bar widget plugin); the UI font, window buttons and glass switch | [icons/README.md](../icons/README.md), [dock/README.md](../dock/README.md), [menubar/README.md](../menubar/README.md), [look/README.md](../look/README.md) |
 | `appearance/` | light by day, dark at night | [appearance/README.md](../appearance/README.md) |
 | `backup/`, `boot/` | snapshots and Pika Backup, a faster themed boot | [backup/README.md](../backup/README.md), [boot/README.md](../boot/README.md) |
 | `games/` | retro library, free games, a signed catalog client | [games/README.md](../games/README.md) |
@@ -749,6 +757,8 @@ FILE: docs/GLOSSARY.md  (Glossary)
 
 Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.md) · [POWER-LAB](POWER-LAB.md) · [FIELD-NOTES](FIELD-NOTES.md)
 
+**App Exposé.** The overview of one app's windows from every space (Super+Ctrl+Down here). See [dock/README](../dock/README.md).
+
 ## A to C
 
 **App switcher.** The ⌘Tab panel: one big icon per running app, most recently used first, and letting go of ⌘ switches. Here it is part of the Dock's Quickshell program and replaces Omarchy's "next workspace" on Super+Tab. See [dock/README](../dock/README.md).
@@ -805,7 +815,11 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 
 **Light sleep (s2idle).** The machine keeps running at a whisper, so opening the lid wakes it at once. Costs: fans keep spinning and the battery drains faster. See [SLEEP](SLEEP.md#light-sleep-and-its-price).
 
+**Liquid Glass.** Apple's design language since macOS 26: translucent, refracting, blurred surfaces. Here the translucency is in the themes and the real blur is a switch, off, because it costs GPU time. See [GOLDEN-GATE](GOLDEN-GATE.md) and [MAC-FEEL](MAC-FEEL.md#blur-behind-the-glass).
+
 **LUKS.** Disk encryption. The disk passphrase typed at start-up is what protects the hibernate image, which is why the no-lock installer refuses without it. See [SLEEP](SLEEP.md).
+
+**Mission Control.** The overview of all spaces and their windows (F3, Super+Ctrl+Up, four fingers up here). The window pictures are taken once when it opens, not live. See [dock/README](../dock/README.md).
 
 **MSR** (model-specific register). CPU registers read through `/dev/cpu/N/msr`; `power/msr-probe` reads the package C-state limit (register `0xE2`) without changing anything. See [POWER-LAB](POWER-LAB.md).
 
@@ -922,6 +936,13 @@ recorded. If you are a person or an assistant about to change something on this 
 * **`wtype` reaches a focused layer surface, but not Hyprland's binds**, and `hl.is_key_down` does not see its virtual keys either. Test a surface's own key handling with `wtype`; test a bind through `hyprctl eval` on the handler, and the real chord by hand. Stub any destructive action first: a wrong route once could close the terminal you are working in.
 * **Chromium web-app windows are classed by address**: `brave-<host>__<path>-Default`. Match them to the launcher that opens the same address, or the Dock shows a second, nameless icon.
 * **Hyprland's Lua API answers synchronously** (`hl.get_windows()`, `hl.get_layers()`, `hl.get_active_window()`): use it to decide inside a bind, instead of asking another process.
+* **Quickshell's `Hyprland` lists (`workspaces`, `toplevels`) are empty until `refreshWorkspaces()` / `refreshToplevels()` is called, and a refresh fills them asynchronously.** Ask, then read about 100 ms later, and ask once at startup, or an overview opens empty.
+* **`ScreencopyView { captureSource: <Toplevel>; live: false }` captures any window once, including windows on workspaces that are not showing.** Use `HyprlandToplevel.wayland` as the source; capture once on open and drop the views on close (a live capture of every window is far costlier on Intel HD 4600 at 2880x1800).
+* **`HyprlandToplevel.address` has no `0x`**, while `hl.dsp.focus({ window = "address:0x..." })` needs it; focusing by address also switches to the window's workspace.
+* **fontconfig 2.18 records the generic family as its own property (`genericfamily`), not as the family name.** A rule that tests `family = monospace` does nothing; test `<test name="genericfamily"><const>monospace</const></test>` together with `prgname` to restyle one program's monospace requests (`look/60-kit-mac-ui-font.conf`).
+* **The shell font is the system monospace alias and themes cannot change it**, and `omarchy font set` would change every terminal with it; a per-program fontconfig rule on `quickshell` is the narrow way.
+* **A theme can override one section of the shell's settings** by shipping `shell.<section>.toml` (a whole section replaces the generated one, missing keys fall back to defaults), and its `hyprland.lua` sets `decoration.rounding`, which the shell mirrors for every popup, menu and notification.
+* **Measure blur on the GPU clock, not the CPU.** `/sys/class/drm/card1/gt_act_freq_mhz` is readable without root; the package energy counter is not.
 
 ## Working in the `!` prompt
 
@@ -1377,9 +1398,9 @@ FILE: docs/MAC-FEEL.md  (Mac feel)
 
 # Making Omarchy feel like a Mac
 
-> **TL;DR.** Everything the kit changes so a macOS user feels at home: right-Option accents, a real Caps Lock, ⌘ shortcuts in apps (and, prepared, ⌘ as Ctrl everywhere), the macOS icons and pointer, a Dock, a ⌘Tab app switcher, a Mac menu bar, three-finger behaviour, the power profile following the charger, a menu-bar clock with the date, Auto appearance, working sleep and hibernate, Wi-Fi saving and six themes. Each row says where it lives, how it was verified and how to undo it; the decisions that still wait for a person follow.
+> **TL;DR.** Everything the kit changes so a macOS user feels at home: right-Option accents, a real Caps Lock, ⌘ shortcuts in apps (and, prepared, ⌘ as Ctrl everywhere), the macOS icons and pointer, a Dock, a ⌘Tab app switcher, Mission Control, a Mac menu bar, the Golden Gate themes, three-finger behaviour, the power profile following the charger, a menu-bar clock with the date, Auto appearance, working sleep and hibernate, Wi-Fi saving and six themes. Each row says where it lives, how it was verified and how to undo it; the decisions that still wait for a person follow.
 
-Related: [keys/README](../keys/README.md) · [icons/README](../icons/README.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)
+Related: [GOLDEN-GATE](GOLDEN-GATE.md) · [look/README](../look/README.md) · [keys/README](../keys/README.md) · [icons/README](../icons/README.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)
 
 What the kit changes so a macOS user feels at home on this MacBook, how each piece was checked, how to undo it, and
 what is still waiting for a person. The live version of this (with real-time status) is the **Setup log** page.
@@ -1395,6 +1416,9 @@ what is still waiting for a person. The live version of this (with real-time sta
 | **A Dock** at the bottom: magnification, running dots, bounce on launch, right-click menu, Downloads and Trash, autohide (⌥⌘D), tinted glass that follows the Omarchy theme | `dock/` (a small Quickshell program, no root) | screenshots of the real compositor, pointer hover, autohide, a light and a dark theme, a real web app; idle cost 0.1 % of one core; `test/test_macdesktop.py`. Not verified: mouse clicks, start at login | `dock/install-dock --remove` (your `dock.json` stays) |
 | **⌘Tab app switcher**: running apps, most recently used first; Tab to step, let go of ⌘ to switch; Q quits and H hides the selected app. Replaces *Next / Previous workspace* on Super+Tab (moved to Super+Ctrl+Shift+Right / Left) | `dock/` | real switcher over three apps; Tab, Return, and Ctrl or Super release driven with `wtype` while it had the keyboard; the Lua routing of ⌘Q with the switcher open or closed. Not verified: the real Super+Tab key chord | `dock/install-dock --remove` |
 | **Mac menu bar**: Apple-style menu, the focused app's name in bold, File / Edit / View / Window / Help; workspaces in the middle, clock last on the right. The menus send the matching ⌘ shortcut to the focused app (almost no Wayland app publishes a real menu) | `menubar/` (a bar widget plugin and a Hyprland module, no root) | screenshots in both themes, a menu opened and an item run (File > New Window opened a window); layout moved and restored exactly in tests | `menubar/install-menubar --remove` (puts your layout back) |
+| **Mission Control and App Exposé**: F3 (the Mac keyboard's Mission Control key, which did nothing), Super+Ctrl+Up or four fingers up open a Spaces bar and real pictures of the windows; Super+Ctrl+Down shows the focused app's windows. F4 (the Launchpad key, also dead before) opens the Apps menu | `dock/` | real windows on three spaces: previews of visible and non-visible spaces, Esc, arrows, Return into another space, closing a window, the + card, App Exposé; idle cost unchanged. Not verified: the real F3/F4 presses and the swipe | `dock/install-dock --remove` |
+| **UI font, window buttons on the left, glass switch**: the bar, menus and Dock in Adwaita Sans (a free relative of San Francisco), the close button of GTK apps at the top left, and a switch for blur behind the glass (off) | `look/` (no root; one shell restart) | the whole bar redrawn with every icon intact (screenshot); the font rule tested to change quickshell's monospace and nothing else; `test/test_macsweep.py`. Not verified: the button layout in a real Files window | `look/install-look --remove` |
+| **Golden Gate and Golden Gate Night themes**: macOS system-colour palettes (contrast-checked), rounded windows with soft shadows and a hairline edge, translucent rounded menus, launcher and notifications with the accent-blue selection, sliding spaces, original bridge wallpapers. Installed, **not applied** | `themes/` (no root) | applied on the real desktop in both variants (no Hyprland errors; terminal, notification, menus, launcher, Mission Control and the Dock screenshotted), then your theme was put back | `omarchy theme set "Mecha Unit"`; `themes/install-themes --remove golden-gate golden-gate-night` |
 | **Three fingers**: swipe between spaces (default) or drag, never both | `THREE_FINGERS` in `input.lua` | trackpad page test in both modes | `trackpad/three-fingers swipe` |
 | **Power profile follows the charger** | `power/` (user service, no root) | simulated charger against the real power daemon | `power/install-power-auto --remove` |
 | **Menu-bar clock with the date** (Wed 7 Oct 15:08) | `omarchy bar set omarchy.clock format …` | screenshot of the bar | `omarchy bar set omarchy.clock format "dddd HH:mm"` |
@@ -1422,7 +1446,7 @@ Everything is reversible and logged, with its undo command, on the Setup log pag
 - **Backups** (needs a password): `sudo backup/install-backups` (preview with `--dry-run`) sets up hourly `/home`
   snapshots and installs Pika Backup. Snapshots on the same disk undo mistakes, not a dead disk, so also point Pika
   Backup at an external drive.
-- **Try the real keys** for the Dock and switcher (a real keyboard is needed; the tests could only send virtual keys): hold ⌘ and press Tab a few times, then let go; Super+Q with the switcher open; log out and in to see the Dock start by itself; click, right-click and drag over the Dock and the menu bar titles. What to expect is in [dock/README](../dock/README.md) and [menubar/README](../menubar/README.md).
+- **Try the real keys** for the Dock and switcher (a real keyboard is needed; the tests could only send virtual keys): hold ⌘ and press Tab a few times, then let go; Super+Q with the switcher open; F3, F4, Super+Ctrl+Up and Down and a four-finger swipe up; log out and in to see the Dock start by itself; click, right-click and drag over the Dock and the menu bar titles. What to expect is in [dock/README](../dock/README.md) and [menubar/README](../menubar/README.md).
 - **Decide whether ⌘ should be Ctrl everywhere** (needs a password; prepared and tested, not installed): `sudo keys/install-keyd`, preview with `--dry-run`. See the section below.
 - **A decision about ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P**, below (not needed if you install the keyd layer: they are plain Ctrl in apps then).
 - Optional: turn on Auto appearance (`auto-appearance on`).
@@ -1473,9 +1497,29 @@ Ctrl, Option, the **right ⌘ key** (still Super: all of Omarchy's shortcuts kee
 - **Press-and-hold accent picker.** No general equivalent on Linux; the right Option key does the same job.
 - **A Dock** was left alone in the first pass (it fights the tiling idea) and has since been built, because it is the most recognisable part of the Mac desktop: [dock/](../dock/README.md). It
   is a Quickshell program rather than `nwg-dock-hyprland`, because the Mac Dock's magnification and the shared switcher need one program that knows what is running. It can be hidden (⌥⌘D, or `autohide` in its settings).
-- **Blur behind the glass** (what "Liquid Glass" is) is not enabled. Hyprland's blur costs GPU time on this laptop's Intel graphics at 2880x1800 and heat was this machine's biggest problem, so the
-  glass is a tinted translucent surface. Measure with the [power lab](POWER-LAB.md) before turning it on.
-- **Window corners, shadows and traffic-light buttons, and Apple's fonts.** Not changed: not asked for, and Omarchy's square tiled windows are a deliberate part of its look.
+- **Blur behind the glass** (what "Liquid Glass" is) is built but **off**, on evidence: see [the measurement below](#blur-behind-the-glass).
+- **Window corners and shadows** are in the Golden Gate themes and the UI font in `look/`. **Left alone:** the glossy traffic-light buttons (the apps draw their own), Apple's fonts, system sounds and layered icons (Apple's own work). [GOLDEN-GATE](GOLDEN-GATE.md) has the whole comparison.
+
+## Blur behind the glass
+
+Liquid Glass is translucency plus blur. `look/mac-glass on` turns on Hyprland's blur for the shell's own surfaces (Dock, switcher, Mission Control, menus, notifications, launcher, the bar's drop-downs; never the bar itself or the windows). It was measured, not guessed:
+the same scripted workload ran with blur off and on, sampling the Intel GPU's actual clock ten times a second and the CPU time of Hyprland and Quickshell (two runs each, on the charger, the other
+work on the machine unchanged).
+
+| Workload | Blur | GPU busy | GPU mean clock | Hyprland CPU | Quickshell CPU |
+|---|---|---|---|---|---|
+| idle, 20 s | off | 10 % | 225 MHz | 14.6 % of a core | 0.5 % |
+| idle, 20 s | on | 40 % | 320 MHz | 15.7 % | 0.5 % |
+| app switcher x25 | off | 43 % | 370 MHz | 13.8 % | 8.6 % |
+| app switcher x25 | on | 62 % | 725 MHz | 16.9 % | 9.7 % |
+| Dock hover x6 | off | 27 % | 266 MHz | 7.7 % | 1.8 % |
+| Dock hover x6 | on | 65 % | 353 MHz | 8.1 % | 2.0 % |
+| notifications x8 | off | 27 % | 257 MHz | 13.3 % | 2.8 % |
+| notifications x8 | on | 47 % | 669 MHz | 17.6 % | 2.5 % |
+
+"GPU busy" is the share of samples above the idle clock. **Reading:** blur quadruples the idle GPU activity and roughly doubles the GPU clock whenever a glass surface moves, with Hyprland spending 5 to 30 % more CPU. The package's energy counter needs root, so
+**battery draw was not measured**: the honest conclusion is "it costs, and on this laptop that has meant heat", not a number of watts. It is off by default. Turn it on, look at the fans and the battery for a day, and decide: `look/mac-glass on`, `look/mac-glass off`.
+The surfaces are translucent and tinted without it (and the switcher and menus nearly opaque so text behind them cannot be read through them).
 
 ## Tests
 
@@ -1489,7 +1533,7 @@ CDP_ATTACH=9334 node test/verify-trackpad.mjs   # same, in a real GPU Brave (use
 
 ---
 
-Related: [keys/README](../keys/README.md) · [icons/README](../icons/README.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)
+Related: [GOLDEN-GATE](GOLDEN-GATE.md) · [look/README](../look/README.md) · [keys/README](../keys/README.md) · [icons/README](../icons/README.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)
 
 
 ====================================================================================================
@@ -1685,11 +1729,12 @@ Related: [dock/](../dock/README.md) · [menubar/](../menubar/README.md) · [keys
 FILE: dock/README.md  (dock/ scripts)
 ====================================================================================================
 
-# dock/: the Dock and the ⌘Tab app switcher
+# dock/: the Dock, the ⌘Tab app switcher and Mission Control
 
 > **TL;DR.** A Mac-style Dock at the bottom of the screen and a ⌘Tab app switcher, in one small Quickshell program started with your session. The Dock
 > has the magnification, the running dots, the bounce while an app launches, a right-click menu and the Downloads and Trash icons. ⌘Tab (Super+Tab) cycles
-> through running apps, most recently used first, and letting go of ⌘ switches. It follows the Omarchy theme's colours and the icon theme. No root; `install-dock --remove` undoes it.
+> through running apps, most recently used first, and letting go of ⌘ switches. F3 (the Mission Control key), Super+Ctrl+Up or four fingers up open **Mission Control**: every
+> space across the top and the windows of the selected one, as real pictures of them, below. It follows the Omarchy theme's colours and the icon theme. No root; `install-dock --remove` undoes it.
 
 | Command | What |
 |---|---|
@@ -1725,13 +1770,40 @@ FILE: dock/README.md  (dock/ scripts)
 | Super+H | hide the app: its windows go to a hidden workspace; clicking it in the Dock or picking it in the switcher brings them back | free |
 | Super+M | hide this one window (the nearest tiling has to "minimise") | free |
 | Super+Alt+D | hide or show the Dock | free |
+| F3, Super+Ctrl+Up, four fingers up on the trackpad | **Mission Control** (see below). F3 is the Mac keyboard's Mission Control key; it produced `XF86LaunchA`, which nothing was bound to | free; the swipe used to open the Omarchy menu |
+| F4 | the **Apps menu**, like a four-finger pinch (F4 is the Mac keyboard's Launchpad key; it produced `XF86LaunchB`, which nothing was bound to; macOS 26 replaced Launchpad with an Apps view) | free |
+| Super+Ctrl+Down | **App Exposé**: only the windows of the focused app, from every space | free |
 
 "Super" is the ⌘ key on this keyboard. With the keyboard remap in [keys/](../keys/README.md) the left ⌘ sends these chords for you.
+
+## Mission Control and App Exposé
+
+F3, Super+Ctrl+Up or a four-finger swipe up opens a full-screen overview over the dimmed wallpaper: a **Spaces bar** with one card per workspace ("Desktop 1",
+"Desktop 2", ..., the apps on it as small icons, the current one outlined, a **+** at the end), and below it the windows of the selected space, scaled to fit in rows
+with their real proportions, each with its app icon and title. The previews are **real pictures of the windows**, taken once when the overview opens (not live), including
+windows on spaces you are not looking at.
+
+| Do | Result |
+|---|---|
+| click a window | go to it (and to its space) and close the overview |
+| click a space card | show that space's windows; double-click it (or press Return on it) to go there |
+| click **+** | go to the next empty space |
+| hover a window, click the **x** at its corner | close that window; the others re-flow |
+| arrows | Left and Right move along a row, Up and Down move between the Spaces bar and the windows and between rows of windows; Return does what a click does |
+| Esc, a click on empty space, F3 again or the same swipe again | close it |
+
+App Exposé (Super+Ctrl+Down) shows the focused app's windows only, from every space, with the space number after each title. Windows hidden with Super+H are not shown in either.
+
+Cost, measured on this laptop: nothing is mapped or captured while it is closed (the Dock program stays at 0.10 % of one core and about 255 MB); opening takes about a quarter of a
+second and one second of CPU time, adds about 75 MB while it is open, and the memory goes back when it closes. Held open it uses no CPU: there is no live capture. It is one surface
+on the primary screen; on several monitors it covers the one it opens on and lists the windows of all of them.
 
 ## What it does not do (yet)
 
 - No drag to reorder or to drag an icon out; reorder by editing `pinned`.
 - No minimised windows in the Dock (hidden ones keep the app's dot), no badges, no live window previews in the switcher.
+- Mission Control cannot drag a window onto another space's card, has no animation from the real window to its card (it fades in), and shows the picture of the window as it was when it
+  opened. A window that cannot be captured shows its app icon on a dark card instead (none failed in the tests).
 - No real blur behind the glass. Hyprland's blur costs GPU time on this laptop's Intel graphics at 2880x1800, so the glass is a tinted, translucent surface (the
   switcher and menus are nearly opaque so text behind them cannot be read through them). It is a decision to measure before changing, not a missing line.
 - Bottom only (no left or right Dock).
@@ -1745,16 +1817,23 @@ On the real desktop (screenshots of the real compositor, not a simulation):
 - The switcher: opened over three apps, Tab moved the selection, Return switched, and releasing Ctrl or Super committed (key events sent with `wtype` while the
   switcher had the keyboard).
 - ``Super+` ``, `Super+Q`, hide and restore, on real Files and Obsidian windows, driven through `hyprctl eval`.
+- Mission Control, on real windows spread over three spaces (this terminal and Files on space 1, Obsidian on 2, Disks on 3): screenshots with real previews of windows on the visible and
+  on the other spaces; the global shortcut that F3 and the swipe send opens and closes it; Esc, the arrow keys (between the bar and the windows, along the cards), Return and Left/Right
+  sent as real key events while it had the keyboard; Return on a window of another space switched to that space and focused it; the **x** (through a test hook) closed a window and
+  re-flowed the cards; **+** went to workspace 4; App Exposé listed the two Files windows from two spaces; the layout function is run in `node` by the tests (proportions kept, nothing
+  overlaps or leaves the screen, up to eleven windows).
 - Web apps: a real Omarchy Kit window lit the pinned icon.
 - `test/test_macdesktop.py`: the installer in a sandbox (files, `dock.json` kept, one require line, clean removal), QML and Lua syntax, and that every QML file is installed.
 
-**Not verified, because it needs a real keyboard or pointer:** pressing the actual Super+Tab chord (Hyprland ignores `wtype`'s virtual keyboard for key binds, and the
+**Not verified, because it needs a real keyboard or pointer:** pressing the actual F3, Super+Ctrl+Up, Super+Ctrl+Down and Super+Tab chords, the real four-finger swipe (the swipe handler runs the same
+global shortcut as F3, which was tested; the gesture itself was not), hovering to show the close button and clicking cards (the same code runs through the tested IPC calls), Mission Control in a light theme
+(it uses the same theme colours as the Dock), pressing the actual Super+Tab chord (Hyprland ignores `wtype`'s virtual keyboard for key binds, and the
 release watcher uses `hl.is_key_down`, which does not see it either), mouse clicks and right-click menus (no pointer injection here), and starting at login
 (`hyprland.start`). The checklist for those is on the Setup log page.
 
 ## Files
 
-`shell.qml` (entry), `Dock.qml`, `DockIcon.qml`, `ItemMenu.qml`, `Switcher.qml`, `AppIcon.qml`, `Apps.qml` (what is running, pinned and hidden), `Config.qml`
+`shell.qml` (entry), `Dock.qml`, `DockIcon.qml`, `ItemMenu.qml`, `Switcher.qml`, `MissionControl.qml`, `AppIcon.qml`, `Apps.qml` (what is running, pinned and hidden), `Config.qml`
 (`dock.json`), `Theme.qml` (colours from the Omarchy theme), `IconIndex.qml` (which icons the theme has), `macdock.lua` (the Hyprland side), `install-dock`.
 
 Undo: `dock/install-dock --remove`.
@@ -1833,6 +1912,168 @@ Related: [dock/](../dock/README.md) · [icons/](../icons/README.md) · [keys/](.
 
 
 ====================================================================================================
+FILE: look/README.md  (look/ scripts)
+====================================================================================================
+
+# look/: the Mac details that are not a theme
+
+> **TL;DR.** `install-look` gives the Omarchy shell (bar, menus, panels) and the Dock a proportional UI font like macOS's San Francisco, moves the window close button of GTK apps to the left like the red
+> traffic light, and installs the switch for **blur behind the glass** (off until you turn it on with `mac-glass on`). No root; `--remove` undoes it all. The corners, shadows, popups and colours of the Golden Gate look are in the two
+> themes, [Golden Gate and Golden Gate Night](../themes/golden-gate/THEME.md), not here.
+
+| Command | What |
+|---|---|
+| `install-look` | the font rule, the window-button layout, the glass module; restarts the Omarchy shell once (a couple of seconds) |
+| `install-look --remove` | removes them and puts your previous button layout back exactly |
+| `mac-glass on`, `mac-glass off`, `mac-glass status` | blur behind the Dock, switcher, Mission Control, menus, notifications and launcher (and the drop-downs of the bar, but not the bar itself) |
+
+## What each part does and costs
+
+- **UI font** (`60-kit-mac-ui-font.conf`, installed in `~/.config/fontconfig/conf.d/`). The Omarchy shell draws everything in the system *monospace* font and gives themes no way to change that. This
+  fontconfig rule applies only to programs named `quickshell` (the shell and the Dock) and only to requests for the monospace alias: they get **Adwaita Sans** (GNOME's UI font, derived from Inter, the closest free
+  relative of San Francisco). Terminals, editors and every other program keep their monospace font; the `sans-serif` alias and the shell's icon font are untouched (checked with `fc-match` in the tests). Apple's own font
+  cannot be redistributed. Needs a shell restart to take effect (the installer does it).
+- **Window buttons on the left** (`org.gnome.desktop.wm.preferences button-layout`, from `appmenu:close` to `close:`). GTK and libadwaita apps such as Files then show the close button at the top left, where a
+  Mac has it. Only close is shown: a tiling desktop has no minimise, and the green button's job (full screen) is a keyboard shortcut here. Your previous value is saved once in `~/.config/omarchy-kit/look-saved.conf`.
+- **Glass** (`macglass.lua`, loaded from `hyprland.lua`). Off by default. `mac-glass on` turns on Hyprland's blur and a layer rule that blurs the shell's own surfaces; windows keep their opacity and are not blurred. It costs GPU time, and on
+  this laptop's Intel graphics at 2880x1800 that means heat: see the measurement in [MAC-FEEL](../docs/MAC-FEEL.md#blur-behind-the-glass) before deciding to leave it on. The state is one word in `~/.config/omarchy-kit/glass`.
+
+## How it was checked
+
+- The bar redrawn with the font rule on the real desktop (screenshot): proportional text, every icon still drawn, the clock and the Mac menu bar in the same font.
+- `test/test_macsweep.py`: the rule is well-formed and narrow (and, with fontconfig, changes monospace for `quickshell` only), `install-look` in a sandbox with a fake `gsettings` that remembers (install, twice,
+  `--remove` restores the layout exactly), `mac-glass` argument handling and its state file, the module parses and never blurs the bar itself.
+- **Not verified:** the effect of `mac-glass on` on battery life (see MAC-FEEL), and the button layout in a real Files window (no pointer to click it; the setting itself is read back).
+
+Undo: `look/install-look --remove`.
+
+---
+
+Related: [themes/](../themes/README.md) · [dock/](../dock/README.md) · [icons/](../icons/README.md) · [docs/MAC-FEEL](../docs/MAC-FEEL.md) · [docs/INDEX](../docs/INDEX.md)
+
+
+====================================================================================================
+FILE: docs/GOLDEN-GATE.md  (Golden Gate parity)
+====================================================================================================
+
+# Golden Gate on this MacBook Pro: what matches, what does not
+
+> **TL;DR.** A row-by-row comparison of macOS 27 "Golden Gate" with this desktop, and of how a MacBook Pro behaves with how this one (a 15" Mid 2014, MacBookPro11,3) now does. Each row says **done**, **partial**, **not done** or
+> **impossible** and why, so nothing is claimed that was not measured. The look is a matter of two themes (Golden Gate and Golden Gate Night), the Dock, the menu bar and Mission Control; the keyboard layer is prepared and waits for a password. Be clear
+> about one thing first: Apple's own list ends at macOS Big Sur for this model, so this is an imitation of Golden Gate, never the real thing.
+
+Related: [MAC-FEEL](MAC-FEEL.md) · [THEMES](THEMES.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [look/README](../look/README.md) · [keys/README](../keys/README.md) · [INDEX](INDEX.md)
+
+## What "Golden Gate" is, and the caveat
+
+macOS 27 "Golden Gate" was announced at WWDC on 2026-06-08 and released on 2026-09-14 ([Wikipedia](https://en.wikipedia.org/wiki/MacOS_Golden_Gate), [MacRumors](https://www.macrumors.com/2026/06/08/apple-announces-macos-golden-gate/)). It refines
+the Liquid Glass design of macOS 26 Tahoe: a single Liquid Glass slider, one consistent window corner radius, deeper shadows, glossy traffic lights, a menu bar without icons in its menus, a Dock that shows background apps, and the rest listed below.
+It runs only on Apple silicon. **This Mac's official ceiling is Big Sur 11** ([Apple](https://support.apple.com/en-us/103111)), so Golden Gate is a target to resemble, and Apple's own behaviour for this model is what Big Sur did.
+
+The page is built from two sourced research passes (low-confidence items were flagged and are marked here as reported or unconfirmed); the raw notes are not stored in this repository, the sources that matter are linked at the end. Numbers Apple does not publish (blur radius,
+shadow values, animation durations, the menu bar and traffic light sizes) were **not found**, and none is invented here.
+
+Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-FEEL.md)); **partial** = the idea is there, the detail is not; **not done** = possible, not built; **impossible** = needs something Apple only ships on a Mac, or hardware this laptop lacks;
+**n/a** = this Mac never had it under macOS either.
+
+## The look
+
+| Golden Gate | Here | Status |
+|---|---|---|
+| Liquid Glass: translucent, blurred surfaces | Dock, menus, popups, notifications and the launcher are tinted, translucent surfaces; real blur is one command (`look/mac-glass on`) and is **off**: measured on the real desktop it raised the GPU's busy time from 10 % to 40 % at idle and doubled the GPU clock while switching apps, which is heat on this laptop | partial |
+| One Liquid Glass slider (clear, medium, opaque) | one switch (glass on or off) and the translucency fixed in the theme | partial |
+| One consistent window corner radius, rounder than before (about 20 pt reported, 26 pt in Tahoe, 10 pt in Sequoia) | corner radius 16 with smooth, squircle-like curvature in both themes; the shell's popups, menus and notifications follow it. The 20 pt figure is from a forum report Apple has not confirmed | done |
+| Deeper window shadows, a clearer active window | a soft deep shadow, a hairline edge, the focused window edged in a faint accent and the others dimmed 6 % | done |
+| Glossy Aqua-like traffic lights | not drawable from outside the app (the apps draw their own buttons); GTK apps get the close button on the left | partial |
+| Light, Dark and Auto appearance | **Golden Gate** (light) and **Golden Gate Night** (dark), contrast-checked; Auto is `appearance/` (installed, off until you turn it on) | done |
+| Accent colours, Multicolor by default | a system blue; the Multicolor default and the other accents are not offered | partial |
+| Squircle app icons; non-conforming icons shrunk onto a grey tile | the WhiteSur icon theme (a free re-drawing in the macOS style); icons it lacks are set on a neutral rounded tile by the Dock and the switcher | done |
+| The new layered Liquid Glass icons | Apple's own artwork; no free theme has it | impossible |
+| Golden Gate wallpapers (Golden Gate, Sunset, Night; animate on unlock) | original wallpapers drawn at install time (a suspension bridge in morning fog and by night, soft colour fields); no Apple artwork, no animation | partial |
+| Redesigned pointer, the pointing hand returns | an open-source macOS-style cursor set; not the new design | partial |
+| San Francisco font | Adwaita Sans (derived from Inter) for the bar, menus, panels and the Dock; GTK apps already used it. SF is not redistributable | partial |
+| Menu bar with no background, text white or black to suit the wallpaper | transparent bar (Omarchy's own setting); the text follows the theme | done |
+| Menu bar: Apple menu, the app name in bold, the app's menus | the Omarchy glyph as the system menu, the focused app's name in bold, File, Edit, View, Window, Help; the menus send the ⌘ shortcut because almost no Wayland app publishes a real menu | partial |
+| Menus lost most of their icons in 27 | the menus have none | done |
+| Status items, the clock on the right | network, sound, battery, display, tray and the clock, in the Mac order | done |
+| Overflow arrow at the notch, the bar as one window | not needed (no notch) | n/a |
+| Control Center (multi-page, resizable, Controls Gallery) | separate popups for Wi-Fi, Bluetooth, sound, display and power instead of one panel | not done |
+| Battery icon redesigned, no percentage by default | Omarchy's battery icon, percentage on right-click | not done |
+| Dock: dot under running apps, magnification, Downloads, Trash, auto-hide, right-click menu | all of it | done |
+| Dock: lighter dot for apps running only in the background, stacks, recent apps, left and right positions, drag to reorder | not built | not done |
+| Cmd+Tab switcher, Cmd+\` between windows of an app | built, with Q to quit and H to hide the selected app | done |
+| Mission Control with a Spaces bar and window previews, App Exposé | built (real window pictures taken when it opens, never live); F3, Super+Ctrl+Up, four fingers up; Super+Ctrl+Down for App Exposé | done |
+| Spotlight on Cmd+Space: apps, files, actions, clipboard history (Cmd+1 to 4) | the Apps menu (⌘Space through the keyboard layer) lists and launches apps; the clipboard manager is a separate shortcut; no Files, Actions or Clipboard views | partial |
+| Launchpad is gone, Apps replaces it | F4 and a four-finger pinch open the Apps menu | done |
+| Hot corners (bottom right: Quick Note) | not built | not done |
+| Stage Manager, Fill & Arrange tiling menus | the desktop already tiles; Stage Manager is not built | not done |
+| Notification banners top right, Notification Center from the clock | rounded banners top right, the calendar from the clock, notification history on a shortcut; no widget panel | partial |
+| Lock screen with a large clock and an avatar | the lock card is styled by the theme (rounded, translucent); no large clock or avatar | partial |
+| Login window | the login screen belongs to SDDM and needs root to change | not done |
+| Screenshot toolbar (Shift-Cmd-5), Shift-Cmd-3 and 4, a floating thumbnail | all three chords work through the keyboard layer and Omarchy's capture; the thumbnail is a notification | partial |
+| Finder with Quick Look | Files (Nautilus) with Quick Look on Space | done |
+| System sounds (screenshot, Trash, alert) | none; Apple's are copyrighted and no original set was made | not done |
+| Reduce transparency and the accessibility display options | the glass switch and the opaque theme tokens approximate it; there is no panel | partial |
+| Apple Account, iCloud, Handoff, AirDrop, Siri, Apple Intelligence, Continuity, Touch ID | none of them can exist on Linux (LocalSend and Tailscale cover file sharing) | impossible |
+
+## The keyboard, trackpad and the rest of this MacBook Pro
+
+| This MacBook Pro under macOS | Here | Status |
+|---|---|---|
+| The top row is hardware keys first, Fn gives F1 to F12 | the same (`hid_apple` `fnmode=3`) | done |
+| F1 and F2 brightness, F5 and F6 keyboard backlight, F7 to F9 media, F10 to F12 mute and volume | bound by Omarchy; brightness and backlight move in 5 % and 10 % steps, not the 16 steps of a Mac | done |
+| F3 Mission Control, F4 Launchpad | F3 opens Mission Control, F4 the Apps menu (both did nothing before; checked as bound, not with a real press) | done |
+| Eject key | this model most likely has none (Apple's spec lists 78 keys and names no Eject); Omarchy binds `XF86Eject` anyway | n/a |
+| Command is the shortcut key; Option and Control as on a Mac | ⌘ shortcuts through Hyprland binds today; the keyd layer that makes left ⌘ act as Ctrl in every app is built and tested but **not installed** (it needs your password) | partial |
+| Command and Option arrows move to line start, word | in the keyd layer (not installed) | partial |
+| Control-A, E, K, F, B, P, N as text-editing keys in every field | not built | not done |
+| Caps Lock needs a deliberate press and lights up after | a real Caps Lock now (Compose removed); the press delay arrives with the keyd layer | partial |
+| Fn+Return is Enter, Fn+Delete forward delete, Fn+arrows Home, End, Page Up and Down | the kernel table maps Fn+Return to Insert; the others are expected from `hid_apple` and not checked | not done |
+| Holding a letter opens the accent picker | no general equivalent; right Option types accents instead | impossible |
+| Key repeat | Omarchy's fast repeat (40 per second after 250 ms) is kept; a Mac's slower default is a taste, not a fix | not done |
+| Trackpad: natural scrolling, two-finger secondary click, tap to click, pinch to zoom | all on (Apple's quick-start guide implies a Mac ships with tap to click off) | done |
+| Three fingers up is Mission Control, spread shows the desktop, thumb and three fingers pinch is Launchpad | four fingers up is Mission Control (three fingers switch spaces), four down shows the desktop, a four-finger pinch opens Apps | partial |
+| Notification Center from a two-finger swipe from the right edge | the trackpad driver has no edge swipes | impossible |
+| Force Touch, haptics, Look Up by three-finger tap | this trackpad never had them | n/a |
+| Closing the lid sleeps, opening wakes | light sleep (`s2idle`), wake in about 1.3 s; a lid test on battery is still waiting for you | partial |
+| Power button: Control-Power opens a Restart, Sleep, Shut Down dialog | the power key opens Omarchy's power menu (logind ignores it) | done |
+| Default display scaling "looks like 1440x900" | the panel runs at 2880x1800 with scale 2 | done |
+| Brightness keys, Night Shift | both work (Night Shift is Omarchy's night light) | done |
+| Automatic brightness and keyboard backlight from the light sensor | the sensor reads `(0,0)` constantly on this unit, so there is nothing to follow | impossible |
+| True Tone, Low Power Mode, Optimized Battery Charging, the camera and microphone dots in the menu bar | this Mac never had them under macOS | n/a |
+| MagSafe light, no charging chime on MagSafe 2 | hardware; nothing to do | n/a |
+| Speakers, headphone jack, SD card slot, Thunderbolt and HDMI | speaker EQ and automatic headphone switching are done; the SD slot and external displays are detected and untested (the Setup log lists it) | partial |
+| FaceTime camera | the `facetimehd` driver works; its green light is hardware | done |
+
+## Do next, in the order that matters
+
+1. **Run the keyboard layer** (`sudo keys/install-keyd`, preview with `--dry-run`): it turns the ⌘ rows above from partial to done.
+2. **Press the real keys once** (⌘Tab, F3, F4, Super+Q in the switcher, a log out and in): the tests could send neither the chords nor mouse clicks.
+3. **Decide on blur** (`look/mac-glass on`): the real Liquid Glass look costs the GPU time measured above.
+4. Pick a theme: `omarchy theme set "Golden Gate"` or `"Golden Gate Night"`; `omarchy theme set "Mecha Unit"` returns.
+5. Not built and possible: a Control Center panel, hot corners, Spotlight's Clipboard and Actions views, system sounds, Control-A/E/K text keys, the background-app dot in the Dock.
+
+## How this was checked, and by whom
+
+Two researchers read Apple's pages (the macOS 27 Mac User Guide, apple.com/os/macos, Apple Support's keyboard and Mac specification pages), MacRumors, 9to5Mac, MacStories, Wikipedia and others and wrote sourced checklists; the desktop was audited by hand
+(function keys through the compiled keymap, `hyprctl`, `gsettings`, `libinput` options, `fc-match`, screenshots of every surface) and every row marked done was exercised on the real compositor. The blur cost was measured with the same scripted workload (the app switcher, Dock hover, notifications, idle) with
+blur off and on, sampling the GPU's actual clock and the CPU time of Hyprland and Quickshell; the energy counters need root, so battery draw was not measured. Details and limits of each piece are in its own README.
+
+## Sources
+
+- macOS 27 overview and Liquid Glass: [Apple](https://www.apple.com/os/macos/), [MacRumors on the Liquid Glass changes](https://www.macrumors.com/2026/06/09/macos-golden-gate-liquid-glass/), [9to5Mac on the slider](https://9to5mac.com/2026/09/22/macos-27-gives-you-more-control-over-liquid-glass/), [MacStories review](https://www.macstories.net/stories/macos-27-the-macstories-review/2/)
+- Menu bar: [publicspace.net](https://www.publicspace.net/blog/macos-27-menu-bar/), [MacRumors on menu icons](https://www.macrumors.com/2026/06/11/macos-27-golden-gate-menu-items/), [Apple, what is in the menu bar](https://support.apple.com/guide/mac-help/whats-in-the-menu-bar-mchlp1446/27/mac/27)
+- Traffic lights: [512 Pixels](https://512pixels.net/2026/08/golden-gate-beta-6-stoplights-liquid-glass/); window corners: [TidBITS forum](https://talk.tidbits.com/t/adjust-tahoe-window-corner-radius/33791), [Michael Tsai](https://mjtsai.com/blog/2025/10/16/tahoe-window-corners)
+- Dock, Spaces and Mission Control: [Apple, open apps from the Dock](https://support.apple.com/guide/mac-help/open-apps-from-the-dock-mh35859/27/mac/27), [Apple, Mission Control](https://support.apple.com/guide/mac-help/mh35798/27/mac/27)
+- Spotlight: [Apple](https://support.apple.com/guide/mac-help/mchlp1008/27/mac/27); keyboard shortcuts: [Apple](https://support.apple.com/en-us/102650)
+- This Mac under macOS: [Apple, compatible Macs for Big Sur](https://support.apple.com/en-us/103111), [Apple, the function keys](https://support.apple.com/en-us/102439), [Apple, the MacBook Pro specifications](https://support.apple.com/en-us/111935)
+
+---
+
+Related: [MAC-FEEL](MAC-FEEL.md) · [THEMES](THEMES.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [look/README](../look/README.md) · [keys/README](../keys/README.md) · [INDEX](INDEX.md)
+
+
+====================================================================================================
 FILE: trackpad/README.md  (trackpad/ scripts)
 ====================================================================================================
 
@@ -1876,19 +2117,21 @@ Related: [themes/](../themes/README.md) · [docs/MAC-FEEL](../docs/MAC-FEEL.md) 
 FILE: docs/THEMES.md  (Themes)
 ====================================================================================================
 
-# Themes: Kawaii Bow, Mecha Unit, Solarpunk
+# Themes: Golden Gate, Kawaii Bow, Mecha Unit, Solarpunk
 
-> **TL;DR.** Six original Omarchy themes in three families (Kawaii Bow, Mecha Unit, Solarpunk), each with a light or dark partner. Palettes are re-derived and checked for contrast, wallpapers are drawn by generators when you install, and the looks are inspired in the second degree by credited open-source works. Licence: CC BY 4.0.
+> **TL;DR.** Eight original Omarchy themes in four families (Golden Gate, Kawaii Bow, Mecha Unit, Solarpunk), each with a light or dark partner. Palettes are re-derived and checked for contrast, wallpapers are drawn by generators when you install, and the looks are inspired in the second degree by credited open-source works. Licence: CC BY 4.0.
 
 Related: [themes/README](../themes/README.md) · [DEVELOPING](DEVELOPING.md#add-a-theme) · [MAC-FEEL](MAC-FEEL.md) · [INDEX](INDEX.md)
 
-Six complete Omarchy themes made for this kit, in three families. Each folder in `themes/` has a `colors.toml` palette (Omarchy's
+Eight complete Omarchy themes made for this kit, in four families. Each folder in `themes/` has a `colors.toml` palette (Omarchy's
 templates turn it into terminal, bar, btop, Neovim, VS Code and lock-screen colours), a preview and a `THEME.md` with the palette
 rationale, a WCAG contrast table, and the **inspiration chain**. The five original 2880x1800 wallpapers of each theme are not stored:
 generator scripts in `themes/generators/` draw them when you install the theme (about 7 seconds per theme).
 
 | Theme | Mode | Background | Text | Accent | Idea |
 |---|---|---|---|---|---|
+| **Golden Gate** (`golden-gate`) | light | `#f5f5f7` | `#1d1d1f` | `#0066d6` | The macOS 27 look: system grey, an accessible blue, rounded windows with deep soft shadows, a suspension bridge in morning fog. Also carries the window style and shell-surface overrides. |
+| **Golden Gate Night** (`golden-gate-night`) | dark | `#1c1c1e` | `#f5f5f7` | `#0a84ff` | The charcoal partner: the bridge under a low glowing moon. |
 | **Kawaii Bow** (`kawaii-bow`) | light | `#fff6f8` | `#43202d` | `#c1082c` | Strawberry-milk pinks, cream, a bow-red accent, baby blue and butter yellow. |
 | **Kawaii Bow Night** (`kawaii-bow-night`) | dark | `#2a1226` | `#ffe9f0` | `#fd6776` | The same sweets after dark: deep berry-plum ground with pink and mint. |
 | **Mecha Unit** (`mecha-unit`) | dark | `#0b0614` | `#d7f2ff` | `#a874ff` | Black-violet command centre, industrial purple and acid green, warning orange. |
@@ -1900,7 +2143,7 @@ generator scripts in `themes/generators/` draw them when you install the theme (
 
 ```
 themes/install-themes            # copies them to ~/.config/omarchy/themes and draws their wallpapers (no root); switches nothing
-omarchy theme set "Kawaii Bow"   # also: "Kawaii Bow Night", "Mecha Unit", "Mecha Unit Red", "Solarpunk", "Solarpunk Dusk"
+omarchy theme set "Golden Gate Night"   # also: "Golden Gate", "Kawaii Bow", "Kawaii Bow Night", "Mecha Unit", "Mecha Unit Red", "Solarpunk", "Solarpunk Dusk"
 omarchy theme set "Retro 82"     # back to the previous one
 themes/install-themes --remove   # take the kit's themes out again (never touches anyone else's)
 ```
@@ -1910,7 +2153,7 @@ Drawing the wallpapers needs `python-pillow` and `librsvg` (`sudo pacman -S pyth
 and its colours work; install the two packages and run `themes/install-themes` again. Other commands:
 
 ```
-themes/make-wallpapers                  # draw all six themes into themes/<theme>/backgrounds/ (git-ignored), for looking at them
+themes/make-wallpapers                  # draw all eight themes into themes/<theme>/backgrounds/ (git-ignored), for looking at them
 themes/make-wallpapers --only 2 solarpunk   # just wallpaper 2 of one theme, a quick check
 themes/install-themes --no-wallpapers   # install the colours only
 ```
@@ -1961,17 +2204,17 @@ Related: [themes/README](../themes/README.md) · [DEVELOPING](DEVELOPING.md#add-
 FILE: themes/README.md  (themes/ scripts)
 ====================================================================================================
 
-# themes/: six original Omarchy themes
+# themes/: eight original Omarchy themes
 
-> **TL;DR.** Kawaii Bow (light and night), Mecha Unit (purple and red) and Solarpunk (light and dusk). Each folder is a complete Omarchy theme
+> **TL;DR.** Golden Gate (light and night), Kawaii Bow (light and night), Mecha Unit (purple and red) and Solarpunk (light and dusk). Each folder is a complete Omarchy theme
 > (`colors.toml` plus the theme files). The wallpapers are **not stored**: generators in `generators/` draw them when you install.
 > Palettes, theme files, previews, wallpapers and texts are **CC BY 4.0** ([LICENSE](LICENSE)); the scripts are MIT.
 
 | Path | What |
 |---|---|
-| `kawaii-bow/`, `kawaii-bow-night/`, `mecha-unit/`, `mecha-unit-red/`, `solarpunk/`, `solarpunk-dusk/` | one theme each: `colors.toml`, `btop.theme`, `hyprland.lua`, `chromium.theme`, `icons.theme`, previews, and a `THEME.md` with the palette rationale, a contrast table and the credits |
-| `generators/` | `kawaii.py`, `solarpunk.py`, `mecha/`: seeded generators (Pillow, plus `rsvg-convert` for the first two) with one interface: `variant OUTDIR [number]` |
-| `make-wallpapers` | draws any or all themes; `--out`, `--only`, `--jobs`, `--list`; about 43 s for all 30 images |
+| `golden-gate/`, `golden-gate-night/`, `kawaii-bow/`, `kawaii-bow-night/`, `mecha-unit/`, `mecha-unit-red/`, `solarpunk/`, `solarpunk-dusk/` | one theme each: `colors.toml`, `btop.theme`, `hyprland.lua`, `chromium.theme`, `icons.theme`, previews, and a `THEME.md` with the palette rationale, a contrast table and the credits |
+| `generators/` | `golden_gate.py`, `kawaii.py`, `solarpunk.py`, `mecha/`: seeded generators (Pillow, plus `rsvg-convert` for the first two) with one interface: `variant OUTDIR [number]` |
+| `make-wallpapers` | draws any or all themes; `--out`, `--only`, `--jobs`, `--list`; about a minute for all 40 images |
 | `install-themes` | copies the themes to `~/.config/omarchy/themes`, draws each one's wallpapers, copies the licence; never touches themes it did not install; switches nothing. `--list`, `--remove`, `--no-wallpapers` |
 | `LICENSE` | the CC BY 4.0 notice and a suitable credit line |
 
@@ -1980,7 +2223,7 @@ FILE: themes/README.md  (themes/ scripts)
 ```bash
 sudo pacman -S python-pillow librsvg     # only needed for the wallpapers
 themes/install-themes                    # no root; about 8 s per theme
-omarchy theme set "Solarpunk"            # also "Kawaii Bow", "Kawaii Bow Night", "Mecha Unit", "Mecha Unit Red", "Solarpunk Dusk"
+omarchy theme set "Golden Gate Night"    # also "Golden Gate", "Solarpunk", "Kawaii Bow", "Kawaii Bow Night", "Mecha Unit", "Mecha Unit Red", "Solarpunk Dusk"
 themes/install-themes --remove           # take the kit's themes out again
 ```
 
@@ -2337,6 +2580,7 @@ FILE: test/README.md  (Tests)
 | `test_store.py`, `test_personal.py` | unit | the store client and your-own-backups library (signed snapshots, rollback, checksums; local matching with sockets blocked) |
 | `test_keyd.py` | unit | the keyboard pieces in `keys/`: the keyd configuration generator, the Hyprland-aware app helper (against fake sockets), `install-keyd` (as fake root in a namespace), `caps-lock`; with `KEYD_BIN` and `KEYD_SRC` also keyd's own checker and the real keyd engine (`keyd-trace.c`) |
 | `test_macdesktop.py` | unit | the Mac look: `icons/install-icons` (wrong checksum installs nothing, idempotent, `--remove` never deletes a folder it did not create), the theme-set hook, `dock/install-dock`, `menubar/install-menubar` (layout moved and restored exactly, bad JSON untouched), and the contracts between the pieces (every QML file installed, every menu item id has a Lua action, `luac` and `qmllint` parse) |
+| `test_macsweep.py` | unit | the Golden Gate themes (every colour key, text contrast of 4.5:1 or better, valid shell-section overrides, the window style), `look/install-look` (font rule, button layout saved and restored exactly, glass module), `look/mac-glass`, and that the font rule changes quickshell's monospace request and nothing else |
 | `verify-portal.mjs` | browser | all 12 pages, nav, lessons engine, palette, Setup log (including Spanish), skip links, EN/ES, phone width |
 | `verify-keyboard.mjs`, `verify-trackpad.mjs` | browser | the 3D keyboard and trackpad pages |
 | `verify-mackeys.mjs` | real compositor | each ⌘ shortcut through `hyprctl eval`, reported by a scratch Brave window (needs Hyprland) |

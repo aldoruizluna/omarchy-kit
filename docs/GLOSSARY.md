@@ -5,6 +5,8 @@
 
 Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.md) · [POWER-LAB](POWER-LAB.md) · [FIELD-NOTES](FIELD-NOTES.md)
 
+**App Exposé.** The overview of one app's windows from every space (Super+Ctrl+Down here). See [dock/README](../dock/README.md).
+
 ## A to C
 
 **App switcher.** The ⌘Tab panel: one big icon per running app, most recently used first, and letting go of ⌘ switches. Here it is part of the Dock's Quickshell program and replaces Omarchy's "next workspace" on Super+Tab. See [dock/README](../dock/README.md).
@@ -61,7 +63,11 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 
 **Light sleep (s2idle).** The machine keeps running at a whisper, so opening the lid wakes it at once. Costs: fans keep spinning and the battery drains faster. See [SLEEP](SLEEP.md#light-sleep-and-its-price).
 
+**Liquid Glass.** Apple's design language since macOS 26: translucent, refracting, blurred surfaces. Here the translucency is in the themes and the real blur is a switch, off, because it costs GPU time. See [GOLDEN-GATE](GOLDEN-GATE.md) and [MAC-FEEL](MAC-FEEL.md#blur-behind-the-glass).
+
 **LUKS.** Disk encryption. The disk passphrase typed at start-up is what protects the hibernate image, which is why the no-lock installer refuses without it. See [SLEEP](SLEEP.md).
+
+**Mission Control.** The overview of all spaces and their windows (F3, Super+Ctrl+Up, four fingers up here). The window pictures are taken once when it opens, not live. See [dock/README](../dock/README.md).
 
 **MSR** (model-specific register). CPU registers read through `/dev/cpu/N/msr`; `power/msr-probe` reads the package C-state limit (register `0xE2`) without changing anything. See [POWER-LAB](POWER-LAB.md).
 

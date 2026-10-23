@@ -13,7 +13,7 @@ Omarchy Kit is a bilingual (English / Spanish) learning portal and a set of reve
 | `*.template.html`, `kit.js`, `kit.css`, `portal*.js`, `portal.css` | the pages and shared browser code |
 | `portal_lessons.py`, `portal_content.py` | the learning path (6 levels), Mac habits, glossary, hardware cards |
 | `build_setup.py` | the Setup log: live `checks()`, and the records of every change with its undo |
-| `sleep/`, `power/`, `themes/`, `gpu/`, `audio/`, `keys/`, `icons/`, `dock/`, `menubar/`, `trackpad/`, `appearance/`, `backup/`, `boot/`, `games/` | scripts that change the machine; each folder has a README |
+| `sleep/`, `power/`, `themes/`, `gpu/`, `audio/`, `keys/`, `icons/`, `dock/`, `menubar/`, `look/`, `trackpad/`, `appearance/`, `backup/`, `boot/`, `games/` | scripts that change the machine; each folder has a README |
 | `test/` | `run-all`, hermetic Python tests, browser suites; see [test/README.md](test/README.md) |
 | `docs/` | the documentation; [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how it fits together |
 
@@ -62,6 +62,7 @@ Documents start with a TL;DR and end with a **Related** line; a new one must be 
 | How does the lid, sleep or hibernate work here? | [docs/SLEEP.md](docs/SLEEP.md) |
 | Where does the battery go? | [docs/POWER-LAB.md](docs/POWER-LAB.md) |
 | What did we change to feel like a Mac? | [docs/MAC-FEEL.md](docs/MAC-FEEL.md) |
+| How close is this to macOS 27 Golden Gate and to a MacBook Pro under macOS? | [docs/GOLDEN-GATE.md](docs/GOLDEN-GATE.md) |
 | What are the themes and their licence? | [docs/THEMES.md](docs/THEMES.md) |
 | What must I not do on this machine? | [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md) |
 | How is it built and served? | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |

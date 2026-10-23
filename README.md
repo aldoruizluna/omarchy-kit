@@ -5,7 +5,7 @@ laptop: the 15" MacBook Pro, mid-2014 (MacBookPro11,3, Intel Haswell + NVIDIA GT
 
 It teaches Omarchy with your own machine's real shortcuts, gestures, menus and hardware, checks live that you did each step,
 and carries the fixes that make this old Mac quiet, cool and usable: the NVIDIA GPU switched off, a speaker EQ, Mac-style
-accents and shortcuts, working sleep and hibernate, a battery power lab and six original themes. Python standard library
+accents and shortcuts, working sleep and hibernate, a battery power lab and eight original themes. Python standard library
 only (Pillow, if present, shrinks the home wallpaper and, with librsvg, draws the theme wallpapers), no build tools; it listens on
 127.0.0.1 only.
 
@@ -66,7 +66,8 @@ Start at the [documentation map](docs/INDEX.md): it says which document answers 
 | [docs/SLEEP.md](docs/SLEEP.md) | Lid, sleep, hibernate and the battery log: what works, what does not, and why |
 | [docs/POWER-LAB.md](docs/POWER-LAB.md) | Where the battery goes (about 20 W idle), what was tried and what was ruled out |
 | [docs/MAC-FEEL.md](docs/MAC-FEEL.md) | Everything done to feel like a Mac, how it was verified, what still waits for you |
-| [docs/THEMES.md](docs/THEMES.md) | The six original themes, where their looks come from, and their CC BY 4.0 licence |
+| [docs/THEMES.md](docs/THEMES.md) | The eight original themes, where their looks come from, and their CC BY 4.0 licence |
+| [docs/GOLDEN-GATE.md](docs/GOLDEN-GATE.md) | macOS 27 Golden Gate and this MacBook Pro, row by row: what matches, what does not, and why |
 | [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md) | Short, checkable rules learned the hard way (read before changing this machine) |
 | [docs/DUMPING-GUIDE.md](docs/DUMPING-GUIDE.md), [docs/GAME-STORE-ROADMAP.md](docs/GAME-STORE-ROADMAP.md) | Retro library: your own dumps, the signed catalog |
 
@@ -85,7 +86,7 @@ that disagrees with the code.
 |---|---|
 | **Start** | Your progress (XP, levels, streak, 16 badges), a live machine panel, and a gallery to switch the Omarchy theme |
 | **Learn** | 34 hands-on lessons in six levels, verified live against Hyprland (opening windows, switching spaces, the scratchpad…) |
-| **From macOS** | "How do I…?" for 58 Mac habits, translated to the shortcuts on *this* system |
+| **From macOS** | "How do I…?" for 59 Mac habits, translated to the shortcuts on *this* system |
 | **Your MacBook** | What works on 2014 MacBook hardware, with live readings and fixes |
 | **System** | Live graphs (2 s samples, 30 min history) of CPU temperature, fans, load, memory, network and battery, plus the busiest apps |
 | **Games** | Retro library status per console, disk budget, BIOS checklist, PS4 controller battery and hotkeys |
@@ -108,7 +109,7 @@ Across every page:
 - `gpu/`: keep the hot NVIDIA GT 750M **off** (`nvidia-off.service`) and the panel on Intel. Fans dropped from about 5,900 to about 2,100 to 2,200 RPM.
 - `audio/`: a measured speaker EQ in Omarchy's speaker-tuning layout, automatically bypassed for headphones.
 - `sleep/` and `power/`: sleep, hibernate and battery work (below, and in [docs/SLEEP.md](docs/SLEEP.md) and [docs/POWER-LAB.md](docs/POWER-LAB.md)).
-- `themes/`: six original themes of our own ([docs/THEMES.md](docs/THEMES.md)).
+- `themes/`: eight original themes of our own ([docs/THEMES.md](docs/THEMES.md)).
 - The Setup log documents each change with its undo command, and [docs/FIELD-NOTES.md](docs/FIELD-NOTES.md) holds the rules learned the hard way.
 
 ## Making it feel like a Mac
@@ -141,14 +142,18 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
 - **Mac icons and pointer** (`icons/`, no root): the WhiteSur icon theme and an open-source macOS cursor, kept in step with the light or dark
   mode of whichever Omarchy theme is active. Two pinned downloads, checksums verified. `icons/install-icons --remove` undoes it.
 - **A Dock and a ⌘Tab app switcher** (`dock/`, no root): a Mac-style Dock with magnification, running dots, bounce, a right-click menu, Downloads and
-  Trash; ⌘Tab (Super+Tab) steps through running apps and letting go of ⌘ switches; ⌘`, ⌘Q, ⌘H and ⌥⌘D too. A small Quickshell program of its own.
+  Trash; ⌘Tab (Super+Tab) steps through running apps and letting go of ⌘ switches; ⌘`, ⌘Q, ⌘H and ⌥⌘D too; **Mission Control** (F3, Super+Ctrl+Up, four fingers up) shows every space
+  and real pictures of its windows, and Super+Ctrl+Down is App Exposé; F4 opens the Apps menu. A small Quickshell program of its own.
   Super+Tab used to be "next workspace"; that moved to Super+Ctrl+Shift+Right. Details and limits: [dock/README](dock/README.md).
 - **A Mac menu bar** (`menubar/`, no root): the Apple-style menu, the focused app's name in bold and File / Edit / View / Window / Help at the left, workspaces in the
   middle, the clock at the right. The menus send the matching ⌘ shortcut to the app, because almost no Wayland app publishes a real menu.
   Your bar layout is saved first and `--remove` restores it. [menubar/README](menubar/README.md).
+- **UI font, window buttons and glass** (`look/`, no root): the bar, menus and Dock in Adwaita Sans (a free relative of San Francisco) instead of monospace, the close button of GTK apps on the left, and a switch for real
+  blur behind the glass that is off because it measurably costs GPU time on this laptop. [look/README](look/README.md).
+- **Golden Gate, row by row** ([docs/GOLDEN-GATE.md](docs/GOLDEN-GATE.md)): what matches macOS 27 and this MacBook Pro's behaviour under macOS, what does not, and what is impossible, with sources.
 - **A Time Machine for your files** (`backup/install-backups`, needs sudo): hourly `/home` snapshots with snapper plus
   Pika Backup for the real backup. Preview with `--dry-run`.
-- **Six themes of our own** (`themes/`, `docs/THEMES.md`): Kawaii Bow (light and night), Mecha Unit (purple and red) and Solarpunk
+- **Eight themes of our own** (`themes/`, `docs/THEMES.md`): Golden Gate and Golden Gate Night (the macOS 27 look: rounded windows, soft shadows, translucent menus, a bridge in the fog), Kawaii Bow (light and night), Mecha Unit (purple and red) and Solarpunk
   (light and dusk), with original wallpapers, contrast-checked palettes and credits for the open-source works they were inspired by.
   The wallpapers are drawn by generator scripts (`themes/generators/`) and not stored. `themes/install-themes` puts the themes in
   Omarchy, drawing the wallpapers as it goes, without switching yours (`--remove` takes them out).

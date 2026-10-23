@@ -134,6 +134,7 @@ SUPER CTRL + B                      → Bluetooth
 SUPER CTRL + C                      → Capture menu
 SUPER CTRL + D                      → Display
 SUPER CTRL + Delete                 → Toggle laptop display
+SUPER CTRL + DOWN                   → App Exposé (⌃↓)
 SUPER CTRL + F                      → Tiled full screen
 SUPER CTRL + H                      → Hardware menu
 SUPER CTRL + O                      → Toggle menu
@@ -145,6 +146,7 @@ SUPER CTRL + R                      → Set reminder
 SUPER CTRL + SPACE                  → Background switcher
 SUPER CTRL + S                      → Share
 SUPER CTRL + T                      → Activity
+SUPER CTRL + UP                     → Mission Control (⌃↑)
 SUPER CTRL + W                      → Network
 SUPER CTRL + X                      → Toggle dictation
 SUPER CTRL + Z                      → Zoom in
@@ -247,6 +249,8 @@ XF86Eject                           → Eject media
 XF86KbdBrightnessDown               → Keyboard brightness down
 XF86KbdBrightnessUp                 → Keyboard brightness up
 XF86KbdLightOnOff                   → Keyboard backlight cycle
+XF86LaunchA                         → Mission Control (F3)
+XF86LaunchB                         → Apps (F4)
 XF86MonBrightnessDown               → Brightness down
 XF86MonBrightnessUp                 → Brightness up
 XF86PowerOff                        → Power menu

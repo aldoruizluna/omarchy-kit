@@ -1,16 +1,18 @@
-# Themes: Kawaii Bow, Mecha Unit, Solarpunk
+# Themes: Golden Gate, Kawaii Bow, Mecha Unit, Solarpunk
 
-> **TL;DR.** Six original Omarchy themes in three families (Kawaii Bow, Mecha Unit, Solarpunk), each with a light or dark partner. Palettes are re-derived and checked for contrast, wallpapers are drawn by generators when you install, and the looks are inspired in the second degree by credited open-source works. Licence: CC BY 4.0.
+> **TL;DR.** Eight original Omarchy themes in four families (Golden Gate, Kawaii Bow, Mecha Unit, Solarpunk), each with a light or dark partner. Palettes are re-derived and checked for contrast, wallpapers are drawn by generators when you install, and the looks are inspired in the second degree by credited open-source works. Licence: CC BY 4.0.
 
 Related: [themes/README](../themes/README.md) · [DEVELOPING](DEVELOPING.md#add-a-theme) · [MAC-FEEL](MAC-FEEL.md) · [INDEX](INDEX.md)
 
-Six complete Omarchy themes made for this kit, in three families. Each folder in `themes/` has a `colors.toml` palette (Omarchy's
+Eight complete Omarchy themes made for this kit, in four families. Each folder in `themes/` has a `colors.toml` palette (Omarchy's
 templates turn it into terminal, bar, btop, Neovim, VS Code and lock-screen colours), a preview and a `THEME.md` with the palette
 rationale, a WCAG contrast table, and the **inspiration chain**. The five original 2880x1800 wallpapers of each theme are not stored:
 generator scripts in `themes/generators/` draw them when you install the theme (about 7 seconds per theme).
 
 | Theme | Mode | Background | Text | Accent | Idea |
 |---|---|---|---|---|---|
+| **Golden Gate** (`golden-gate`) | light | `#f5f5f7` | `#1d1d1f` | `#0066d6` | The macOS 27 look: system grey, an accessible blue, rounded windows with deep soft shadows, a suspension bridge in morning fog. Also carries the window style and shell-surface overrides. |
+| **Golden Gate Night** (`golden-gate-night`) | dark | `#1c1c1e` | `#f5f5f7` | `#0a84ff` | The charcoal partner: the bridge under a low glowing moon. |
 | **Kawaii Bow** (`kawaii-bow`) | light | `#fff6f8` | `#43202d` | `#c1082c` | Strawberry-milk pinks, cream, a bow-red accent, baby blue and butter yellow. |
 | **Kawaii Bow Night** (`kawaii-bow-night`) | dark | `#2a1226` | `#ffe9f0` | `#fd6776` | The same sweets after dark: deep berry-plum ground with pink and mint. |
 | **Mecha Unit** (`mecha-unit`) | dark | `#0b0614` | `#d7f2ff` | `#a874ff` | Black-violet command centre, industrial purple and acid green, warning orange. |
@@ -22,7 +24,7 @@ generator scripts in `themes/generators/` draw them when you install the theme (
 
 ```
 themes/install-themes            # copies them to ~/.config/omarchy/themes and draws their wallpapers (no root); switches nothing
-omarchy theme set "Kawaii Bow"   # also: "Kawaii Bow Night", "Mecha Unit", "Mecha Unit Red", "Solarpunk", "Solarpunk Dusk"
+omarchy theme set "Golden Gate Night"   # also: "Golden Gate", "Kawaii Bow", "Kawaii Bow Night", "Mecha Unit", "Mecha Unit Red", "Solarpunk", "Solarpunk Dusk"
 omarchy theme set "Retro 82"     # back to the previous one
 themes/install-themes --remove   # take the kit's themes out again (never touches anyone else's)
 ```
@@ -32,7 +34,7 @@ Drawing the wallpapers needs `python-pillow` and `librsvg` (`sudo pacman -S pyth
 and its colours work; install the two packages and run `themes/install-themes` again. Other commands:
 
 ```
-themes/make-wallpapers                  # draw all six themes into themes/<theme>/backgrounds/ (git-ignored), for looking at them
+themes/make-wallpapers                  # draw all eight themes into themes/<theme>/backgrounds/ (git-ignored), for looking at them
 themes/make-wallpapers --only 2 solarpunk   # just wallpaper 2 of one theme, a quick check
 themes/install-themes --no-wallpapers   # install the colours only
 ```

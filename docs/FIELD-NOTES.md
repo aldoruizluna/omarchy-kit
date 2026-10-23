@@ -70,6 +70,13 @@ recorded. If you are a person or an assistant about to change something on this 
 * **`wtype` reaches a focused layer surface, but not Hyprland's binds**, and `hl.is_key_down` does not see its virtual keys either. Test a surface's own key handling with `wtype`; test a bind through `hyprctl eval` on the handler, and the real chord by hand. Stub any destructive action first: a wrong route once could close the terminal you are working in.
 * **Chromium web-app windows are classed by address**: `brave-<host>__<path>-Default`. Match them to the launcher that opens the same address, or the Dock shows a second, nameless icon.
 * **Hyprland's Lua API answers synchronously** (`hl.get_windows()`, `hl.get_layers()`, `hl.get_active_window()`): use it to decide inside a bind, instead of asking another process.
+* **Quickshell's `Hyprland` lists (`workspaces`, `toplevels`) are empty until `refreshWorkspaces()` / `refreshToplevels()` is called, and a refresh fills them asynchronously.** Ask, then read about 100 ms later, and ask once at startup, or an overview opens empty.
+* **`ScreencopyView { captureSource: <Toplevel>; live: false }` captures any window once, including windows on workspaces that are not showing.** Use `HyprlandToplevel.wayland` as the source; capture once on open and drop the views on close (a live capture of every window is far costlier on Intel HD 4600 at 2880x1800).
+* **`HyprlandToplevel.address` has no `0x`**, while `hl.dsp.focus({ window = "address:0x..." })` needs it; focusing by address also switches to the window's workspace.
+* **fontconfig 2.18 records the generic family as its own property (`genericfamily`), not as the family name.** A rule that tests `family = monospace` does nothing; test `<test name="genericfamily"><const>monospace</const></test>` together with `prgname` to restyle one program's monospace requests (`look/60-kit-mac-ui-font.conf`).
+* **The shell font is the system monospace alias and themes cannot change it**, and `omarchy font set` would change every terminal with it; a per-program fontconfig rule on `quickshell` is the narrow way.
+* **A theme can override one section of the shell's settings** by shipping `shell.<section>.toml` (a whole section replaces the generated one, missing keys fall back to defaults), and its `hyprland.lua` sets `decoration.rounding`, which the shell mirrors for every popup, menu and notification.
+* **Measure blur on the GPU clock, not the CPU.** `/sys/class/drm/card1/gt_act_freq_mhz` is readable without root; the package energy counter is not.
 
 ## Working in the `!` prompt
 

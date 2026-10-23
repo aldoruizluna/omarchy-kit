@@ -122,11 +122,11 @@ Each topic folder has its own README; all installers share one contract.
 |---|---|---|
 | `sleep/` | lid wake (light sleep), hibernate that stays off, one password, battery log | [sleep/README.md](../sleep/README.md) |
 | `power/` | power profile follows the charger, Wi-Fi power saving, the power lab | [power/README.md](../power/README.md) |
-| `themes/` | six original themes with generated wallpapers | [themes/README.md](../themes/README.md) |
+| `themes/` | eight original themes (the Golden Gate pair carries the window style and shell-surface overrides) with generated wallpapers | [themes/README.md](../themes/README.md) |
 | `gpu/` | keep the NVIDIA GPU off, firmware boot GPU | [gpu/README.md](../gpu/README.md) |
 | `audio/` | speaker EQ and the headphone watcher | [audio/README.md](../audio/README.md) |
 | `keys/`, `trackpad/` | Mac ⌘ shortcuts (Hyprland binds, or the keyd layer that makes ⌘ act as Ctrl), a real Caps Lock, three-finger behaviour | [keys/README.md](../keys/README.md), [trackpad/README.md](../trackpad/README.md) |
-| `icons/`, `dock/`, `menubar/` | Mac icons and pointer; the Dock and ⌘Tab switcher (a separate Quickshell program); the Mac menu bar (a bar widget plugin) | [icons/README.md](../icons/README.md), [dock/README.md](../dock/README.md), [menubar/README.md](../menubar/README.md) |
+| `icons/`, `dock/`, `menubar/`, `look/` | Mac icons and pointer; the Dock and ⌘Tab switcher (a separate Quickshell program); the Mac menu bar (a bar widget plugin); the UI font, window buttons and glass switch | [icons/README.md](../icons/README.md), [dock/README.md](../dock/README.md), [menubar/README.md](../menubar/README.md), [look/README.md](../look/README.md) |
 | `appearance/` | light by day, dark at night | [appearance/README.md](../appearance/README.md) |
 | `backup/`, `boot/` | snapshots and Pika Backup, a faster themed boot | [backup/README.md](../backup/README.md), [boot/README.md](../boot/README.md) |
 | `games/` | retro library, free games, a signed catalog client | [games/README.md](../games/README.md) |
