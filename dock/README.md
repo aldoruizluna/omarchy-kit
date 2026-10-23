@@ -43,7 +43,7 @@
 | F4 | the **Apps menu**, like a four-finger pinch (F4 is the Mac keyboard's Launchpad key; it produced `XF86LaunchB`, which nothing was bound to; macOS 26 replaced Launchpad with an Apps view) | free |
 | Super+Ctrl+Down | **App Exposé**: only the windows of the focused app, from every space | free |
 
-"Super" is the ⌘ key on this keyboard. With the keyboard remap in [keys/](../keys/README.md) the left ⌘ sends these chords for you.
+"Super" is the ⌘ key on this keyboard. With the keyboard remap in [keys/](../keys/README.md) both ⌘ keys send these chords for you (and ⌃↑/↓/←/→ send the Mission Control and workspace ones).
 
 ## Mission Control and App Exposé
 

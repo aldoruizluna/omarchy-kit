@@ -5,12 +5,15 @@ on the system except what `detect` is told to read, and changes nothing: it only
   keyd-config conf [--ids ID[,ID...]] [--caps-delay MS]   the keyd configuration (default ids: none, so give some)
   keyd-config overlays                                     the overlays for keyd-appmap, as JSON
   keyd-config chords                                       the Super chords the layer sends (the Hyprland side must bind these)
-  keyd-config detect [FILE]                                Apple keyboards in /proc/bus/input/devices, as keyd ids, one per line
+  keyd-config detect [FILE]                                Apple keyboards in /proc/bus/input/devices, as full keyd ids (vvvv:pppp:hhhhhhhh), one per line
 
 What the layer does (the installer is keys/install-keyd, the explanation is in keys/README.md):
-  * Left ⌘ acts as Ctrl for every key it does not list, so every shortcut, ⌘-click and ⌘-scroll work in every app.
-    Left Ctrl, Option and Right ⌘ (Super: all of Omarchy's own shortcuts) are untouched.
-  * A few ⌘ chords are Mac *system* chords; they are turned into Super chords that Hyprland binds (see `chords`).
+  * Both ⌘ keys act as Ctrl for every key they do not list, so every shortcut, ⌘-click and ⌘-scroll work in every app, and the two
+    keys are identical, as a Mac's are. No key is Super any more: Omarchy's own Super shortcuts are reached through the Mac chords below.
+  * A few ⌘ chords are Mac *system* chords; they are turned into Super chords that Hyprland binds (see `chords`). So are the Mac's
+    Control chords for Spaces and Mission Control (⌃←/→, ⌃1…0, ⌃↑/↓) and ⌃⌥ with the arrows (focus the window in that direction).
+  * Only the keyboard's own full id (vvvv:pppp:hhhhhhhh) is listed: the Apple keyboard and the trackpad share vendor and product, and keyd's
+    keyboard-only prefix did not keep the trackpad out. The hash is keyd's own (djb2 over the capability counts and the name), recomputed here.
   * ⌘←/→ Home/End, ⌘↑/↓ top/bottom, ⌥←/→ word jumps, ⌥⌫ delete word, ⌘[ and ⌘] back/forward, ⇧⌘[ and ⇧⌘] tabs.
   * Copy and paste are written terminal-safe (Ctrl+Insert, Shift+Insert: a terminal reads Ctrl+C as "interrupt");
     keyd-appmap switches them to plain Ctrl+C / Ctrl+V while an app (not a terminal) has the focus.
@@ -39,6 +42,7 @@ CMD_KEYS = [
     ("leftbrace", "A-left", "back (⌘[)"),
     ("rightbrace", "A-right", "forward (⌘])"),
     ("space", "M-A-space", "⌘Space: Omarchy's searchable Apps menu (Super+Alt+Space)"),
+    ("backspace", "macro(S-home backspace)", "⌘⌫: delete to the start of the line (a terminal gets Ctrl+U from keyd-appmap)"),
     ("tab", "swapm(cmd_switch, M-tab)", "⌘Tab: Super stays held while ⌘ is held, so the switcher sees ⌘ being released"),
     ("grave", "M-grave", "⌘`: next window of the same app"),
     ("q", "M-q", "⌘Q: quit the app"),
@@ -61,6 +65,7 @@ SHIFT_CMD_KEYS = [
     ("leftbrace", "C-S-tab", "⇧⌘[: previous tab"),
     ("rightbrace", "C-tab", "⇧⌘]: next tab"),
     ("dot", "C-h", "⇧⌘.: show hidden files in Files"),
+    ("q", "M-escape", "⇧⌘Q: log out: Omarchy's system menu (lock, log out, restart, shut down; Super+Escape)"),
 ]
 ALT_CMD_KEYS = [
     ("i", "C-S-i", "⌥⌘I: developer tools"),
@@ -70,6 +75,8 @@ ALT_CMD_KEYS = [
     ("left", "C-pageup", "⌥⌘←: previous tab"),
     ("right", "C-pagedown", "⌥⌘→: next tab"),
     ("delete", "noop", "never Ctrl+Alt+Delete: Omarchy closes every window on it"),
+    ("space", "M-space", "⌥⌘Space: Omarchy's menu (Super+Space): the way to everything that has no Mac chord"),
+    ("w", "M-w", "⌥⌘W: close this window even when the app has no Ctrl+W (Super+W)"),
 ]
 CTRL_CMD_KEYS = [
     ("q", "M-C-l", "⌃⌘Q: lock the screen (Super+Ctrl+L)"),
@@ -82,6 +89,18 @@ OPTION_KEYS = [
     ("backspace", "C-backspace", "delete the word before the cursor"),
     ("delete", "C-delete", "delete the word after the cursor"),
 ]
+# Physical Control, as on a Mac: Mission Control and Spaces. They go to Hyprland as the Super chords macdock.lua and Omarchy bind.
+CONTROL_KEYS = (
+    [("up", "M-C-up", "⌃↑: Mission Control"),
+     ("down", "M-C-down", "⌃↓: App Exposé (the focused app's windows)"),
+     ("left", "M-C-S-left", "⌃←: previous Space (workspace)"),
+     ("right", "M-C-S-right", "⌃→: next Space (workspace)")]
+    + [(str(n % 10), f"M-{n % 10}", f"⌃{n % 10}: switch to Space {n}") for n in range(1, 11)]
+)
+# ⌃⇧ with the arrows is text selection by word for anyone who still reaches for Ctrl, so it must not fall through to ⌃←/→.
+CONTROL_SHIFT_KEYS = [(d, f"C-S-{d}", f"⌃⇧{d}: unchanged") for d in ("left", "right", "up", "down")]
+# ⌃⌥ with the arrows: focus the window in that direction (the tiling Omarchy has, with the modifiers a Mac window tiler uses).
+CONTROL_ALT_KEYS = [(d, f"M-{d}", f"⌃⌥{d}: focus the window in that direction (Super+{d})") for d in ("left", "right", "up", "down")]
 
 # Overlays applied at run time with `keyd bind` by keyd-appmap, chosen by what has the focus.
 OVERLAYS = {
@@ -96,6 +115,7 @@ OVERLAYS = {
          "cmd.dot = C-c",      # ⌘. cancels, as in Terminal and iTerm
          "cmd+shift.c = C-S-c",   # ⇧⌘C and ⇧⌘V: the Ctrl+Shift forms every Omarchy terminal takes
          "cmd+shift.v = C-S-v",
+         "cmd.backspace = C-u",   # ⌘⌫: a shell deletes to the start of the line on Ctrl+U
          "alt.backspace = A-backspace",   # a shell deletes a word on Alt+Backspace; Ctrl+Backspace is one character
          "altgr.backspace = A-backspace"]
         + [f"cmd.{k} = noop" for k in TERMINAL_NOOP]
@@ -120,6 +140,15 @@ SUPER_CHORDS = [
     ("⌃⌘Q", "Super+Ctrl+L", "Lock system (exists)", "Omarchy"),
     ("⌃⌘Space", "Super+Ctrl+E", "Emojis (exists)", "Omarchy"),
     ("⌃⌘F", "Super+F", "Full screen (exists)", "Omarchy"),
+    ("⌥⌘Space", "Super+Space", "Omarchy menu (exists)", "Omarchy"),
+    ("⌥⌘W", "Super+W", "Close window (exists)", "Omarchy"),
+    ("⇧⌘Q", "Super+Escape", "System menu (exists)", "Omarchy"),
+    ("⌃↑", "Super+Ctrl+Up", "Mission Control", "dock/macdock.lua"),
+    ("⌃↓", "Super+Ctrl+Down", "App Exposé", "dock/macdock.lua"),
+    ("⌃←", "Super+Ctrl+Shift+Left", "previous workspace", "dock/macdock.lua"),
+    ("⌃→", "Super+Ctrl+Shift+Right", "next workspace", "dock/macdock.lua"),
+    ("⌃1 … ⌃0", "Super+1 … Super+0", "switch to workspace 1 … 10 (exists)", "Omarchy"),
+    ("⌃⌥←↑→↓", "Super+←↑→↓", "focus the window in that direction (exists)", "Omarchy"),
     ("⌘W in a terminal", "Super+W", "Close window (exists)", "Omarchy"),
     ("⌘N in a terminal", "Super+Return", "Terminal (exists)", "Omarchy"),
 ]
@@ -136,12 +165,15 @@ def section(header, rows):
     return out
 
 
+FULL_ID = re.compile(r"[0-9a-f]{4}:[0-9a-f]{4}:[0-9a-f]{8}")
+
+
 def conf(ids, caps_delay=CAPS_DELAY_DEFAULT):
     if not ids:
         raise ValueError("at least one keyboard id is needed (keyd-config detect)")
     for i in ids:
-        if not re.fullmatch(r"k:[0-9a-f]{4}:[0-9a-f]{4}", i):
-            raise ValueError(f"not a keyboard id of the form k:vvvv:pppp: {i!r}")
+        if not FULL_ID.fullmatch(i):
+            raise ValueError(f"not a full keyd id of the form vvvv:pppp:hhhhhhhh (a shorter or k: id also matches the trackpad): {i!r}")
     if not (0 <= caps_delay <= 1000):
         raise ValueError("caps delay must be 0 to 1000 ms")
     out = [
@@ -150,8 +182,9 @@ def conf(ids, caps_delay=CAPS_DELAY_DEFAULT):
         "# IF THE KEYBOARD EVER MISBEHAVES: press Backspace + Escape + Enter together. keyd quits at once and the",
         "# keyboard is back to normal. Undo for good: sudo keys/install-keyd --remove",
         "#",
-        "# Only the Apple keyboards below are changed (k: means keyboards only: the trackpad has the same id and is left alone).",
-        "# A keyboard plugged in later keeps its normal keys, and Right Command stays Super for all of Omarchy's own shortcuts.",
+        "# Only the keyboards below are changed, each by its FULL id (vendor:product:hash). The Apple keyboard and the trackpad share",
+        "# vendor and product, so a shorter id (or keyd's keyboard-only k: prefix) also grabbed the trackpad. The hash is keyd's own.",
+        "# A keyboard plugged in later keeps its normal keys. Both Command keys are the same layer: neither is Super any more.",
         "",
         "[ids]",
         "",
@@ -159,8 +192,9 @@ def conf(ids, caps_delay=CAPS_DELAY_DEFAULT):
         "",
         "[main]",
         "",
-        "# Left Command becomes the layer below; it acts as Ctrl for every key that layer does not list.",
+        "# Both Command keys become the layer below; it acts as Ctrl for every key that layer does not list.",
         "leftmeta = layer(cmd)",
+        "rightmeta = layer(cmd)",
     ]
     if caps_delay:
         out += [
@@ -171,10 +205,14 @@ def conf(ids, caps_delay=CAPS_DELAY_DEFAULT):
     out += section("cmd:C", CMD_KEYS)
     out += ["# Active while Command is held after the first Tab: Super stays down until Command is released.", ""]
     out += section("cmd_switch:M", SWITCH_KEYS)
+    out += ["# Physical Control, as on a Mac: Mission Control and Spaces. (Control with Command or Option is a composite layer below.)", ""]
+    out += section("control", CONTROL_KEYS)
     out += ["# Composite layers (two modifiers at once) must come after the layers they combine.", ""]
     out += section("cmd+shift", SHIFT_CMD_KEYS)
     out += section("cmd+alt", ALT_CMD_KEYS)
     out += section("control+cmd", CTRL_CMD_KEYS)
+    out += section("control+shift", CONTROL_SHIFT_KEYS)
+    out += section("control+alt", CONTROL_ALT_KEYS)
     out += ["# Option (left and right): word movement as on a Mac. Terminals get Alt+Backspace back from keyd-appmap.", ""]
     out += section("alt", OPTION_KEYS)
     out += section("altgr", OPTION_KEYS)
@@ -188,7 +226,7 @@ def overlays_json():
 def config_super_chords():
     """Every Super (M) chord the static configuration sends, as 'Super+Alt+space'-style words (for the consistency test)."""
     found = set()
-    for rows in (CMD_KEYS, SWITCH_KEYS, SHIFT_CMD_KEYS, ALT_CMD_KEYS, CTRL_CMD_KEYS):
+    for rows in (CMD_KEYS, SWITCH_KEYS, SHIFT_CMD_KEYS, ALT_CMD_KEYS, CTRL_CMD_KEYS, CONTROL_KEYS, CONTROL_ALT_KEYS):
         for _, action, _ in rows:
             m = re.search(r"(?:^|\()((?:[MCASG]-)+)([^\s,)]+)\)?$", action)
             if m and "M" in m.group(1).replace("-", ""):
@@ -205,17 +243,47 @@ def chords_text():
     return "\n".join(lines) + "\n"
 
 
-def detect(text):
-    """keyd ids (k:vvvv:pppp) of the Apple keyboards in the text of /proc/bus/input/devices."""
-    ids = []
+def _bitmap(blk, name):
+    """The capability bitmap `B: NAME=...` of a /proc/bus/input/devices block as an integer (0 if the device has none)."""
+    m = re.search(rf"^B: {name}=(.*)$", blk, re.M)
+    value = 0
+    for word in (m.group(1).split() if m else []):
+        value = (value << 64) | int(word, 16)   # the kernel prints the most significant unsigned long first
+    return value
+
+
+def keyd_hash(num_keys, absmask, relmask, name):
+    """keyd's device hash (device.c, generate_uid): djb2 over the key count, the first byte of the ABS and REL masks and the name.
+    Checked against the ids keyd itself logged for this MacBook's keyboard, its trackpad and five other devices."""
+    h = 5183
+    for byte in ((num_keys >> 24) & 255, (num_keys >> 16) & 255, (num_keys >> 8) & 255, num_keys & 255, absmask, relmask):
+        h = (h * 33 + byte) & 0xFFFFFFFF
+    for ch in name.encode("utf-8"):
+        h = (h * 33 + (ch if ch < 128 else ch - 256)) & 0xFFFFFFFF   # keyd adds a C `char`, which is signed
+    return h
+
+
+def device_ids(text):
+    """(keyd id, name, handlers) of every input device in the text of /proc/bus/input/devices that has capability bitmaps."""
+    found = []
     for block in re.split(r"\n\s*\n", text):
         m = re.search(r"Vendor=([0-9a-fA-F]{4}) Product=([0-9a-fA-F]{4})", block)
         name = re.search(r'^N: Name="(.*)"', block, re.M)
         handlers = re.search(r"^H: Handlers=(.*)", block, re.M)
-        if not (m and name and handlers):
+        if not (m and name and handlers and re.search(r"^B: KEY=", block, re.M)):
             continue
-        if m.group(1).lower() in APPLE_VENDORS and "kbd" in handlers.group(1).split() and "keyboard" in name.group(1).lower():
-            kid = f"k:{m.group(1).lower()}:{m.group(2).lower()}"
+        h = keyd_hash(bin(_bitmap(block, "KEY")).count("1"), _bitmap(block, "ABS") & 255, _bitmap(block, "REL") & 255, name.group(1))
+        found.append((f"{m.group(1).lower()}:{m.group(2).lower()}:{h:08x}", name.group(1), handlers.group(1).split(), block))
+    return found
+
+
+def detect(text):
+    """Full keyd ids (vvvv:pppp:hhhhhhhh) of the Apple keyboards in the text of /proc/bus/input/devices: Apple's vendor, a keyboard
+    handler, "keyboard" in the name, and no pointer axes (the trackpad shares the keyboard's vendor and product and has them)."""
+    ids = []
+    for kid, name, handlers, block in device_ids(text):
+        if (kid.split(":")[0] in APPLE_VENDORS and "kbd" in handlers and "keyboard" in name.lower()
+                and not (_bitmap(block, "ABS") or _bitmap(block, "REL"))):
             if kid not in ids:
                 ids.append(kid)
     return ids

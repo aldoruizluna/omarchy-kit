@@ -60,33 +60,62 @@ APPMAP = load(KEYS / "keyd-appmap", "keyd_appmap")
 
 KEYD_BIN = os.environ.get("KEYD_BIN") or shutil.which("keyd")
 KEYD_SRC = os.environ.get("KEYD_SRC")
-IDS = ["k:05ac:0262"]
+IDS = ["05ac:0262:f2d1f5c2"]
 
+# /proc/bus/input/devices as the kernel prints it (I, N, H and the KEY, REL and ABS bitmaps; paths and serial numbers left out), taken from a real
+# MacBook Pro with a Logitech keyboard and mouse. The ids keyd logged for these devices when it ran on that laptop are in KEYD_LOGGED_IDS.
 PROC_DEVICES = """\
 I: Bus=0019 Vendor=0000 Product=0001 Version=0000
 N: Name="Power Button"
 H: Handlers=kbd event1
+B: KEY=8000 10000000000000 0
 
 I: Bus=0003 Vendor=05ac Product=0262 Version=0111
 N: Name="Apple Inc. Apple Internal Keyboard / Trackpad"
+H: Handlers=sysrq kbd leds event4
+B: KEY=10000 0 0 0 101007b02011007 ff9f217ac14057ff ffbeffdfffefffff fffffffffffffffe
+
+I: Bus=0019 Vendor=0000 Product=0006 Version=0000
+N: Name="Video Bus"
+H: Handlers=kbd event5
+B: KEY=3e000b00000000 0 0 0
+
+I: Bus=0003 Vendor=046d Product=4054 Version=0111
+N: Name="Logitech Wireless Mouse"
+H: Handlers=kbd event7 mouse1
+B: KEY=3f00733fff 0 0 483ffff17aff32d bfd4444600000000 ffff0001 130ff38b17d000 677bfad9415fed 19ed68000004400 10000002
+B: REL=1943
+B: ABS=100000000
+
+I: Bus=0003 Vendor=046d Product=4075 Version=0111
+N: Name="Logitech Wireless Keyboard PID:4075"
 H: Handlers=sysrq kbd leds event10
+B: KEY=3f00733fff 0 0 483ffff17aff32d bfd4444600000000 1 130ff38b17d007 ffff7bfad941dfff ffbeffdfffefffff fffffffffffffffe
+B: REL=1040
+B: ABS=100000000
 
 I: Bus=0003 Vendor=05ac Product=0262 Version=0001
 N: Name="bcm5974"
 H: Handlers=event11 mouse2
-
-I: Bus=0003 Vendor=046d Product=4075 Version=0111
-N: Name="Logitech Wireless Keyboard PID:4075"
-H: Handlers=sysrq kbd leds event7
+B: KEY=e520 10000 0 0 0 0
+B: ABS=27f800011000003
 
 I: Bus=0005 Vendor=004c Product=0267 Version=0001
 N: Name="Magic Keyboard"
 H: Handlers=sysrq kbd leds event20
-
-I: Bus=0003 Vendor=05ac Product=8600 Version=0001
-N: Name="Apple Inc. Some Mouse"
-H: Handlers=mouse3 event21
+B: KEY=10000 0 0 0 101007b02011007 ff9f217ac14057ff ffbeffdfffefffff fffffffffffffffe
 """
+KEYD_LOGGED_IDS = {   # name -> the id keyd printed in its journal for it ("DEVICE: match/ignoring <id> ... (<name>)")
+    "Power Button": "0000:0001:48a093aa",
+    "Apple Inc. Apple Internal Keyboard / Trackpad": "05ac:0262:f2d1f5c2",
+    "Video Bus": "0000:0006:bdb72f48",
+    "Logitech Wireless Mouse": "046d:4054:7e9a3996",
+    "Logitech Wireless Keyboard PID:4075": "046d:4075:0fd682ef",
+    "bcm5974": "05ac:0262:799a7e74",
+}
+_MAGIC_KEYS = sum(bin(int(w, 16)).count("1") for w in "10000 0 0 0 101007b02011007 ff9f217ac14057ff ffbeffdfffefffff fffffffffffffffe".split())
+MAGIC_ID = "004c:0267:" + format(CONFIG.keyd_hash(_MAGIC_KEYS, 0, 0, "Magic Keyboard"), "08x")   # no real log for this one: it checks the shape, not the hash
+APPLE_IDS = ["05ac:0262:f2d1f5c2", MAGIC_ID]
 
 
 # ======================================================================================================================
@@ -96,14 +125,15 @@ class Generator(unittest.TestCase):
     def test_the_configuration_has_the_documented_shape(self):
         text = CONFIG.conf(IDS)
         self.assertTrue(text.startswith("# Omarchy Kit"))
-        self.assertIn("[ids]\n\nk:05ac:0262\n", text)
-        self.assertIn("leftmeta = layer(cmd)", text)
-        for header in ("[main]", "[cmd:C]", "[cmd_switch:M]", "[cmd+shift]", "[cmd+alt]", "[control+cmd]", "[alt]", "[altgr]"):
+        self.assertIn("[ids]\n\n05ac:0262:f2d1f5c2\n", text)
+        self.assertIn("\nleftmeta = layer(cmd)\n", text)
+        self.assertIn("\nrightmeta = layer(cmd)\n", text, "both Command keys are the same layer: the owner rejected one that was not")
+        for header in ("[main]", "[cmd:C]", "[cmd_switch:M]", "[control]", "[cmd+shift]", "[cmd+alt]", "[control+cmd]", "[control+shift]", "[control+alt]", "[alt]", "[altgr]"):
             self.assertIn(f"\n{header}\n", text)
-        order = [text.index(f"\n[{h}]") for h in ("cmd:C", "cmd+shift", "cmd+alt", "control+cmd")]
+        order = [text.index(f"\n[{h}]") for h in ("cmd:C", "control", "cmd+shift", "cmd+alt", "control+cmd", "control+shift", "control+alt")]
         self.assertEqual(order, sorted(order), "composite layers must come after the layers they combine")
-        self.assertNotIn("rightmeta", text, "the right Command key must stay Super")
-        self.assertNotIn("leftcontrol", text.replace("# ", ""), "left Ctrl must stay as it is")
+        self.assertNotIn("leftcontrol", text.replace("# ", ""), "the Control keys themselves are not remapped")
+        self.assertNotIn("\nk:", text, "keyd's keyboard-only prefix also matched the trackpad")
 
     def test_the_panic_sequence_is_in_the_file_people_will_open(self):
         self.assertIn("Backspace + Escape + Enter", CONFIG.conf(IDS))
@@ -125,7 +155,8 @@ class Generator(unittest.TestCase):
         self.assertIn("timeout(noop, 1000, capslock)", CONFIG.conf(IDS, 1000))
 
     def test_bad_input_is_refused(self):
-        for ids in ([], ["05ac:0262"], ["k:05ac:026"], ["k:05AC:0262"], ["*"], ["k:05ac:0262\n[main]"]):
+        for ids in ([], ["05ac:0262"], ["k:05ac:0262"], ["k:05ac:0262:f2d1f5c2"], ["05ac:0262:f2d1f5c"], ["05AC:0262:F2D1F5C2"], ["*"],
+                    ["05ac:0262:f2d1f5c2\n[main]"], ["05ac:0262:f2d1f5c2", "05ac:0262"]):
             with self.subTest(ids=ids):
                 with self.assertRaises(ValueError):
                     CONFIG.conf(ids)
@@ -138,15 +169,31 @@ class Generator(unittest.TestCase):
         self.assertEqual(CONFIG.conf(IDS), CONFIG.conf(IDS))
         self.assertEqual(CONFIG.overlays_json(), CONFIG.overlays_json())
 
-    def test_detect_finds_apple_keyboards_only(self):
-        self.assertEqual(CONFIG.detect(PROC_DEVICES), ["k:05ac:0262", "k:004c:0267"],
-                         "the trackpad (same id, no kbd handler), the Logitech keyboard, the Apple mouse and the power button are not keyboards to remap")
+    def test_the_id_hash_is_the_one_keyd_logged_for_each_device_on_the_real_laptop(self):
+        got = {name: kid for kid, name, _, _ in CONFIG.device_ids(PROC_DEVICES)}
+        for name, logged in KEYD_LOGGED_IDS.items():
+            with self.subTest(device=name):
+                self.assertEqual(got[name], logged)
+
+    def test_detect_finds_the_apple_keyboard_by_its_full_id_and_never_the_trackpad(self):
+        self.assertEqual(CONFIG.detect(PROC_DEVICES), APPLE_IDS)
+        self.assertNotIn(KEYD_LOGGED_IDS["bcm5974"], CONFIG.detect(PROC_DEVICES), "the trackpad shares the keyboard's vendor and product: only its hash differs")
         self.assertEqual(CONFIG.detect(""), [])
+        no_caps = "I: Bus=0003 Vendor=05ac Product=0262 Version=0111\nN: Name=\"Apple Internal Keyboard\"\nH: Handlers=kbd event4\n"
+        self.assertEqual(CONFIG.detect(no_caps), [], "no capability bitmap, no id: it is not guessed")
+
+    def test_a_pointing_device_is_never_a_keyboard_to_remap_even_with_keyboard_in_its_name(self):
+        pointer = PROC_DEVICES.replace('N: Name="Magic Keyboard"\nH: Handlers=sysrq kbd leds event20\n', 'N: Name="Magic Keyboard"\nH: Handlers=sysrq kbd leds mouse4\nB: ABS=3\n')
+        self.assertEqual(CONFIG.detect(pointer), ["05ac:0262:f2d1f5c2"])
 
     def test_the_super_chords_it_sends_are_all_documented(self):
         norm = {"return": "enter", "escape": "escape", "grave": "grave", "print": "print"}
         documented = set()
         for _, sends, _, _ in CONFIG.SUPER_CHORDS:
+            if "…" in sends:   # "Super+1 … Super+0" is the ten digits
+                sends = ", ".join(f"Super+{d}" for d in "1234567890")
+            if sends == "Super+←↑→↓":
+                sends = ", ".join(f"Super+{d}" for d in ("left", "up", "right", "down"))
             for chord in sends.split(", "):
                 *mods, key = chord.split("+")
                 documented.add((frozenset(mods), norm.get(key.lower(), key.lower())))
@@ -159,7 +206,9 @@ class Generator(unittest.TestCase):
         if not bindings.is_dir():
             self.skipTest("Omarchy's default bindings are not installed")
         text = "".join(p.read_text() for p in bindings.glob("*.lua"))
-        for needle in ('"SUPER + ALT + SPACE", "Apps menu"', '"SUPER + CTRL + L"', '"SUPER + CTRL + E"', '"SUPER + F"', '"SUPER + CTRL + C"', '"PRINT", "Screenshot"'):
+        for needle in ('"SUPER + ALT + SPACE", "Apps menu"', '"SUPER + CTRL + L"', '"SUPER + CTRL + E"', '"SUPER + F"', '"SUPER + CTRL + C"', '"PRINT", "Screenshot"',
+                       '"SUPER + SPACE", "Omarchy menu"', '"SUPER + W", "Close window"', '"SUPER + ESCAPE", "System menu"', '"SUPER + LEFT", "Focus on left window"',
+                       '"SUPER + DOWN", "Focus on below window"', '"SUPER + " .. key, "Switch to workspace "'):
             self.assertIn(needle, text, f"Omarchy no longer binds {needle}: update the table in keyd-config")
 
     def test_overlays_are_well_formed_and_cover_every_dangerous_terminal_chord(self):
@@ -173,16 +222,18 @@ class Generator(unittest.TestCase):
             self.assertIn(f"cmd.{k} = noop", term, f"Cmd+{k} must never reach a shell as Ctrl+{k}")
         self.assertIn("cmd.c = C-insert", term)
         self.assertIn("cmd.dot = C-c", term, "Cmd+. cancels, as on a Mac")
+        self.assertIn("cmd.backspace = C-u", term, "a shell deletes to the start of the line on Ctrl+U, not on Shift+Home")
         self.assertEqual(data["overlays"]["app"], ["cmd.c = C-c", "cmd.v = C-v"])
 
     def test_the_cli_prints_and_refuses_unknown_arguments(self):
-        ok = run([sys.executable, "-I", str(KEYS / "keyd-config"), "conf", "--ids", "k:05ac:0262", "--caps-delay", "0"])
+        ok = run([sys.executable, "-I", str(KEYS / "keyd-config"), "conf", "--ids", "05ac:0262:f2d1f5c2", "--caps-delay", "0"])
         self.assertEqual(ok.returncode, 0, ok.stderr)
         self.assertEqual(ok.stdout, CONFIG.conf(IDS, 0))
         for args in ([], ["bogus"], ["conf", "--nope"], ["conf", "--caps-delay", "x"], ["overlays", "x"], ["detect", "a", "b"]):
             with self.subTest(args=args):
                 self.assertEqual(run([sys.executable, "-I", str(KEYS / "keyd-config"), *args]).returncode, 2)
         self.assertEqual(run([sys.executable, "-I", str(KEYS / "keyd-config"), "conf"]).returncode, 1, "no ids: refused, not guessed")
+        self.assertEqual(run([sys.executable, "-I", str(KEYS / "keyd-config"), "conf", "--ids", "k:05ac:0262"]).returncode, 1, "a short id would grab the trackpad")
         self.assertEqual(run([sys.executable, "-I", str(KEYS / "keyd-config"), "--help"]).returncode, 0)
 
     def test_detect_cli_exit_codes(self):
@@ -190,7 +241,7 @@ class Generator(unittest.TestCase):
             f = pathlib.Path(d) / "devices"
             f.write_text(PROC_DEVICES)
             r = run([sys.executable, "-I", str(KEYS / "keyd-config"), "detect", str(f)])
-            self.assertEqual((r.returncode, r.stdout.split()), (0, ["k:05ac:0262", "k:004c:0267"]))
+            self.assertEqual((r.returncode, r.stdout.split()), (0, APPLE_IDS))
             f.write_text("")
             self.assertEqual(run([sys.executable, "-I", str(KEYS / "keyd-config"), "detect", str(f)]).returncode, 1)
             self.assertEqual(run([sys.executable, "-I", str(KEYS / "keyd-config"), "detect", str(pathlib.Path(d) / "nope")]).returncode, 1)
@@ -208,13 +259,13 @@ class KeydCheck(Sandbox):
 
     def test_every_configuration_the_generator_can_write_passes_keyd_check(self):
         for delay in (0, 1, 150, 1000):
-            for ids in (IDS, IDS + ["k:004c:0267"]):
+            for ids in (IDS, IDS + [MAGIC_ID]):
                 with self.subTest(delay=delay, ids=ids):
                     r = self.check(CONFIG.conf(ids, delay))
                     self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
     def test_the_checker_really_fails_on_a_bad_file(self):
-        self.assertNotEqual(self.check("[ids]\n\nk:05ac:0262\n\n[main]\n\nleftmeta = layer(nothere)\n").returncode, 0)
+        self.assertNotEqual(self.check("[ids]\n\n05ac:0262:f2d1f5c2\n\n[main]\n\nleftmeta = layer(nothere)\n").returncode, 0)
         self.assertNotEqual(self.check(CONFIG.conf(IDS).replace("M-grave", "M-bogus")).returncode, 0)
 
 
@@ -317,13 +368,72 @@ class Engine(unittest.TestCase):
     def test_command_option_delete_never_becomes_omarchys_close_all_windows(self):
         self.assertEqual(self.chord("meta", "alt", "delete"), [], "Ctrl+Alt+Delete closes every window in Omarchy")
 
-    def test_what_physical_ctrl_option_and_the_right_command_key_still_do(self):
-        cases = {("control", "c"): "Ctrl+c", ("control", "d"): "Ctrl+d", ("control", "left"): "Ctrl+left", ("alt", "tab"): "Alt+tab",
-                 ("rightmeta", "enter"): "Super+enter", ("rightmeta", "c"): "Super+c", ("rightmeta", "tab"): "Super+tab",
-                 ("rightalt", "e"): "AltGr+e"}
+    def test_what_physical_ctrl_and_option_still_do(self):
+        cases = {("control", "c"): "Ctrl+c", ("control", "d"): "Ctrl+d", ("control", "z"): "Ctrl+z", ("control", "a"): "Ctrl+a", ("control", "tab"): "Ctrl+tab",
+                 ("control", "shift", "t"): "Ctrl+Shift+t", ("alt", "tab"): "Alt+tab", ("rightalt", "e"): "AltGr+e"}
         for keys, want in cases.items():
             with self.subTest(keys=keys):
                 self.assertEqual(self.chord(*keys), [want])
+
+    # -- the two Command keys are one key
+    def test_the_two_command_keys_do_exactly_the_same(self):
+        for keys in (("c",), ("v",), ("t",), ("w",), ("enter",), ("1",), ("left",), ("up",), ("[",), ("space",), ("`",), ("q",), ("h",), ("m",), ("backspace",),
+                     ("shift", "z"), ("shift", "3"), ("shift", "q"), ("alt", "i"), ("alt", "left"), ("alt", "space"), ("alt", "w"), ("control", "q"), ("control", "f")):
+            with self.subTest(keys=keys):
+                self.assertEqual(self.chord("meta", *keys), self.chord("rightmeta", *keys))
+
+    def test_no_key_is_super_any_more_unless_the_layer_says_so(self):
+        listed = {"c", "v", "left", "right", "up", "down", "[", "]", "space", "tab", "`", "q", "h", "m", "backspace"}
+        for side in ("meta", "rightmeta"):
+            for key in "abdefgijklnoprstuwxyz0123456789" + "enter":
+                if key in listed:
+                    continue
+                with self.subTest(side=side, key=key):
+                    chord = self.chord(side, key)
+                    self.assertEqual(chord, [f"Ctrl+{key}"], "an unlisted key is plain Ctrl, never Super")
+        self.assertEqual(self.chord("rightmeta", "enter"), ["Ctrl+enter"])
+
+    def test_the_right_command_key_switches_apps_and_holds_super_like_the_left(self):
+        chords, held = self.feed([["rightmeta down", "tab down", "tab up", "tab down", "tab up"]])
+        self.assertEqual((chords, held), (["Super+tab", "Super+tab"], ["Super"]))
+        self.assertEqual(self.feed([["rightmeta down", "tab down", "tab up"], ["rightmeta up"]])[1], [])
+
+    def test_both_command_keys_held_together_leave_nothing_stuck(self):
+        self.assertEqual(self.feed([["meta down", "rightmeta down", "c down", "c up", "rightmeta up", "meta up"]]), (["Ctrl+insert"], []))
+        self.assertEqual(self.feed([["meta down", "rightmeta down", "rightmeta up", "c down", "c up", "meta up"]]), (["Ctrl+insert"], []),
+                         "letting go of one Command key while the other is held keeps the layer")
+
+    # -- the Mac's Control chords: Spaces and Mission Control, sent as the Super chords macdock.lua and Omarchy bind
+    def test_control_arrows_and_digits_are_spaces_and_mission_control(self):
+        cases = {("control", "up"): "Super+Ctrl+up", ("control", "down"): "Super+Ctrl+down",
+                 ("control", "left"): "Super+Ctrl+Shift+left", ("control", "right"): "Super+Ctrl+Shift+right"}
+        for n in "1234567890":
+            cases[("control", n)] = f"Super+{n}"
+        for keys, want in cases.items():
+            with self.subTest(keys=keys):
+                self.assertEqual(self.chord(*keys), [want])
+
+    def test_control_shift_arrows_stay_text_selection_by_word(self):
+        for d in ("left", "right", "up", "down"):
+            with self.subTest(d=d):
+                self.assertEqual(self.chord("control", "shift", d), [f"Ctrl+Shift+{d}"])
+
+    def test_control_option_arrows_focus_the_window_in_that_direction(self):
+        for d in ("left", "right", "up", "down"):
+            with self.subTest(d=d):
+                self.assertEqual(self.chord("control", "alt", d), [f"Super+{d}"])
+
+    def test_option_command_space_is_omarchys_menu_and_the_other_new_system_chords(self):
+        cases = {("meta", "alt", "space"): "Super+space", ("meta", "alt", "w"): "Super+w", ("meta", "shift", "q"): "Super+esc",
+                 ("rightmeta", "alt", "space"): "Super+space", ("rightmeta", "shift", "q"): "Super+esc"}
+        for keys, want in cases.items():
+            with self.subTest(keys=keys):
+                self.assertEqual(self.chord(*keys), [want])
+
+    def test_command_backspace_deletes_to_the_start_of_the_line(self):
+        self.assertEqual(self.chord("meta", "backspace"), ["Shift+home", "backspace"])
+        self.assertEqual(self.chord("meta", "backspace", binds=self.overlays["terminal"]), ["Ctrl+u"], "a shell has no Shift+Home")
+        self.assertEqual(self.chord("alt", "backspace"), ["Ctrl+backspace"], "Option+Backspace is still a word")
 
     def test_unmodified_typing_is_untouched(self):
         self.assertEqual(self.chord("a"), ["a"])
@@ -756,13 +866,16 @@ class InstallerArguments(Sandbox):
         before = tree(self.tmp)
         r = run(["bash", str(INSTALLER), "--dry-run"], env={"PATH": f"{fb}:{path_without_keyd()}", "HOME": str(self.tmp), "KEYD_KIT_DEVICES": devices})
         self.assertEqual(r.returncode, 0, r.stderr)
-        self.assertIn("keyboards to remap: k:05ac:0262 k:004c:0267", r.stdout)
+        self.assertIn(f"keyboards to remap: {' '.join(APPLE_IDS)}", r.stdout)
         for step in ("+ install -Dm644", "/etc/keyd/omarchy-kit-mac.conf", "keyd-appmap", "+ systemctl daemon-reload", "+ systemctl enable keyd.service",
-                     "+ systemctl restart omarchy-kit-keyd-appmap.service", "dry run: nothing was changed"):
+                     "+ systemctl restart omarchy-kit-keyd-appmap.service", "dry run: nothing was changed", "+ read keyd's journal"):
             self.assertIn(step, r.stdout)
         self.assertIn("leftmeta = layer(cmd)", r.stdout)
+        self.assertIn("rightmeta = layer(cmd)", r.stdout)
+        self.assertIn("\n05ac:0262:f2d1f5c2\n", r.stdout, "the dry run shows the very id that would be written")
+        self.assertNotIn(KEYD_LOGGED_IDS["bcm5974"], r.stdout, "the trackpad is not in the configuration")
         self.assertIn(f"--uid {os.getuid()}", r.stdout)
-        self.assertEqual([c for c in calls(fb) if not c.startswith("keyd check")], [], "a dry run must not run pacman or systemctl")
+        self.assertEqual([c for c in calls(fb) if not c.startswith("keyd check")], [], "a dry run must not run pacman, systemctl or journalctl")
         self.assertEqual([l for l in tree(self.tmp) if not l.startswith("fb")], [l for l in before if not l.startswith("fb")])
 
     @unittest.skipIf(os.geteuid() == 0, "would touch the real system when run as root")
@@ -794,9 +907,9 @@ class InstallerInNamespace(Sandbox):
         C=/etc/keyd/omarchy-kit-mac.conf; O=/etc/omarchy-kit/keyd-overlays.json; H=/usr/local/libexec/omarchy-kit/keyd-appmap; U=/etc/systemd/system/omarchy-kit-keyd-appmap.service
         sum() { sha256sum "$@" 2>/dev/null | cut -d' ' -f1 | paste -sd, -; }
         have() { for f in "$@"; do [ -e "$f" ] && printf 1 || printf 0; done; }
-        bash "$S" --caps-delay 200 >/tmp/out1 2>&1; echo RC1=$?
+        bash "$S" --caps-delay 200 >/tmp/out1 2>&1; echo RC1=$?; echo GRAB=$(grep -c 'keyd grabbed exactly' /tmp/out1)
         echo FILES1=$(have $C $O $H $U); echo MODES=$(stat -c %a $C $O $H $U | paste -sd, -); echo OWNERS=$(stat -c %u $C $H | paste -sd, -)
-        echo CONF=$(grep -c '^k:' $C); echo DELAY=$(grep -c 'timeout(noop, 200, capslock)' $C)
+        echo CONF=$(grep -cE '^[0-9a-f]{4}:[0-9a-f]{4}:[0-9a-f]{8}$' $C); echo DELAY=$(grep -c 'timeout(noop, 200, capslock)' $C)
         cp $U "$UNIT_COPY"; echo UNIT_UID=$(grep -o -- '--uid [0-9]*' $U); echo UNIT_EXEC=$(grep '^ExecStart' $U | cut -d= -f2- | cut -d' ' -f1-3)
         echo HELPER_SAME=$(cmp -s "$(dirname "$S")/keyd-appmap" $H && echo 1 || echo 0)
         echo OVERLAYS_VALID=$(python3 -c 'import json; d=json.load(open("'$O'")); print(sorted(d["overlays"]))' | tr -d " ")
@@ -807,10 +920,21 @@ class InstallerInNamespace(Sandbox):
         echo DIRS=$(have /usr/local/libexec/omarchy-kit /etc/omarchy-kit)
         '''
 
-    def fakes(self, keyd_ok=True):
-        """pacman, systemctl and keyd as fakes. keyd is NOT on the PATH at first: the fake pacman puts it there, like the real one would."""
+    @staticmethod
+    def journal(matched, ignored=()):
+        """What keyd's journal says after it starts: one `DEVICE: match` line for each id it grabbed, `ignoring` for the rest."""
+        names = {kid: name for kid, name in ((v, k) for k, v in KEYD_LOGGED_IDS.items())}
+        names.update({i: "Apple Inc. Apple Internal Keyboard / Trackpad" for i in APPLE_IDS[:1]}); names[MAGIC_ID] = "Magic Keyboard"
+        return "".join(f"DEVICE: match    {i}  /etc/keyd/omarchy-kit-mac.conf\t({names[i]})\n" for i in matched) + \
+               "".join(f"DEVICE: ignoring {i}  ({names[i]})\n" for i in ignored)
+
+    def fakes(self, keyd_ok=True, journal=None):
+        """pacman, systemctl, journalctl and keyd as fakes. keyd is NOT on the PATH at first: the fake pacman puts it there, like the real one would.
+        `journal` is what journalctl prints (default: keyd grabbed exactly the Apple keyboards); False makes journalctl fail."""
         state = self.tmp / "state"
         state.mkdir(exist_ok=True)
+        jtext = self.journal(APPLE_IDS, [KEYD_LOGGED_IDS["bcm5974"]]) if journal is None else journal
+        (self.tmp / "journal.txt").write_text(jtext or "")
         fb = self.tmp / "fb"
         real = f'[ "$1" = check ] && [ -x "{KEYD_BIN}" ] && exec "{KEYD_BIN}" "$@"; ' if KEYD_BIN and keyd_ok else ""
         keyd_body = real + ("exit 0" if keyd_ok else '[ "$1" = check ] && { echo "line 3: nope" >&2; exit 1; }; exit 0')
@@ -820,12 +944,13 @@ class InstallerInNamespace(Sandbox):
             fb,
             pacman=f'case "$*" in *keyd*) cp "{src}" "{fb}/keyd"; chmod +x "{fb}/keyd";; esac; exit 0',
             systemctl=f'''case "$1" in is-active) n=$(cat {state}/n 2>/dev/null || echo 0); echo $((n+1)) > {state}/n; [ "$n" -ge 1 ] && exit 0 || exit 3;; esac; exit 0''',
+            journalctl=f'{"exit 1" if journal is False else "cat " + chr(34) + str(self.tmp / "journal.txt") + chr(34)}',
         )
         return fb
 
     def env(self, fb, **extra):
         return {"PATH": f"{fb}:{path_without_keyd()}", "HOME": str(self.tmp), "SUDO_UID": "1234", "KEYD_KIT_DEVICES": self.write_devices(),
-                "UNIT_COPY": str(self.tmp / "unit.service"), **extra}
+                "UNIT_COPY": str(self.tmp / "unit.service"), "KEYD_KIT_SETTLE": "0", **extra}
 
     def write_devices(self):
         f = self.tmp / "devices"
@@ -838,7 +963,8 @@ class InstallerInNamespace(Sandbox):
         if "MOUNT_FAIL" in o:
             self.skipTest("cannot mount tmpfs in the namespace")
         self.assertEqual((o["RC1"], o["FILES1"], o["MODES"], o["OWNERS"]), ("0", "1111", "644,644,755,644", "0,0"), o)
-        self.assertEqual((o["CONF"], o["DELAY"]), ("2", "1"), "both Apple keyboards, and the caps delay that was asked for")
+        self.assertEqual((o["CONF"], o["DELAY"]), ("2", "1"), "both Apple keyboards by full id, and the caps delay that was asked for")
+        self.assertEqual(o["GRAB"], "1", "the install says what keyd grabbed, after reading its journal")
         self.assertEqual(o["UNIT_UID"], "--uid 1234", "the service reads the session of the user who ran sudo")
         self.check_unit(self.tmp / "unit.service")
         self.assertEqual(o["UNIT_EXEC"], "/usr/bin/python3 -I /usr/local/libexec/omarchy-kit/keyd-appmap")
@@ -869,6 +995,43 @@ class InstallerInNamespace(Sandbox):
         for must in ("CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH", "NoNewPrivileges=yes", "ProtectSystem=strict", "RestrictAddressFamilies=AF_UNIX",
                      "PartOf=keyd.service", "Requires=keyd.service", "Restart=always", "ExecStopPost=-/usr/bin/keyd bind reset"):
             self.assertIn(must, text)
+
+    ROLLBACK_DRIVER = r'''
+        S=$1; mount -t tmpfs none /etc && mount -t tmpfs none /usr/local || { echo MOUNT_FAIL=1; exit 0; }
+        mkdir -p /etc/systemd/system
+        C=/etc/keyd/omarchy-kit-mac.conf; O=/etc/omarchy-kit/keyd-overlays.json; H=/usr/local/libexec/omarchy-kit/keyd-appmap; U=/etc/systemd/system/omarchy-kit-keyd-appmap.service
+        have() { for f in "$@"; do [ -e "$f" ] && printf 1 || printf 0; done; }
+        bash "$S" >/tmp/out 2>&1; echo RC=$?; echo FILES=$(have $C $O $H $U)
+        echo BACK=$(grep -c 'taken back' /tmp/out); echo NOTE=$(grep -c 'could not read keyd' /tmp/out)
+        echo GOT=$(grep -c 'keyd matched' /tmp/out)
+        '''
+
+    def rollback(self, journal):
+        fb = self.fakes(journal=journal)
+        o = in_userns(self.ROLLBACK_DRIVER, str(INSTALLER), env=self.env(fb))
+        if "MOUNT_FAIL" in o:
+            self.skipTest("cannot mount tmpfs in the namespace")
+        return fb, o
+
+    def test_keyd_grabbing_the_trackpad_too_takes_everything_back(self):
+        """The mistake of the first attempt: the keyboard's short id also matched the trackpad, and only keyd's journal said so."""
+        fb, o = self.rollback(self.journal(APPLE_IDS + [KEYD_LOGGED_IDS["bcm5974"]]))
+        self.assertEqual((o["RC"], o["FILES"], o["BACK"], o["GOT"]), ("1", "0000", "1", "1"), o)
+        log = calls(fb)
+        self.assertIn("systemctl disable --now keyd.service", log, "keyd is switched off again")
+        self.assertIn("systemctl disable --now omarchy-kit-keyd-appmap.service", log)
+        self.assertNotIn("systemctl restart omarchy-kit-keyd-appmap.service", log, "the helper is never started on a layer that was taken back")
+
+    def test_keyd_taking_nothing_or_only_part_of_it_takes_everything_back(self):
+        for what, journal in (("nothing", self.journal([], APPLE_IDS)), ("one of two", self.journal(APPLE_IDS[:1], APPLE_IDS[1:])),
+                              ("an unrelated device", self.journal(APPLE_IDS + [KEYD_LOGGED_IDS["Logitech Wireless Keyboard PID:4075"]]))):
+            with self.subTest(keyd_matched=what):
+                _, o = self.rollback(journal)
+                self.assertEqual((o["RC"], o["FILES"], o["BACK"]), ("1", "0000", "1"), o)
+
+    def test_a_journal_that_cannot_be_read_warns_and_still_installs(self):
+        _, o = self.rollback(False)
+        self.assertEqual((o["RC"], o["FILES"], o["NOTE"]), ("0", "1111", "1"), "keyd's own check ran; only the after-the-fact verification is missing, and it says so")
 
     def test_it_checks_the_configuration_before_activating_anything(self):
         fb = self.fakes()

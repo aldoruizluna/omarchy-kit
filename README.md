@@ -132,11 +132,11 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
   dark at night, switching only when the period changes so a hand-picked theme sticks.
 - **Opt-in ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P** (`keys/mac-key-extras`): Omarchy already uses those Super keys, so you choose key by key;
   terminals always keep the Omarchy meaning.
-- **The ⌘ key as Ctrl everywhere** (`keys/install-keyd`; **tried on 2026-10-23 and removed**: it made the left and right ⌘ differ and keyd grabbed the trackpad, see [keys/README](keys/README.md); not installed): the left ⌘ key acts as Ctrl
-  for every shortcut in every app (so ⌘C, ⌘T, ⌘-click and ⌘-scroll just work), ⌘Space, ⌘Tab, ⌘Q, ⌘H, ⌘M, ⇧⌘3/4/5 become Super
-  chords for Hyprland, ⌘←/→ are Home/End and ⌥←/→ move by words. A terminal never gets ⌘ as Ctrl+letter (⌘C copies, it does not
-  interrupt). The right ⌘ key stays Super for Omarchy's own shortcuts. Preview with `--dry-run`; if the keyboard misbehaves,
-  Backspace + Escape + Enter together stop keyd. Details and limits: [keys/README](keys/README.md).
+- **The ⌘ keys as Ctrl everywhere** (`keys/install-keyd`; the first version was **tried on 2026-10-23 and removed**: it made the left and right ⌘ differ and keyd grabbed the trackpad; this is its redesign,
+  prepared and not yet installed, see [keys/README](keys/README.md)): both ⌘ keys act as Ctrl for every shortcut in every app (so ⌘C, ⌘T, ⌘-click and ⌘-scroll just work), ⌘Space, ⌘Tab, ⌘Q, ⌘H, ⌘M, ⇧⌘3/4/5 become Super
+  chords for Hyprland, the Mac's ⌃-arrows and ⌃1…0 switch Spaces, ⌘←/→ are Home/End and ⌥←/→ move by words. A terminal never gets ⌘ as Ctrl+letter (⌘C copies, it does not
+  interrupt). No key is Super any more; Omarchy's menu is ⌥⌘Space. The keyboard is listed by its full keyd id and the installer reads keyd's journal and undoes itself if keyd grabbed anything else (the trackpad, last time).
+  Preview with `--dry-run`; if the keyboard misbehaves, Backspace + Escape + Enter together stop keyd. Details and limits: [keys/README](keys/README.md).
 - **A real Caps Lock** (`keys/caps-lock`, no root): Omarchy makes Caps Lock its Compose key; this gives it back as a Caps Lock
   with the light on the key, like a Mac (with the keyd layer above it also needs a deliberate 150 ms press). `caps-lock compose` undoes it.
 - **Mac icons and pointer** (`icons/`, no root): the WhiteSur icon theme and an open-source macOS cursor, kept in step with the light or dark

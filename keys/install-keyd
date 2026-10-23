@@ -5,11 +5,15 @@
 #     ~/labspace/omarchy-kit/keys/install-keyd --dry-run                  preview every step and the configuration, no sudo needed
 #     sudo ~/labspace/omarchy-kit/keys/install-keyd --remove              undo
 #
-# What changes: the LEFT Command key acts as Ctrl for every shortcut in every app (so Cmd+C, Cmd+T, Cmd+click, Cmd+scroll all work), a few
-# Mac system chords (Cmd+Space, Cmd+Tab, Cmd+Q ...) become Super chords for Hyprland, Option+arrows move by words, and Caps Lock needs a
-# deliberate press like on a Mac. What does NOT change: Ctrl, Option, the RIGHT Command key (still Super: every Omarchy shortcut keeps
-# working on it), keyboards that are not Apple's, and the trackpad. A terminal never receives Cmd as Ctrl+letter (Cmd+C copies, it does not
-# interrupt): keyd-appmap, a small root service, watches which window has the focus and switches the overlay.
+# What changes: BOTH Command keys act as Ctrl for every shortcut in every app (so Cmd+C, Cmd+T, Cmd+click, Cmd+scroll all work), a few
+# Mac system chords (Cmd+Space, Cmd+Tab, Cmd+Q ...) and the Mac's Control chords (Ctrl+arrows and Ctrl+1..0 for Spaces and Mission Control,
+# Ctrl+Option+arrows to focus a window) become Super chords for Hyprland, Option+arrows move by words, and Caps Lock needs a deliberate press
+# like on a Mac. No key is Super any more: Omarchy's own Super shortcuts are reached through those Mac chords and Option+Cmd+Space (its menu).
+# What does NOT change: Ctrl (apart from those arrow and digit chords), Option, keyboards that are not Apple's, and the trackpad: the
+# keyboard is listed by its FULL keyd id (vendor:product:hash), because the keyboard and the trackpad share vendor and product, and after
+# starting keyd this script reads its journal and takes everything back if keyd grabbed anything but that keyboard. A terminal never
+# receives Cmd as Ctrl+letter (Cmd+C copies, it does not interrupt): keyd-appmap, a small root service, watches which window has the
+# focus and switches the overlay.
 #
 # IF THE KEYBOARD EVER MISBEHAVES: press Backspace + Escape + Enter together. keyd quits at once and the keyboard is back to normal.
 #
@@ -42,17 +46,22 @@ DEVICES=${KEYD_KIT_DEVICES:-/proc/bus/input/devices}   # test hook: a stand-in f
 run() { if ((DRY)); then echo "+ $*"; else "$@"; fi; }
 ((DRY)) || [[ $EUID -eq 0 ]] || { echo "needs root: sudo $0 $*   (or --dry-run to preview)" >&2; exit 1; }
 
-if [[ $MODE == remove ]]; then
+remove_everything() {
   run systemctl disable --now "$SERVICE" 2>/dev/null || true
   run rm -f "$UNIT" "$HELPER" "$OVERLAYS" "$CONF"
   run rmdir /usr/local/libexec/omarchy-kit /etc/omarchy-kit 2>/dev/null || true
   run systemctl daemon-reload
   # keyd goes too unless someone else keeps a configuration in /etc/keyd
+  local others
   others=$(find /etc/keyd -maxdepth 1 -name '*.conf' 2>/dev/null | grep -vxF "$CONF" || true)
   if [[ -z $others ]]; then run systemctl disable --now keyd.service 2>/dev/null || true
   else run keyd reload || true; fi
+}
+
+if [[ $MODE == remove ]]; then
+  remove_everything
   ((DRY)) && { echo "(dry run: nothing was changed)"; exit 0; }
-  echo "removed: left Command is Super again. The keyd package stays installed (sudo pacman -Rns keyd removes it)."
+  echo "removed: both Command keys are Super again. The keyd package stays installed (sudo pacman -Rns keyd removes it)."
   exit 0
 fi
 
@@ -60,7 +69,7 @@ fi
 if [[ -n ${SUDO_UID:-} ]]; then OWNER=$SUDO_UID; elif ((DRY)); then OWNER=$(id -u); else OWNER=""; fi
 [[ $OWNER =~ ^[0-9]+$ ]] && ((OWNER > 0)) || { echo "run it with sudo from your own account (SUDO_UID is missing), not from a root shell" >&2; exit 1; }
 
-# ---- which keyboards
+# ---- which keyboards (full keyd ids, computed from the kernel's device list the way keyd computes them: see keyd-config)
 IDS=$(python3 -I "$HERE/keyd-config" detect "$DEVICES" || true)
 [[ -n $IDS ]] || { echo "no Apple keyboard found in $DEVICES: nothing to remap, nothing changed" >&2; exit 1; }
 IDS_CSV=$(tr '\n' ',' <<<"$IDS"); IDS_CSV=${IDS_CSV%,}
@@ -133,11 +142,34 @@ UNITFILE
 fi
 
 # ---- start: keyd first (it reads the new file), then the helper
+SINCE=$(date '+%Y-%m-%d %H:%M:%S')
 run systemctl daemon-reload
 run systemctl enable keyd.service "$SERVICE"
 if ((DRY)); then echo "+ systemctl start keyd (or: keyd reload, if it is already running)"
 elif systemctl is-active --quiet keyd.service; then keyd reload
 else systemctl start keyd.service; fi
+
+# ---- what did keyd take? Last time it grabbed the trackpad too, and only its journal said so. keyd logs one "DEVICE: match" line for
+# every device it manages: they must be exactly the keyboards listed above, or everything is taken back.
+if ((DRY)); then echo "+ read keyd's journal; if it grabbed any device but the keyboards above, take everything back"
+else
+  sleep "${KEYD_KIT_SETTLE:-1}"
+  if LOG=$(journalctl -u keyd.service --since "$SINCE" --no-pager -o cat 2>/dev/null); then
+    GOT=$(grep -E 'DEVICE:.*match' <<<"$LOG" | grep -oE '[0-9a-f]{4}:[0-9a-f]{4}:[0-9a-f]{8}' | sort -u || true)
+    WANT=$(sort -u <<<"$IDS")
+    if [[ $GOT != "$WANT" ]]; then
+      echo "keyd took a different set of devices than the keyboard(s) it was given, so everything is being taken back." >&2
+      echo "  wanted: $(tr '\n' ' ' <<<"$WANT")" >&2
+      echo "  keyd matched: ${GOT:+$(tr '\n' ' ' <<<"$GOT")}${GOT:-nothing}" >&2
+      remove_everything
+      echo "Nothing is installed. The keyboard is as it was. Read:  journalctl -u keyd -e" >&2
+      exit 1
+    fi
+    echo "keyd grabbed exactly: $(tr '\n' ' ' <<<"$GOT")"
+  else
+    echo "(could not read keyd's journal, so what keyd grabbed was not verified: run  journalctl -u keyd -e  and look at the DEVICE lines)" >&2
+  fi
+fi
 run systemctl restart "$SERVICE"
 echo
 if ((DRY)); then
@@ -147,6 +179,6 @@ if ((DRY)); then
   exit 0
 fi
 systemctl is-active --quiet keyd.service || { echo "keyd did not start: see  journalctl -u keyd -e   (your keyboard keeps working as before)" >&2; exit 1; }
-echo "Done. Left Command is now Ctrl in apps; the right Command key is still Super."
+echo "Done. Both Command keys are now Ctrl in apps; none is Super (Ctrl+arrows and Ctrl+1..0 switch Spaces, Option+Cmd+Space is Omarchy's menu)."
 echo "If the keyboard ever misbehaves: Backspace + Escape + Enter together stops keyd."
 echo "Check:  systemctl status keyd $SERVICE   ·   undo: sudo $0 --remove"

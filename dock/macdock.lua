@@ -13,7 +13,7 @@
 --   Shift+Print                   full-screen screenshot (⇧⌘3; ⇧⌘4 is Omarchy's own Print, ⇧⌘5 its capture menu)
 --   F3 (the Mission Control key)  Mission Control: all spaces and their windows. Same as Super+Ctrl+Up and four fingers up
 --   F4 (the Launchpad key)        the Apps view (macOS 26 replaced Launchpad with Apps in Spotlight); same as the four-finger pinch
---   Super+Ctrl+Up                 Mission Control (⌃↑ on a Mac; plain Ctrl+Up stays a text-editing key)
+--   Super+Ctrl+Up                 Mission Control (⌃↑ on a Mac; plain Ctrl+Up stays a text-editing key until the keyboard remap sends this chord for ⌃↑)
 --   Super+Ctrl+Down               App Exposé: only the windows of the focused app, from every space (⌃↓)
 --   Super+Ctrl+Shift+Left/Right   previous / next workspace
 --
@@ -23,7 +23,8 @@
 --
 -- While the switcher is open, Super+Q and Super+H act on the app that is *selected* in it, not on the focused one (that is what ⌘Q and
 -- ⌘H do in the macOS switcher); the bind asks Hyprland whether the switcher's layer exists, which needs no round trip to the dock.
--- The left ⌘ key sends these Super chords when the keyboard remap (keys/install-keyd) is installed; the right ⌘ key is Super itself.
+-- With the keyboard remap (keys/install-keyd) installed both ⌘ keys are Ctrl and send these Super chords through its Mac chord table (⌃↑/↓ and
+-- ⌃←/→ send the Super+Ctrl chords below); without it both ⌘ keys are Super itself.
 --
 -- Undo: ~/labspace/omarchy-kit/dock/install-dock --remove
 

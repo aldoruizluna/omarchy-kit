@@ -59,7 +59,7 @@ Related: [INDEX](INDEX.md) · [ARCHITECTURE](ARCHITECTURE.md) · [SLEEP](SLEEP.m
 
 **Installer contract.** Idempotent; `--remove` undoes it; `--help` prints usage; an unknown option exits 2 without installing; fails closed. See [ARCHITECTURE](ARCHITECTURE.md#the-scripts-that-change-the-machine).
 
-**keyd.** A key-remapping daemon that works below the compositor (so in every app, on Wayland or in a console). Here it makes the left ⌘ key act as Ctrl; `keyd bind` changes bindings while it runs. Panic sequence: Backspace + Escape + Enter. See [keys/README](../keys/README.md).
+**keyd.** A key-remapping daemon that works below the compositor (so in every app, on Wayland or in a console). Here (once installed) it makes both ⌘ keys act as Ctrl, matching the keyboard by its full id so the trackpad is left alone; `keyd bind` changes bindings while it runs. Panic sequence: Backspace + Escape + Enter. See [keys/README](../keys/README.md).
 
 **Light sleep (s2idle).** The machine keeps running at a whisper, so opening the lid wakes it at once. Costs: fans keep spinning and the battery drains faster. See [SLEEP](SLEEP.md#light-sleep-and-its-price).
 
