@@ -163,6 +163,7 @@ PanelWindow {
   readonly property var actions: [
     { title: "Lock Screen", sub: "Lock the Mac", keys: "lock screen sleep", icon: "system-lock-screen", cmd: ["omarchy-system-lock"] },
     { title: "Restart, Shut Down or Log Out…", sub: "Omarchy's system menu", keys: "power restart reboot shut down shutdown log out logout sleep suspend", icon: "system-shutdown", cmd: ["omarchy-menu", "toggle", "system"] },
+    { title: "Control Center", sub: "Wi-Fi, Bluetooth, sound, brightness and more", keys: "settings wifi wi-fi bluetooth sound volume brightness focus night shift", icon: "preferences-system", ipc: ["controlcenter", "toggle"] },
     { title: "Mission Control", sub: "All spaces and their windows", keys: "spaces desktops overview windows", icon: "view-grid", ipc: ["mission", "toggle"] },
     { title: "Show or Hide the Dock", sub: "Turn Dock hiding on or off", keys: "dock autohide", icon: "preferences-desktop", ipc: ["dock", "toggleAutohide"] },
     { title: "Toggle Night Light", sub: "Warmer colours in the evening", keys: "night shift nightlight warm blue light", icon: "weather-clear-night", cmd: ["omarchy-toggle-nightlight"] },

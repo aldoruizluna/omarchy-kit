@@ -14,6 +14,7 @@ What is covered:
   dock/hot-corners        choosing a corner's action: other keys kept, bad JSON untouched, bad arguments refused, nothing left behind
   menubar/plugin/apps.json  per-app menus: the file's shape, every shown shortcut checked against what the keyd tables really send, the widget's functions in node,
                           the chord parser in real Lua
+  dock/ControlCenter      nothing is built while closed, the services and commands it uses exist, no power action, icons exist, the bar button and the installer agree
   dock/Spotlight          the sum parser, name matching, file sorting and icon rules run in node; no search result can power the machine off;
                           it takes the keyboard only while open; it is registered, installed and bound
   dock polish             the Dock's own functions run in node: which program name `ps` shows for an app, and the drag-to-reorder move
@@ -381,7 +382,7 @@ class InstallMenubar(Sandbox):
         lay = self.layout()
         self.assertEqual(ids(lay["left"]), ["omarchykit.macmenu"])
         self.assertEqual(ids(lay["center"]), ["omarchy.workspaces"])
-        self.assertEqual(ids(lay["right"])[-1], "omarchy.clock")                       # the clock is the last thing on the right
+        self.assertEqual(ids(lay["right"])[-2:], ["omarchykit.controlcenter", "omarchy.clock"])   # the Control Center button, then the clock last
         self.assertNotIn("omarchy.menu", ids(lay["left"] + lay["center"] + lay["right"]))
         self.assertEqual(json.loads(self.shell.read_text())["bar"]["centerAnchor"], "omarchy.workspaces")
 
@@ -390,7 +391,7 @@ class InstallMenubar(Sandbox):
         lay = self.layout()
         every = ids(lay["left"] + lay["center"] + lay["right"])
         wanted = set(ids(ORIGINAL_BAR["bar"]["layout"]["left"] + ORIGINAL_BAR["bar"]["layout"]["center"] + ORIGINAL_BAR["bar"]["layout"]["right"]))
-        self.assertEqual(set(every), (wanted - {"omarchy.menu"}) | {"omarchykit.macmenu"})
+        self.assertEqual(set(every), (wanted - {"omarchy.menu"}) | {"omarchykit.macmenu", "omarchykit.controlcenter"})
         self.assertEqual(len(every), len(set(every)))
         self.assertIn("vpn", every)                                                    # a custom command module keeps its place on the right
         clock = [e for e in lay["right"] if isinstance(e, dict) and e["id"] == "omarchy.clock"][0]
@@ -419,6 +420,7 @@ class InstallMenubar(Sandbox):
         self.assertEqual(now["bar"]["layout"], ORIGINAL_BAR["bar"]["layout"])
         self.assertEqual(now["bar"]["centerAnchor"], "omarchy.clock")
         self.assertFalse((self.cfg / "omarchy" / "plugins" / "omarchykit.macmenu").exists())
+        self.assertFalse((self.cfg / "omarchy" / "plugins" / "omarchykit.controlcenter").exists())
         self.assertFalse((self.hypr / "macmenu.lua").exists())
         self.assertNotIn("macmenu", self.hyprland_lua())
 
@@ -426,7 +428,7 @@ class InstallMenubar(Sandbox):
         self.go()
         (self.cfg / "omarchy-kit" / "menubar-layout-before.json").unlink()
         self.assertEqual(self.go("--remove").returncode, 0)
-        self.assertNotIn("omarchykit.macmenu", ids(sum(self.layout().values(), [])))
+        self.assertFalse({"omarchykit.macmenu", "omarchykit.controlcenter"} & set(ids(sum(self.layout().values(), []))))
 
     def test_invalid_json_is_never_touched(self):
         self.shell.write_text("{ not json")
@@ -444,7 +446,9 @@ class InstallMenubar(Sandbox):
     def test_the_plugin_is_copied_and_the_original_file_is_backed_up(self):
         self.go()
         plugin = self.cfg / "omarchy" / "plugins" / "omarchykit.macmenu"
-        self.assertTrue((plugin / "manifest.json").exists() and (plugin / "BarWidget.qml").exists())
+        self.assertTrue((plugin / "manifest.json").exists() and (plugin / "BarWidget.qml").exists() and (plugin / "apps.json").exists())
+        cc = self.cfg / "omarchy" / "plugins" / "omarchykit.controlcenter"
+        self.assertTrue((cc / "manifest.json").exists() and (cc / "BarWidget.qml").exists())
         self.assertEqual(json.loads((self.cfg / "omarchy" / "shell.json.bak-menubar").read_text()), ORIGINAL_BAR)
 
     def test_a_widget_the_user_does_not_have_is_not_invented(self):
@@ -453,6 +457,7 @@ class InstallMenubar(Sandbox):
         self.shell.write_text(json.dumps(bar))
         self.go()
         lay = self.layout()
+        self.assertEqual(ids(lay["right"]), ["omarchykit.controlcenter", "omarchy.clock"])
         self.assertEqual(ids(lay["center"]), [])                                       # no workspaces widget existed, so none is added
         self.assertEqual(json.loads(self.shell.read_text())["bar"]["centerAnchor"], "")
 
@@ -1069,6 +1074,61 @@ class ChordParser(unittest.TestCase):
         self.assertEqual(self.parse(bad), ["nil"] * len(bad))
 
 
+class ControlCenter(unittest.TestCase):
+    QML = (KIT / "dock" / "ControlCenter.qml").read_text()
+    BUTTON = (KIT / "menubar" / "plugin-controlcenter" / "BarWidget.qml").read_text()
+    MANIFEST = json.loads((KIT / "menubar" / "plugin-controlcenter" / "manifest.json").read_text())
+
+    def test_nothing_is_built_while_it_is_closed(self):
+        self.assertIn("active: win.shown", self.QML)
+        self.assertIn("visible: shown", self.QML)
+        self.assertIn("keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None", self.QML)
+
+    def test_it_uses_the_services_omarchys_own_panels_use(self):
+        for name in ("Quickshell.Networking", "Quickshell.Bluetooth", "Quickshell.Services.Pipewire", "Quickshell.Services.Mpris", "Quickshell.Services.UPower"):
+            self.assertIn(f"import {name}", self.QML)
+        self.assertIn("Networking.wifiEnabled", self.QML)
+        self.assertIn("PwObjectTracker", self.QML)
+
+    def test_the_commands_it_runs_are_omarchys_or_the_systems_and_none_powers_off(self):
+        cmds = re.findall(r'run\(\[([^\]]*)\]\)', self.QML) + re.findall(r'"(omarchy-[a-z-]+)"', self.QML)
+        self.assertTrue(cmds)
+        for word in ("shutdown", "reboot", "poweroff", "logout", "suspend"):
+            self.assertNotIn(word, self.QML.lower().replace("do not disturb", ""), "Control Center must not be able to end the session")
+        bin_dir = pathlib.Path("/usr/share/omarchy/bin")
+        if bin_dir.is_dir():
+            for name in set(re.findall(r'"(omarchy-[a-z-]+)"', self.QML)):
+                self.assertTrue((bin_dir / name).exists(), f"{name} is not an Omarchy command")
+
+    def test_every_icon_it_names_exists_in_the_icon_theme_or_has_a_fallback(self):
+        names = set(re.findall(r'"([a-z-]+-symbolic)"', self.QML))
+        self.assertGreaterEqual(len(names), 10)
+        theme = pathlib.Path.home() / ".local" / "share" / "icons" / "WhiteSur-dark"
+        if not theme.is_dir():
+            self.skipTest("the WhiteSur icon theme is not installed")
+        for n in names:
+            self.assertTrue(list(theme.rglob(n + ".svg")), f"{n} is not in WhiteSur")
+
+    def test_the_button_only_asks_the_dock_program_to_toggle_the_panel(self):
+        self.assertIn('"controlcenter", "toggle"', self.BUTTON)
+        self.assertIn('target: "controlcenter"', self.QML)
+        self.assertEqual(self.MANIFEST["id"], "omarchykit.controlcenter")
+        self.assertIn('moduleName: "omarchykit.controlcenter"', self.BUTTON)
+        self.assertIn("bar-widget", self.MANIFEST["kinds"])
+
+    def test_it_is_registered_installed_and_has_a_layer_rule(self):
+        self.assertEqual((KIT / "dock" / "shell.qml").read_text().count("ControlCenter {}"), 1)
+        self.assertIn("ControlCenter.qml", (KIT / "dock" / "install-dock").read_text())
+        self.assertRegex((KIT / "dock" / "qmldir").read_text(), r"ControlCenter 1\.0 ControlCenter\.qml")
+        self.assertIn("maccontrol", (KIT / "dock" / "macdock.lua").read_text().split("hl.layer_rule", 1)[1].split("\n", 1)[0])
+        installer = (KIT / "menubar" / "install-menubar").read_text()
+        for needle in ("plugin-controlcenter/manifest.json", "plugin-controlcenter/BarWidget.qml", "CC_ID=omarchykit.controlcenter"):
+            self.assertIn(needle, installer)
+
+    def test_the_power_mode_cycle_only_offers_the_three_profiles_the_system_has(self):
+        self.assertIn('readonly property var profiles: ["power-saver", "balanced", "performance"]', self.QML)
+
+
 # ======================================================================================================================
 # contracts between the pieces
 # ======================================================================================================================
@@ -1119,7 +1179,7 @@ class Contracts(unittest.TestCase):
         qmllint = next((p for p in (shutil.which("qmllint"), "/usr/lib/qt6/bin/qmllint") if p and os.path.exists(p)), None)
         if not qmllint:
             self.skipTest("qmllint is not installed")
-        files = [str(p) for p in sorted((KIT / "dock").glob("*.qml")) + sorted((KIT / "menubar" / "plugin").glob("*.qml"))]
+        files = [str(p) for p in sorted((KIT / "dock").glob("*.qml")) + sorted((KIT / "menubar" / "plugin").glob("*.qml")) + sorted((KIT / "menubar" / "plugin-controlcenter").glob("*.qml"))]
         r = run([qmllint, "-I", "/usr/lib/qt6/qml", *files])
         errors = [l for l in (r.stdout + r.stderr).splitlines() if l.startswith("Error")]
         self.assertEqual(errors, [], "\n".join(errors))
@@ -1133,7 +1193,7 @@ class Contracts(unittest.TestCase):
 
     def test_no_personal_details_in_the_new_files(self):
         bad = []
-        for pattern in ("icons/*", "dock/*", "menubar/*", "menubar/plugin/*"):
+        for pattern in ("icons/*", "dock/*", "menubar/*", "menubar/plugin/*", "menubar/plugin-controlcenter/*"):
             for p in KIT.glob(pattern):
                 if not p.is_file():
                     continue

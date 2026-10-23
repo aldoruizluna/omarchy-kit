@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "omarchykit.controlcenter",
+  "name": "Control Center button",
+  "version": "1.0.0",
+  "author": "Omarchy Kit",
+  "description": "The two-switches button that opens the Control Center panel of the Dock program, like the one next to the clock in the macOS menu bar",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Control Center",
+    "description": "Opens the Control Center panel",
+    "category": "Compositor",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}

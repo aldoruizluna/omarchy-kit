@@ -83,21 +83,27 @@ Singleton {
   }
 
   // Apps that run with no window (closed to the tray, a service in the background): the Dock shows them with a lighter dot. There is no
-  // window to ask, so the process list is read every few seconds and an app counts when a process carries the name of its launcher.
+  // window to ask, so the process names are read (about 4 ms) every eight seconds, and a second after a window opens or closes, and an app
+  // counts when a process carries the name of its launcher.
   property var procs: ({})
+  property string procsKey: ""
 
   Process {
     id: psProbe
-    command: ["ps", "-eo", "comm="]
+    command: ["sh", "-c", "cat /proc/[0-9]*/comm 2>/dev/null"]
     stdout: StdioCollector {
       onStreamFinished: {
         var names = {}, lines = text.split("\n")
         for (var i = 0; i < lines.length; i++) if (lines[i].length) names[lines[i].trim()] = true
-        root.procs = names
+        // Only a change is published: handing over a new object every scan would make the Dock rebuild its model for nothing.
+        var key = Object.keys(names).sort().join("\n")
+        if (key !== root.procsKey) { root.procsKey = key; root.procs = names }
       }
     }
   }
-  Timer { interval: 4000; running: true; repeat: true; triggeredOnStart: true; onTriggered: psProbe.running = true }
+  Timer { interval: 8000; running: true; repeat: true; triggeredOnStart: true; onTriggered: psProbe.running = true }
+  Timer { id: scanSoon; interval: 1000; onTriggered: psProbe.running = true }
+  onToplevelsChanged: scanSoon.restart()
 
   // The launchers that start something else: the process to look for is not theirs, so these answer "cannot tell".
   readonly property var wrappers: ({ "sh": 1, "bash": 1, "uwsm-app": 1, "flatpak": 1, "gtk-launch": 1, "setsid": 1, "nohup": 1, "xdg-terminal-exec": 1,

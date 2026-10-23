@@ -1801,7 +1801,7 @@ FILE: dock/README.md  (dock/ scripts)
 | Hover | the icon under the pointer grows (magnification), its neighbours spread, its name shows above it. The grown icon stays under the pointer |
 | Click | focuses the app (its most recently used window), or launches it with a bounce until its window appears; middle click opens a new instance |
 | Right click | the app's windows, its own actions (New Window and so on), **Keep in Dock** / **Remove from Dock**, **Quit** |
-| Dot under an icon | the app has a window (hidden ones too). A **lighter dot** means the app runs with no window (closed to the tray, a service): the Dock reads the process list every four seconds (about 3 ms of work each) and an app counts when a process has the name of the program in its launcher. Launchers that start something else (`sh`, `flatpak`, web apps) never count, because their process is not the app's |
+| Dot under an icon | the app has a window (hidden ones too). A **lighter dot** means the app runs with no window (closed to the tray, a service): the Dock reads the process names (`/proc/*/comm`, about 4 ms) every eight seconds and a second after a window opens or closes and an app counts when a process has the name of the program in its launcher. Launchers that start something else (`sh`, `flatpak`, web apps) never count, because their process is not the app's |
 | Drag a pinned icon | **sideways** to reorder (it is dropped before or after the pinned app nearest to where you let go); **pulled well above the Dock** and released, it is taken off the Dock, as on a Mac. The click that ends a drag does not launch anything |
 | Web apps | Omarchy's web apps (WhatsApp, Omarchy Kit, ...) are matched to their launcher, so the pinned icon lights up instead of a second icon appearing |
 | Icons the theme does not have | set on a neutral rounded tile, like macOS does for old-style icons |
@@ -1809,6 +1809,25 @@ FILE: dock/README.md  (dock/ scripts)
 
 `~/.config/macdock/dock.json`: `pinned` (list), `iconSize` (32-96, default 52), `zoom` (1 = no magnification, default 1.6), `autohide` (default false),
 `showTrash` (default true), `hotCorners` (see below), `hotCornerDelay`. It is re-read when it changes. With `autohide` the Dock slides away and the windows get its space back (85 px at the default size).
+
+## Control Center
+
+The two-switches button in the menu bar, just left of the clock, opens a panel under it (also `quickshell ipc -p ~/.local/share/macdock call controlcenter toggle`, or "Control Center" in Spotlight's Actions). Click outside it or press Esc to close.
+
+| Part | What it does |
+|---|---|
+| **Wi-Fi** tile | turns the radio on or off (the same `Networking.wifiEnabled` Omarchy's own panel uses); shows the network you are on |
+| **Bluetooth** tile | turns the adapter on or off; shows the connected device |
+| **Focus** tile | Do Not Disturb: Omarchy's notification silencing (`omarchy-shell notifications setDnd`) |
+| **Night Shift** tile | Omarchy's night light (`omarchy-toggle-nightlight`) |
+| **Display**, **Keyboard Brightness** sliders | `omarchy-brightness-display --no-osd N%` and `brightnessctl` on the keyboard backlight; the keyboard slider is not shown when there is no such backlight; sent when you pause, not on every pixel of the drag |
+| **Sound** slider | the default PipeWire output's volume and mute |
+| **Now Playing** | the track of the MPRIS player that is playing (or the first one), with previous, play or pause and next; not shown when no player runs |
+| Battery row | the charge and whether it is charging (UPower); the pill cycles the power mode (Low Power, Automatic, High Power: `powerprofilesctl`) |
+| **Lock Screen**, **Wi-Fi, Bluetooth, Sound…** | lock now; Omarchy's hardware menu for everything the tiles do not cover |
+
+Nothing is built while it is closed (the contents are in a `Loader` that is only active while the panel is open); it asks the services once when it opens, about 0.2 s of work, and after each change. It cannot shut down, restart or log out, by design (a test checks the word is not in the file).
+It does not have AirDrop, Screen Mirroring, Stage Manager, Accessibility Shortcuts or the Controls Gallery, and it is not resizable.
 
 ## Spotlight
 
@@ -1819,7 +1838,7 @@ and ⌘1 to ⌘4 (Ctrl, Option or ⌘ with the digit) jump to a view.
 |---|---|---|
 | **Apps** (⌘1) | the launcher entries, by name (whole, start, a word's start, anywhere), then by generic name, keywords and comment. With nothing typed: the apps you start most. A sum such as `12*7+sqrt(16)` shows its answer first | starts the app; for a sum, copies the answer (never `eval`: a small parser, with `+ - * / % ^`, brackets, `pi`, `e`, `sqrt sin cos tan ln log abs round floor ceil exp`) |
 | **Files** (⌘2) | file and folder names under your home folder, by `fd` (hidden folders and `node_modules` left out), one search at a time, only in this view and only from two letters | opens it; Ctrl+Return opens the folder it is in |
-| **Actions** (⌘3) | 22 things the desktop can do: Lock Screen, Mission Control, the night-light, do-not-disturb and lock-on-idle switches, screenshot, screen recording, copy text from the screen, colour picker, emoji, calculator, notification history, theme, wallpaper, hardware, keyboard shortcuts, About This Mac, the Omarchy menu | runs it (after Spotlight has closed, so a screenshot sees your window). **Nothing here shuts the machine down or logs you out by itself**: "Restart, Shut Down or Log Out…" opens Omarchy's system menu |
+| **Actions** (⌘3) | 23 things the desktop can do: Lock Screen, Mission Control, the night-light, do-not-disturb and lock-on-idle switches, screenshot, screen recording, copy text from the screen, colour picker, emoji, calculator, notification history, theme, wallpaper, hardware, keyboard shortcuts, About This Mac, the Omarchy menu | runs it (after Spotlight has closed, so a screenshot sees your window). **Nothing here shuts the machine down or logs you out by itself**: "Restart, Shut Down or Log Out…" opens Omarchy's system menu |
 | **Clipboard** (⌘4) | the history Omarchy's clipboard overlay keeps (`~/.local/state/omarchy/clipboard-history.json`), newest first; Spotlight only reads it | pastes the entry into the window you came from (Omarchy's own `omarchy-clipboard-paste-text`); an image is copied |
 
 It is a separate surface in the Dock program, not in the Omarchy shell, and it is not mapped while closed. The only file it writes is `~/.local/state/macdock/spotlight.json`, a count of how often you start each app from here. It replaces Omarchy's **Apps menu on Super+Alt+Space** (F4 still opens that menu and Omarchy's own menu is
@@ -1876,7 +1895,7 @@ windows on spaces you are not looking at.
 
 App Exposé (Super+Ctrl+Down) shows the focused app's windows only, from every space, with the space number after each title. Windows hidden with Super+H are not shown in either.
 
-Cost, measured on this laptop: nothing is mapped or captured while it is closed (the Dock program stayed at 0.10 % of one core and about 255 MB; with the process scan for the background dot, hot corners and Spotlight added it idles at about 0.2 % and 253 MB, measured over 20 s with nothing open); opening takes about a quarter of a
+Cost, measured on this laptop: nothing is mapped or captured while it is closed (the Dock program was measured at 0.10 % of one core and about 255 MB at a quiet moment, counting only the program itself; **measured the same way today for both**, nothing open, over 60 s: the Dock as it was before the background dot, hot corners, Spotlight and Control Center took 0.30 % of one core (0.22 itself and 0.08 for the programs it starts) and 225 MB, and with them it takes 0.45 % (0.28 and 0.17) and 240 to 265 MB; the process-name scan is most of the difference, at about 4 ms every eight seconds); opening takes about a quarter of a
 second and one second of CPU time, adds about 75 MB while it is open, and the memory goes back when it closes. Held open it uses no CPU: there is no live capture. It is one surface
 on the primary screen; on several monitors it covers the one it opens on and lists the windows of all of them.
 
@@ -1907,13 +1926,14 @@ On the real desktop (screenshots of the real compositor, not a simulation):
   overlaps or leaves the screen, up to eleven windows).
 - Web apps: a real Omarchy Kit window lit the pinned icon.
 - The lighter dot: a stand-in process named like a pinned app's program made the Dock show it (`dock describe` over IPC said `obsidian:b`, a screenshot showed the dim dot next to the terminal's full one) and dropped it again within seconds of the process ending.
+- Control Center, on the live desktop: screenshots of the panel with the real values (Wi-Fi network, Bluetooth, brightness 13 %, keyboard backlight 49 %, volume 100 %, battery, power mode); through test hooks that run what a click or a drag runs, Focus turned Omarchy's do-not-disturb on and off, Night Shift changed the colour temperature to 4000 K and back, the Display slider moved the real backlight (13 → 30 → 13 %), the Keyboard slider the keyboard backlight (49 → 70 → 49 %), and the power mode cycled power-saver, balanced and performance; every value was put back afterwards. The panel opens with its values filled within 0.3 s.
 - Spotlight, on the live desktop with real key events from `wtype` (Tab and Ctrl or Alt with a digit change view, typing filters, ↑ ↓ move, Return runs the "Mission Control" action, Esc closes), the global shortcut that the chord sends, screenshots of the Apps, Actions and Files views, a sum answered, a name found in the home folder. The tests run the sum parser, the name scoring, the file ordering and the icon rules in node.
 - Hot corners, with the real pointer (moved with Hyprland's own cursor dispatcher): nothing at 0.12 s, Mission Control open at 0.62 s; a 0.1 s brush did nothing; closing it with the pointer still parked did **not** reopen it (before the latch it did, which is how that bug was found); leaving, waiting and returning fired it again;
   Quick Note opened Omawrite on a new file, and closing it unwritten removed the file. The 3 px surface appears at the corner (`hyprctl layers`) only for a corner that has an action.
 - Drag to reorder: the move itself (before/after, no-op cases, one save) is run in node by the tests.
 - `test/test_macdesktop.py`: the installer in a sandbox (files, `dock.json` kept, one require line, clean removal), QML and Lua syntax, and that every QML file is installed.
 
-**Not verified, because it needs a real keyboard or pointer:** the Super+Alt+Space chord itself (the shortcut it sends was triggered through `hyprctl`), Spotlight's mouse hover and clicks, Return on Apps (it would start an app), pasting from the Clipboard view into another window, the drag gesture itself (holding an icon and moving the pointer: no button events can be injected here), a hand-made trip into a corner, pressing the actual F3, Super+Ctrl+Up, Super+Ctrl+Down and Super+Tab chords, the real four-finger swipe (the swipe handler runs the same
+**Not verified, because it needs a real keyboard or pointer:** clicking a Control Center tile, dragging its sliders and clicking the bar button (the same code ran through the test hooks and the button's own IPC call), the Super+Alt+Space chord itself (the shortcut it sends was triggered through `hyprctl`), Spotlight's mouse hover and clicks, Return on Apps (it would start an app), pasting from the Clipboard view into another window, the drag gesture itself (holding an icon and moving the pointer: no button events can be injected here), a hand-made trip into a corner, pressing the actual F3, Super+Ctrl+Up, Super+Ctrl+Down and Super+Tab chords, the real four-finger swipe (the swipe handler runs the same
 global shortcut as F3, which was tested; the gesture itself was not), hovering to show the close button and clicking cards (the same code runs through the tested IPC calls), Mission Control in a light theme
 (it uses the same theme colours as the Dock), pressing the actual Super+Tab chord (Hyprland ignores `wtype`'s virtual keyboard for key binds, and the
 release watcher uses `hl.is_key_down`, which does not see it either), mouse clicks and right-click menus (no pointer injection here), and starting at login
@@ -1921,7 +1941,7 @@ release watcher uses `hl.is_key_down`, which does not see it either), mouse clic
 
 ## Files
 
-`shell.qml` (entry), `Dock.qml`, `DockIcon.qml`, `ItemMenu.qml`, `Switcher.qml`, `MissionControl.qml`, `HotCorners.qml`, `hot-corners` (the command), `Spotlight.qml`, `AppIcon.qml`, `Apps.qml` (what is running, pinned and hidden), `Config.qml`
+`shell.qml` (entry), `Dock.qml`, `DockIcon.qml`, `ItemMenu.qml`, `Switcher.qml`, `MissionControl.qml`, `HotCorners.qml`, `hot-corners` (the command), `Spotlight.qml`, `ControlCenter.qml`, `AppIcon.qml`, `Apps.qml` (what is running, pinned and hidden), `Config.qml`
 (`dock.json`), `Theme.qml` (colours from the Omarchy theme), `IconIndex.qml` (which icons the theme has), `macdock.lua` (the Hyprland side), `install-dock`.
 
 Undo: `dock/install-dock --remove`.
@@ -1959,6 +1979,7 @@ FILE: menubar/README.md  (menubar/ scripts)
 | View | Reload ⌘R, Zoom In, Zoom Out, Actual Size, Enter Full Screen |
 | Window | Float or Tile, Center, Move to Workspace 1 to 5, Next Window of This App, the app's open windows |
 | Help | Omarchy Kit, Keyboard Shortcuts |
+| Control Center button (right, just before the clock) | two small switches; click it to open the Control Center panel of the Dock program ([dock/README](../dock/README.md)) |
 
 Moving across the titles while a menu is open switches menus, as on a Mac. The bar keeps its transparency; the clock keeps its format (`Fri 23 Oct 00:36`).
 
@@ -1998,7 +2019,7 @@ Paste are translated to the terminal's own keys and Close closes the window.
 |---|---|
 | left: Omarchy menu button, workspaces | left: the Mac menu bar widget |
 | centre: indicators, clock, keyboard layout, weather, updates | centre: workspaces |
-| right: tray, network, audio, power, ... | right: the same, plus indicators, updates, weather and keyboard layout, ending with the clock |
+| right: tray, network, audio, power, ... | right: the same, plus indicators, updates, weather and keyboard layout, then the Control Center button, ending with the clock |
 
 Anything else you had in the bar (extra widgets, spacers, custom command modules) keeps its place on the right, before the clock, with its settings. The Omarchy menu button is gone from the
 bar (the Apple menu has an *Omarchy Menu* item and Super+Space still opens it). Your layout before the change is saved in `~/.config/omarchy-kit/menubar-layout-before.json`
@@ -2112,10 +2133,10 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 | Menus lost most of their icons in 27 | the menus have none | done |
 | Status items, the clock on the right | network, sound, battery, display, tray and the clock, in the Mac order | done |
 | Overflow arrow at the notch, the bar as one window | not needed (no notch) | n/a |
-| Control Center (multi-page, resizable, Controls Gallery) | separate popups for Wi-Fi, Bluetooth, sound, display and power instead of one panel | not done |
+| Control Center (multi-page, resizable, Controls Gallery) | built as one panel opened by a button before the clock: Wi-Fi, Bluetooth, Focus and Night Shift tiles, Display, Sound and Keyboard Brightness sliders, Now Playing, the battery and power mode, Lock Screen; no AirDrop, Screen Mirroring, Stage Manager or Accessibility pages, not resizable, no gallery. The switches and sliders change the real settings (tested, then restored); the clicks themselves need a hand | partial |
 | Battery icon redesigned, no percentage by default | Omarchy's battery icon, percentage on right-click | not done |
 | Dock: dot under running apps, magnification, Downloads, Trash, auto-hide, right-click menu | all of it | done |
-| Dock: lighter dot for apps running only in the background | built: an app with no window but a live process of its launcher's name gets a dimmer dot (the process list is read every 4 s) | done |
+| Dock: lighter dot for apps running only in the background | built: an app with no window but a live process of its launcher's name gets a dimmer dot (the process names are read every 8 s and after a window opens or closes) | done |
 | Dock: stacks, recent apps, left and right positions | not built | not done |
 | Dock: drag to reorder, drag out to remove | built: sideways reorders the pinned apps, pulled well above the Dock takes the icon off; the logic is tested, the gesture itself needs a real pointer (see dock/README) | partial |
 | Cmd+Tab switcher, Cmd+\` between windows of an app | built, with Q to quit and H to hide the selected app | done |
@@ -2168,7 +2189,7 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 2. **Press the real keys once** (⌘Tab, F3, F4, Super+Q in the switcher, a log out and in): the tests could send neither the chords nor mouse clicks.
 3. **Decide on blur** (`look/mac-glass on`): the real Liquid Glass look costs the GPU time measured above.
 4. Pick a theme: `omarchy theme set "Golden Gate"` or `"Golden Gate Night"`; `omarchy theme set "Mecha Unit"` returns.
-5. Not built and possible: a Control Center panel, Spotlight file previews and web results, system sounds, Control-A/E/K text keys, Dock stacks.
+5. Not built and possible: more Control Center pages, Spotlight file previews and web results, system sounds, Control-A/E/K text keys, Dock stacks.
 6. Turn a hot corner on if you want one: `dock/hot-corners bottom-right quicknote` (they ship off).
 
 ## How this was checked, and by whom

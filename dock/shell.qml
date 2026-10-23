@@ -7,4 +7,5 @@ ShellRoot {
   MissionControl {}
   HotCorners {}
   Spotlight {}
+  ControlCenter {}
 }

@@ -33,7 +33,7 @@
 local home = os.getenv("HOME") or ""
 local share = home .. "/.local/share/macdock"
 
-hl.layer_rule({ match = { namespace = "^(macdock|macswitcher|macmission|machotcorner|macspotlight)$" }, no_anim = true, animation = "none" })
+hl.layer_rule({ match = { namespace = "^(macdock|macswitcher|macmission|machotcorner|macspotlight|maccontrol)$" }, no_anim = true, animation = "none" })
 
 hl.on("hyprland.start", function()
   hl.exec_cmd(o.launch("quickshell -n -p " .. o.shell_quote(share)))

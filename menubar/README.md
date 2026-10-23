@@ -22,6 +22,7 @@
 | View | Reload ⌘R, Zoom In, Zoom Out, Actual Size, Enter Full Screen |
 | Window | Float or Tile, Center, Move to Workspace 1 to 5, Next Window of This App, the app's open windows |
 | Help | Omarchy Kit, Keyboard Shortcuts |
+| Control Center button (right, just before the clock) | two small switches; click it to open the Control Center panel of the Dock program ([dock/README](../dock/README.md)) |
 
 Moving across the titles while a menu is open switches menus, as on a Mac. The bar keeps its transparency; the clock keeps its format (`Fri 23 Oct 00:36`).
 
@@ -61,7 +62,7 @@ Paste are translated to the terminal's own keys and Close closes the window.
 |---|---|
 | left: Omarchy menu button, workspaces | left: the Mac menu bar widget |
 | centre: indicators, clock, keyboard layout, weather, updates | centre: workspaces |
-| right: tray, network, audio, power, ... | right: the same, plus indicators, updates, weather and keyboard layout, ending with the clock |
+| right: tray, network, audio, power, ... | right: the same, plus indicators, updates, weather and keyboard layout, then the Control Center button, ending with the clock |
 
 Anything else you had in the bar (extra widgets, spacers, custom command modules) keeps its place on the right, before the clock, with its settings. The Omarchy menu button is gone from the
 bar (the Apple menu has an *Omarchy Menu* item and Super+Space still opens it). Your layout before the change is saved in `~/.config/omarchy-kit/menubar-layout-before.json`

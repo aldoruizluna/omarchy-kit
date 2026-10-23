@@ -17,6 +17,8 @@ HYPR=$CFG/hypr
 SHELLJSON=$CFG/omarchy/shell.json
 PLUGIN_ID=omarchykit.macmenu
 PLUGIN_DIR=$CFG/omarchy/plugins/$PLUGIN_ID
+CC_ID=omarchykit.controlcenter                       # the Control Center button, a second small widget; the panel itself is in dock/
+CC_DIR=$CFG/omarchy/plugins/$CC_ID
 SAVED=$CFG/omarchy-kit/menubar-layout-before.json
 LINE='require("hypr.macmenu")'
 
@@ -24,9 +26,9 @@ rescan() { command -v omarchy-shell >/dev/null && omarchy-shell shell rescanPlug
 
 # Rewrites the bar section of shell.json atomically. $1 = install | remove
 edit_layout() {
-  python3 -I - "$SHELLJSON" "$SAVED" "$PLUGIN_ID" "$1" <<'PY'
+  python3 -I - "$SHELLJSON" "$SAVED" "$PLUGIN_ID" "$1" "$CC_ID" <<'PY'
 import json, os, sys, tempfile
-path, saved, pid, mode = sys.argv[1:5]
+path, saved, pid, mode, cc = sys.argv[1:6]
 cfg = json.load(open(path))
 bar = cfg.setdefault("bar", {})
 layout = bar.setdefault("layout", {})
@@ -60,8 +62,9 @@ if mode == "install":
     # the Omarchy menu button is replaced by the Apple menu
     for e in everything:
         n = ident(e)
-        if n in used or n in (pid, "omarchy.menu", "omarchy.clock"): continue
+        if n in used or n in (pid, cc, "omarchy.menu", "omarchy.clock"): continue
         right.append(e); used.add(n)
+    right.append({"id": cc})                  # the Control Center button sits just before the clock, as in macOS
     clock = find("omarchy.clock")
     if clock is not None: right.append(clock)
     layout["left"], layout["center"], layout["right"] = left, center, right
@@ -74,7 +77,7 @@ else:
         else: bar["centerAnchor"] = prev["centerAnchor"]
     else:
         for sec in ("left", "center", "right"):
-            layout[sec] = [e for e in layout.get(sec, []) if ident(e) != pid]
+            layout[sec] = [e for e in layout.get(sec, []) if ident(e) not in (pid, cc)]
 
 fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".shell.json.")
 with os.fdopen(fd, "w") as f: json.dump(cfg, f, indent=2); f.write("\n")
@@ -84,7 +87,7 @@ PY
 
 if [[ ${1:-} == --remove ]]; then
   [[ -f $SHELLJSON ]] && edit_layout remove
-  rm -rf -- "${PLUGIN_DIR:?}"
+  rm -rf -- "${PLUGIN_DIR:?}" "${CC_DIR:?}"
   if [[ -f $HYPR/hyprland.lua ]] && grep -qF "$LINE" "$HYPR/hyprland.lua"; then
     grep -vF "$LINE" "$HYPR/hyprland.lua" > "$HYPR/hyprland.lua.tmp" && mv "$HYPR/hyprland.lua.tmp" "$HYPR/hyprland.lua"
   fi
@@ -103,6 +106,9 @@ rm -rf -- "${PLUGIN_DIR:?}"
 mkdir -p "$PLUGIN_DIR"
 install -m644 plugin/manifest.json plugin/BarWidget.qml plugin/apps.json "$PLUGIN_DIR/"
 omarchy plugin validate "$PLUGIN_DIR" >/dev/null
+mkdir -p "$CC_DIR"
+install -m644 plugin-controlcenter/manifest.json plugin-controlcenter/BarWidget.qml "$CC_DIR/"
+omarchy plugin validate "$CC_DIR" >/dev/null
 rescan
 
 [[ -f $HYPR/hyprland.lua.bak-macmenu ]] || cp "$HYPR/hyprland.lua" "$HYPR/hyprland.lua.bak-macmenu"

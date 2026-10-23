@@ -39,10 +39,10 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 | Menus lost most of their icons in 27 | the menus have none | done |
 | Status items, the clock on the right | network, sound, battery, display, tray and the clock, in the Mac order | done |
 | Overflow arrow at the notch, the bar as one window | not needed (no notch) | n/a |
-| Control Center (multi-page, resizable, Controls Gallery) | separate popups for Wi-Fi, Bluetooth, sound, display and power instead of one panel | not done |
+| Control Center (multi-page, resizable, Controls Gallery) | built as one panel opened by a button before the clock: Wi-Fi, Bluetooth, Focus and Night Shift tiles, Display, Sound and Keyboard Brightness sliders, Now Playing, the battery and power mode, Lock Screen; no AirDrop, Screen Mirroring, Stage Manager or Accessibility pages, not resizable, no gallery. The switches and sliders change the real settings (tested, then restored); the clicks themselves need a hand | partial |
 | Battery icon redesigned, no percentage by default | Omarchy's battery icon, percentage on right-click | not done |
 | Dock: dot under running apps, magnification, Downloads, Trash, auto-hide, right-click menu | all of it | done |
-| Dock: lighter dot for apps running only in the background | built: an app with no window but a live process of its launcher's name gets a dimmer dot (the process list is read every 4 s) | done |
+| Dock: lighter dot for apps running only in the background | built: an app with no window but a live process of its launcher's name gets a dimmer dot (the process names are read every 8 s and after a window opens or closes) | done |
 | Dock: stacks, recent apps, left and right positions | not built | not done |
 | Dock: drag to reorder, drag out to remove | built: sideways reorders the pinned apps, pulled well above the Dock takes the icon off; the logic is tested, the gesture itself needs a real pointer (see dock/README) | partial |
 | Cmd+Tab switcher, Cmd+\` between windows of an app | built, with Q to quit and H to hide the selected app | done |
@@ -95,7 +95,7 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 2. **Press the real keys once** (⌘Tab, F3, F4, Super+Q in the switcher, a log out and in): the tests could send neither the chords nor mouse clicks.
 3. **Decide on blur** (`look/mac-glass on`): the real Liquid Glass look costs the GPU time measured above.
 4. Pick a theme: `omarchy theme set "Golden Gate"` or `"Golden Gate Night"`; `omarchy theme set "Mecha Unit"` returns.
-5. Not built and possible: a Control Center panel, Spotlight file previews and web results, system sounds, Control-A/E/K text keys, Dock stacks.
+5. Not built and possible: more Control Center pages, Spotlight file previews and web results, system sounds, Control-A/E/K text keys, Dock stacks.
 6. Turn a hot corner on if you want one: `dock/hot-corners bottom-right quicknote` (they ship off).
 
 ## How this was checked, and by whom
