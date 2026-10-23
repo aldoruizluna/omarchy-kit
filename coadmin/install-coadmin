@@ -1,0 +1,170 @@
+#!/bin/bash
+# Add a second administrator with the same privileges and a mirror of this account's SETTINGS. Needs root: run it with sudo, from your own account.
+# Usage: sudo install-coadmin [--user NAME] [--name "Full Name"] [--dry-run]
+#        sudo install-coadmin --remove --user NAME
+#   NAME and the full name default to the [coadmin] section of local.toml next to the kit (git-ignored, never committed).
+#
+# What it does
+#   1. creates the account with the same supplementary groups as the account that ran sudo (wheel, so the same sudo rights) and a private home (mode 700)
+#   2. asks you to type a temporary password (this script never sees or stores it) and makes the account change it at its first login
+#   3. copies a curated list of your SETTINGS into the new home, with paths rewritten and the same user services enabled: Hyprland, the Omarchy shell and
+#      themes, the Dock, fonts, icons, terminals, audio tuning, input method, web-app launchers. Nothing else.
+#   4. leaves ~/.local/bin/omarchy-kit-first-login for the new user to run once after logging in (the parts that need a live session)
+# What it never copies: credentials and tokens, SSH and GPG keys, browser and chat data, the password manager, the AI assistants' folders, shell history,
+# your documents. And it does not touch the login screen (auto-login) or the disk passphrase (LUKS), and does not copy the "no lock screen before
+# hibernate" override, which lowers a security control: that is a decision for each owner.
+# The packages, the NVIDIA switch-off, sleep and Wi-Fi settings are system-wide, so the new account gets them without copying anything.
+# Undo: sudo install-coadmin --remove --user NAME   (deletes the account and its home, only if this script created it)
+set -euo pipefail
+usage() { echo "usage: $(basename "$0") [--user NAME] [--name \"Full Name\"] [--dry-run] | --remove --user NAME   (--help for details)" >&2; }
+USERNAME=""; FULLNAME=""; DRY=0; REMOVE=0
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --user) shift; [[ $# -gt 0 ]] || { usage; exit 2; }; USERNAME=$1 ;;
+    --name) shift; [[ $# -gt 0 ]] || { usage; exit 2; }; FULLNAME=$1 ;;
+    --dry-run) DRY=1 ;;
+    --remove) REMOVE=1 ;;
+    -h | --help) sed -n '2,/^set -euo/{/^set -euo/d;s/^# \{0,1\}//p}' "$0"; exit 0 ;;
+    *) usage; exit 2 ;;
+  esac
+  shift
+done
+HERE=$(dirname "$(readlink -f "$0")")
+KIT=$(dirname "$HERE")
+[[ $EUID -eq 0 ]] || { echo "run this with sudo from your own account: sudo $0 ..." >&2; exit 1; }
+SRC=${SUDO_USER:-}
+[[ -n $SRC && $SRC != root ]] || { echo "run it with sudo from the account to mirror (SUDO_USER is not set)" >&2; exit 1; }
+SRC_HOME=$(getent passwd "$SRC" | cut -d: -f6)
+[[ -n $SRC_HOME && -d $SRC_HOME ]] || { echo "cannot find the home of $SRC" >&2; exit 1; }
+
+# defaults from local.toml (the owner's own, git-ignored file next to the kit)
+if [[ -z $USERNAME || -z $FULLNAME ]] && [[ -f $KIT/local.toml ]]; then
+  read_toml() { python3 -I -c 'import sys,tomllib; print(tomllib.load(open(sys.argv[1],"rb")).get("coadmin",{}).get(sys.argv[2],""))' "$KIT/local.toml" "$1" 2>/dev/null || true; }
+  [[ -n $USERNAME ]] || USERNAME=$(read_toml user)
+  [[ -n $FULLNAME ]] || FULLNAME=$(read_toml name)
+fi
+[[ $USERNAME =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] || { echo "give a user name with --user (lower-case letters, digits, - and _; at most 32 characters)" >&2; exit 2; }
+[[ $USERNAME != "$SRC" && $USERNAME != root ]] || { echo "that is not a second account" >&2; exit 2; }
+
+MARK=.config/omarchy-kit/mirror.conf
+
+if [[ $REMOVE -eq 1 ]]; then
+  home=$(getent passwd "$USERNAME" | cut -d: -f6 || true)
+  [[ -n $home ]] || { echo "no user $USERNAME"; exit 0; }
+  [[ -f $home/$MARK ]] || { echo "refusing: $USERNAME was not created by this script (no $home/$MARK); remove it yourself with userdel" >&2; exit 1; }
+  [[ $DRY -eq 1 ]] && { echo "would run: userdel -r $USERNAME (deletes $home)"; exit 0; }
+  loginctl terminate-user "$USERNAME" 2>/dev/null || true
+  userdel -r "$USERNAME"
+  echo "removed $USERNAME and its home"; exit 0
+fi
+
+[[ -n $FULLNAME && ${#FULLNAME} -le 100 && $FULLNAME != *:* && $FULLNAME != *[[:cntrl:]]* ]] || { echo "give the full name with --name (no colon, at most 100 characters)" >&2; exit 2; }
+getent passwd "$USERNAME" >/dev/null && { echo "refusing: a user called $USERNAME already exists" >&2; exit 1; }
+command -v rsync >/dev/null || { echo "rsync is needed (sudo pacman -S rsync)" >&2; exit 1; }
+
+# the same supplementary groups, so the same rights (wheel gives sudo)
+PRIMARY=$(id -gn "$SRC")
+GROUPS_LIST=$(id -nG "$SRC" | tr ' ' '\n' | grep -vx "$PRIMARY" | grep -v '^$' | paste -sd, -)
+for g in ${GROUPS_LIST//,/ }; do getent group "$g" >/dev/null || { echo "group $g does not exist" >&2; exit 1; }; done
+NEWHOME=${COADMIN_HOME_BASE:-/home}/$USERNAME   # COADMIN_HOME_BASE is for the tests
+
+# ---- what is copied: an allowlist, relative to the home. Everything not listed is left alone.
+ALLOW_DIRS=(.config/hypr .config/omarchy .config/macdock .config/fontconfig .config/alacritty .config/foot .config/kitty .config/ghostty .config/btop
+            .config/fcitx5 .config/imv .config/tmux .config/pipewire .config/wireplumber .local/share/macdock .local/share/icons)
+ALLOW_FILES=(.config/mimeapps.list .config/starship.toml .config/user-dirs.dirs .config/chromium-flags.conf)
+# kept out inside the allowed folders: backups, the default AI agent choice, and personal launchers
+RSYNC_EXCLUDES=(--exclude='*.bak*' --exclude='/defaults/' --exclude='*.sample')
+APP_EXCLUDES=(claude-code-url-handler.desktop es-de.desktop 'discord-*.desktop' mimeinfo.cache)
+# user services of the kit and of the audio tuning (not voxtype: it needs a model downloaded for that user, and not the sleep-lock override)
+UNITS=(auto-appearance.service auto-appearance.timer omarchy-kit.service omarchy-speaker-tuning.service power-auto.service speaker-eq-follow.service)
+THEME=$(cat "$SRC_HOME/.local/state/omarchy/current/theme.name" 2>/dev/null || true)
+[[ $THEME =~ ^[a-z0-9-]{1,60}$ ]] || THEME=""
+
+print_plan() {
+  echo "account:   $USERNAME  ($FULLNAME)"
+  echo "groups:    ${GROUPS_LIST:-none} (copied from $SRC; wheel = the same sudo rights)"
+  echo "home:      $NEWHOME  (mode 700, private)"
+  echo "password:  you type a temporary one; the account must change it at the first login"
+  echo "theme:     ${THEME:-the Omarchy default}"
+  echo "mirrors:   ${ALLOW_DIRS[*]} ${ALLOW_FILES[*]}"
+  echo "           web-app launchers in .local/share/applications (not: ${APP_EXCLUDES[*]})"
+  echo "           user services: ${UNITS[*]}"
+  echo "never:     credentials, keys, browser and chat data, history, documents, the no-lock-before-hibernate override, auto-login, the disk passphrase"
+  local rules; rules=$(grep -l -E "^[[:space:]]*$SRC[[:space:]]" /etc/sudoers /etc/sudoers.d/* 2>/dev/null | tr '\n' ' ' || true)
+  [[ -z $rules ]] || echo "note:      sudo rules name $SRC in: $rules; the new account gets the rights of wheel, not those rules"
+}
+print_plan
+if [[ $DRY -eq 1 ]]; then
+  for p in "${ALLOW_DIRS[@]}" "${ALLOW_FILES[@]}"; do [[ -e $SRC_HOME/$p ]] && du -sh "$SRC_HOME/$p" 2>/dev/null | sed "s#$SRC_HOME/##"; done
+  echo "dry run: nothing was changed"; exit 0
+fi
+
+useradd -m -G "$GROUPS_LIST" -s /bin/bash -c "$FULLNAME" "$USERNAME"
+NEWGROUP=$(id -gn "$USERNAME")
+chmod 700 "$NEWHOME"
+echo "created $USERNAME"
+
+# ---- the temporary password: typed by you, never seen by this script
+if [[ -t 0 ]]; then
+  passwd "$USERNAME" && chage -d 0 "$USERNAME" && echo "password set; $USERNAME must change it at the first login" \
+    || echo "the password was not set: run  sudo passwd $USERNAME && sudo chage -d 0 $USERNAME" >&2
+else
+  echo "no terminal to type a password in: run  sudo passwd $USERNAME && sudo chage -d 0 $USERNAME"
+fi
+
+# ---- the mirror
+copy_tree() {  # copy_tree RELATIVE_PATH  (a directory or a file)
+  local rel=$1
+  [[ -e $SRC_HOME/$rel ]] || return 0
+  mkdir -p "$(dirname "$NEWHOME/$rel")"
+  if [[ -d $SRC_HOME/$rel ]]; then
+    rsync -a --safe-links "${RSYNC_EXCLUDES[@]}" --chown="$USERNAME:$NEWGROUP" "$SRC_HOME/$rel/" "$NEWHOME/$rel/"
+  else
+    rsync -a --safe-links --chown="$USERNAME:$NEWGROUP" "$SRC_HOME/$rel" "$NEWHOME/$rel"
+  fi
+}
+for p in "${ALLOW_DIRS[@]}" "${ALLOW_FILES[@]}"; do copy_tree "$p"; done
+
+# web-app launchers (Omarchy's web apps and the kit's), minus the personal ones
+if [[ -d $SRC_HOME/.local/share/applications ]]; then
+  ex=(); for a in "${APP_EXCLUDES[@]}"; do ex+=(--exclude="$a"); done
+  mkdir -p "$NEWHOME/.local/share/applications"
+  rsync -a --safe-links "${ex[@]}" --chown="$USERNAME:$NEWGROUP" "$SRC_HOME/.local/share/applications/" "$NEWHOME/.local/share/applications/"
+fi
+
+# user services: the listed units, and the same enablement links (rewritten to the new home)
+U=.config/systemd/user
+if [[ -d $SRC_HOME/$U ]]; then
+  install -d -o "$USERNAME" -g "$NEWGROUP" "$NEWHOME/$U"
+  for u in "${UNITS[@]}"; do [[ -f $SRC_HOME/$U/$u ]] && install -m644 -o "$USERNAME" -g "$NEWGROUP" "$SRC_HOME/$U/$u" "$NEWHOME/$U/$u"; done
+  while IFS= read -r link; do
+    wants=$(basename "$(dirname "$link")"); target=$(readlink "$link"); unit=$(basename "$link")
+    case "$target" in
+      "$SRC_HOME/$U/"*) [[ -f $NEWHOME/$U/$unit ]] || continue; newtarget="$NEWHOME/$U/$unit" ;;
+      /usr/lib/systemd/user/*) newtarget=$target ;;
+      *) continue ;;
+    esac
+    install -d -o "$USERNAME" -g "$NEWGROUP" "$NEWHOME/$U/$wants"
+    ln -sfn "$newtarget" "$NEWHOME/$U/$wants/$unit"; chown -h "$USERNAME:$NEWGROUP" "$NEWHOME/$U/$wants/$unit"
+  done < <(find "$SRC_HOME/$U" -mindepth 2 -maxdepth 2 -type l -path '*.wants/*')
+fi
+
+# paths: anything that names the old home now names the new one (settings only; nothing binary is touched)
+grep -rIlF --exclude-dir=icons --exclude-dir=themes -e "$SRC_HOME" "$NEWHOME/.config" "$NEWHOME/.local/share/applications" "$NEWHOME/.local/share/macdock" 2>/dev/null \
+  | while IFS= read -r f; do sed -i "s#$SRC_HOME#$NEWHOME#g" "$f"; done || true
+
+# the usual folders, the Work link Omarchy expects, and the place the kit will be cloned
+for d in Downloads Documents Pictures Music Videos labspace; do install -d -o "$USERNAME" -g "$NEWGROUP" "$NEWHOME/$d"; done
+[[ -e $NEWHOME/Work ]] || { ln -s labspace "$NEWHOME/Work"; chown -h "$USERNAME:$NEWGROUP" "$NEWHOME/Work"; }
+
+# the first-login helper and what it needs to know
+install -d -o "$USERNAME" -g "$NEWGROUP" "$NEWHOME/.local/bin" "$NEWHOME/.config/omarchy-kit"
+install -m755 -o "$USERNAME" -g "$NEWGROUP" "$HERE/first-login" "$NEWHOME/.local/bin/omarchy-kit-first-login"
+printf 'THEME=%s\nKIT_URL=%s\nCREATED=%s\n' "$THEME" "https://github.com/aldoruizluna/omarchy-kit" "$(date +%F)" > "$NEWHOME/$MARK"
+chown "$USERNAME:$NEWGROUP" "$NEWHOME/$MARK"; chmod 600 "$NEWHOME/$MARK"
+
+echo
+echo "done. $FULLNAME can log in (at the login screen after you log out; auto-login still goes to $SRC)."
+echo "At the first login: open a terminal and run  omarchy-kit-first-login  (sets the theme and icons, fetches the kit)."
+echo "Not done on purpose: the disk passphrase (cryptsetup luksAddKey, with them present) and the auto-login setting; see the Setup log."
+echo "Undo: sudo $0 --remove --user $USERNAME"

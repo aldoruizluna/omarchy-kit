@@ -319,7 +319,7 @@ Omarchy Kit is a bilingual (English / Spanish) learning portal and a set of reve
 | `*.template.html`, `kit.js`, `kit.css`, `portal*.js`, `portal.css` | the pages and shared browser code |
 | `portal_lessons.py`, `portal_content.py` | the learning path (6 levels), Mac habits, glossary, hardware cards |
 | `build_setup.py` | the Setup log: live `checks()`, and the records of every change with its undo |
-| `sleep/`, `power/`, `themes/`, `gpu/`, `audio/`, `keys/`, `icons/`, `dock/`, `menubar/`, `look/`, `trackpad/`, `appearance/`, `backup/`, `boot/`, `games/` | scripts that change the machine; each folder has a README |
+| `sleep/`, `power/`, `themes/`, `gpu/`, `audio/`, `keys/`, `icons/`, `dock/`, `menubar/`, `look/`, `coadmin/`, `trackpad/`, `appearance/`, `backup/`, `boot/`, `games/` | scripts that change the machine; each folder has a README |
 | `test/` | `run-all`, hermetic Python tests, browser suites; see [test/README.md](test/README.md) |
 | `docs/` | the documentation; [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains how it fits together |
 
@@ -422,7 +422,7 @@ Related: [README](../README.md) · [ARCHITECTURE](ARCHITECTURE.md) · [DEVELOPIN
 | [GLOSSARY](GLOSSARY.md) | reference | one definition per term, with links | any unfamiliar term |
 | [DUMPING-GUIDE](DUMPING-GUIDE.md) | how-to | dumping your own games, tool per console | retro library |
 | [GAME-STORE-ROADMAP](GAME-STORE-ROADMAP.md) | design | the signed-catalog store: what is built, what is planned | store work |
-| folder READMEs: [sleep](../sleep/README.md), [power](../power/README.md), [themes](../themes/README.md), [gpu](../gpu/README.md), [audio](../audio/README.md), [keys](../keys/README.md), [icons](../icons/README.md), [dock](../dock/README.md), [menubar](../menubar/README.md), [look](../look/README.md), [trackpad](../trackpad/README.md), [appearance](../appearance/README.md), [backup](../backup/README.md), [boot](../boot/README.md), [games](../games/README.md), [test](../test/README.md) | reference | what each folder's scripts do, how to use and undo them, how they are checked | working in that folder |
+| folder READMEs: [sleep](../sleep/README.md), [power](../power/README.md), [themes](../themes/README.md), [gpu](../gpu/README.md), [audio](../audio/README.md), [keys](../keys/README.md), [icons](../icons/README.md), [dock](../dock/README.md), [menubar](../menubar/README.md), [look](../look/README.md), [coadmin](../coadmin/README.md), [trackpad](../trackpad/README.md), [appearance](../appearance/README.md), [backup](../backup/README.md), [boot](../boot/README.md), [games](../games/README.md), [test](../test/README.md) | reference | what each folder's scripts do, how to use and undo them, how they are checked | working in that folder |
 | `themes/*/THEME.md` | explanation | one theme's palette rationale, contrast table, credits | that theme |
 | [llms.txt](../llms.txt), [llms-full.txt](../llms-full.txt) | machine index | the documentation for language models: an index and a single-file copy | tools |
 
@@ -600,6 +600,7 @@ Each topic folder has its own README; all installers share one contract.
 | `gpu/` | keep the NVIDIA GPU off, firmware boot GPU | [gpu/README.md](../gpu/README.md) |
 | `audio/` | speaker EQ and the headphone watcher | [audio/README.md](../audio/README.md) |
 | `keys/`, `trackpad/` | Mac ⌘ shortcuts (Hyprland binds, or the keyd layer that makes ⌘ act as Ctrl), a real Caps Lock, three-finger behaviour | [keys/README.md](../keys/README.md), [trackpad/README.md](../trackpad/README.md) |
+| `coadmin/` | a second administrator with the same privileges and a mirror of the settings (an allowlist, never credentials) | [coadmin/README.md](../coadmin/README.md) |
 | `icons/`, `dock/`, `menubar/`, `look/` | Mac icons and pointer; the Dock and ⌘Tab switcher (a separate Quickshell program); the Mac menu bar (a bar widget plugin); the UI font, window buttons and glass switch | [icons/README.md](../icons/README.md), [dock/README.md](../dock/README.md), [menubar/README.md](../menubar/README.md), [look/README.md](../look/README.md) |
 | `appearance/` | light by day, dark at night | [appearance/README.md](../appearance/README.md) |
 | `backup/`, `boot/` | snapshots and Pika Backup, a faster themed boot | [backup/README.md](../backup/README.md), [boot/README.md](../boot/README.md) |
@@ -2089,6 +2090,54 @@ Related: [MAC-FEEL](MAC-FEEL.md) · [THEMES](THEMES.md) · [dock/README](../dock
 
 
 ====================================================================================================
+FILE: coadmin/README.md  (coadmin/ scripts)
+====================================================================================================
+
+# coadmin/: a second administrator with a mirror of your settings
+
+> **TL;DR.** `install-coadmin` adds a second account that has **the same privileges** (the same groups, so the same `sudo`) and a **mirror of your settings**: Hyprland, the Omarchy shell and themes, the Dock, fonts, icons, terminals, the speaker EQ, the web-app launchers and the same user
+> services. It copies **settings only**, from a fixed allowlist: never credentials, keys, browser or chat data, history, documents, or the "no lock screen before hibernate" override. You type the temporary password yourself (the script never sees it) and the account must change it at its first login.
+> Needs `sudo`; preview with `--dry-run`; `--remove` deletes an account this script created.
+
+| Command | What |
+|---|---|
+| `sudo install-coadmin --dry-run` | prints the account, the groups, the theme, everything it would mirror and everything it never copies, with sizes; changes nothing |
+| `sudo install-coadmin` | creates the account, asks you to type a temporary password, mirrors the settings (the name and user name come from `local.toml`, or `--user NAME --name "Full Name"`) |
+| `sudo install-coadmin --remove --user NAME` | deletes the account and its home, only if this script created it (it checks for its own marker file) |
+| `omarchy-kit-first-login` | for the **new** user, run once from a terminal after the first login: sets the theme (and with it the icon variant), the pointer and the window buttons, clones the kit from its public repository, starts the kit's portal |
+
+## What "the same privileges" means
+
+The new account gets the same supplementary groups as the account that ran `sudo` (here, `wheel`, which is what grants `sudo` with a password). It is created with a **private home** (mode 700): neither account can read the other's files. If `sudoers` has rules that name your account, the script says so; the new
+one gets `wheel`'s rights, not those rules. System-wide things (the packages, the NVIDIA switch-off, sleep and Wi-Fi settings, the camera driver) are shared by every account without copying anything.
+
+## What is mirrored, and what is not
+
+| Mirrored (settings, from an allowlist) | Never copied |
+|---|---|
+| `~/.config`: `hypr`, `omarchy` (shell, themes, hooks, plugins), `macdock`, `fontconfig`, terminals, `btop`, `fcitx5` (the Mac keyboard layout), `pipewire` and `wireplumber` (the speaker EQ and sample rates), `tmux`, `imv`, `mimeapps.list`, `starship.toml`, `user-dirs.dirs` | SSH and GPG keys, `gh` and `git` configuration, any token |
+| `~/.local/share`: the Dock program, the icon themes, the web-app launchers (Omarchy's and the kit's) | browser profiles, chat apps, the password manager, notes stores, the AI assistants' folders |
+| user services: the kit's portal, power profile, auto appearance and the audio tuning, with the same enablement links rewritten to the new home | shell history, documents, downloads, the games |
+| the folders Downloads, Documents, Pictures, Music, Videos, `labspace` and the `Work` link Omarchy expects | the "no lock screen before hibernate" override (a security decision for each owner), `voxtype` (needs a model downloaded per user), personal launchers, `*.bak*` backups |
+
+Every path in a copied text file that named your home now names the new home (checked: none is left). The script does not touch the **login screen** (auto-login) or the **disk passphrase**: with auto-login on, the machine still starts in your account and the new one logs in after you log out; a LUKS slot of their own
+(`sudo cryptsetup luksAddKey`, with them present) and turning auto-login off are separate steps listed in the Setup log.
+
+## Honest status
+
+- **Tested** (`test/test_coadmin.py`, 36 tests): the installer as fake root with fakes for `useradd` and friends against a fixture home that holds both mirrored and forbidden files: refusals, the dry run, the groups, the mode of the home, the allowlist and denylist both ways, path rewriting, enablement links,
+  `--remove` only for accounts it created, and the first-login helper against fakes (it refuses a clone address that is not GitHub and a theme name with shell characters).
+- **Rehearsed on the real home** as fake root, writing to a scratch folder: 160 MB, home mode 700, no reference to the owner's home left, no secret-looking file, the sleep-lock override absent, enablement links correct, in 2 seconds.
+- **Not verified:** a real run (`useradd`, `passwd` and a real login need root and a second person). After it, the Setup log's account check (wheel, home mode 700) and `id`, `ls -ld` and a login tell the rest. One thing to know: the kit's portal listens on one port, so the second account's copy cannot start while the first is logged in.
+
+Undo: `sudo coadmin/install-coadmin --remove --user NAME`.
+
+---
+
+Related: [keys/](../keys/README.md) · [dock/](../dock/README.md) · [look/](../look/README.md) · [docs/MAC-FEEL](../docs/MAC-FEEL.md) · [docs/INDEX](../docs/INDEX.md)
+
+
+====================================================================================================
 FILE: trackpad/README.md  (trackpad/ scripts)
 ====================================================================================================
 
@@ -2596,6 +2645,7 @@ FILE: test/README.md  (Tests)
 | `test_keyd.py` | unit | the keyboard pieces in `keys/`: the keyd configuration generator, the Hyprland-aware app helper (against fake sockets), `install-keyd` (as fake root in a namespace), `caps-lock`; with `KEYD_BIN` and `KEYD_SRC` also keyd's own checker and the real keyd engine (`keyd-trace.c`) |
 | `test_macdesktop.py` | unit | the Mac look: `icons/install-icons` (wrong checksum installs nothing, idempotent, `--remove` never deletes a folder it did not create), the theme-set hook, `dock/install-dock`, `menubar/install-menubar` (layout moved and restored exactly, bad JSON untouched), and the contracts between the pieces (every QML file installed, every menu item id has a Lua action, `luac` and `qmllint` parse) |
 | `test_macsweep.py` | unit | the Golden Gate themes (every colour key, text contrast of 4.5:1 or better, valid shell-section overrides, the window style), `look/install-look` (font rule, button layout saved and restored exactly, glass module), `look/mac-glass`, and that the font rule changes quickshell's monospace request and nothing else |
+| `test_coadmin.py` | unit | `coadmin/`: the installer as fake root against a fixture home (refusals, dry run, groups, mode 700, the allowlist and the denylist both ways, path rewriting, enablement links, `--remove` only for accounts it created) and the first-login helper against fakes |
 | `verify-portal.mjs` | browser | all 12 pages, nav, lessons engine, palette, Setup log (including Spanish), skip links, EN/ES, phone width |
 | `verify-keyboard.mjs`, `verify-trackpad.mjs` | browser | the 3D keyboard and trackpad pages |
 | `verify-mackeys.mjs` | real compositor | each ⌘ shortcut through `hyprctl eval`, reported by a scratch Brave window (needs Hyprland) |

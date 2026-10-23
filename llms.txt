@@ -39,6 +39,7 @@ Source: https://github.com/aldoruizluna/omarchy-kit. Code is MIT; the themes' pa
 - [menubar/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/menubar/README.md): the Mac menu bar (Apple menu, app name, File Edit View Window Help) and how the bar is rearranged
 - [look/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/look/README.md): the UI font for the shell and Dock, window buttons on the left, and the switch for blur behind the glass
 - [Golden Gate parity](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/docs/GOLDEN-GATE.md): macOS 27 and this MacBook Pro row by row: done, partial, not done, impossible, with sources
+- [coadmin/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/coadmin/README.md): a second administrator with the same privileges and a mirror of your settings, never your credentials
 - [trackpad/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/trackpad/README.md): three-finger swipe or drag
 - [appearance/ scripts](https://raw.githubusercontent.com/aldoruizluna/omarchy-kit/main/appearance/README.md): light by day, dark at night
 

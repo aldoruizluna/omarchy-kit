@@ -1,0 +1,41 @@
+#!/bin/bash
+# Run once, as the new user, from a terminal in the desktop after the first login (no root). Installed by install-coadmin as ~/.local/bin/omarchy-kit-first-login.
+# It does the parts of the mirror that need a live session: the theme (which also sets the icon variant), the cursor and window-button settings, the kit
+# (cloned from its public repository into ~/labspace/omarchy-kit) and the kit's background portal. Safe to run again.
+# Usage: omarchy-kit-first-login
+set -euo pipefail
+case "${1:-}" in "") ;; -h | --help) sed -n '2,/^set -euo/{/^set -euo/d;s/^# \{0,1\}//p}' "$0"; exit 0 ;; *) echo "usage: $(basename "$0")   (--help for details)" >&2; exit 2 ;; esac
+CONF=${XDG_CONFIG_HOME:-$HOME/.config}/omarchy-kit/mirror.conf
+[[ -f $CONF ]] || { echo "this account was not set up by install-coadmin (no $CONF)" >&2; exit 1; }
+[[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] || { echo "run this inside the desktop (a terminal in the Hyprland session)" >&2; exit 1; }
+THEME=""; KIT_URL=""
+while IFS='=' read -r k v; do
+  case "$k" in THEME) THEME=$v ;; KIT_URL) KIT_URL=$v ;; esac
+done < "$CONF"
+[[ -z $THEME || $THEME =~ ^[a-z0-9-]{1,60}$ ]] || { echo "unexpected theme name in $CONF" >&2; exit 1; }
+
+echo "1/4 the kit"
+if [[ ! -d $HOME/labspace/omarchy-kit/.git ]]; then
+  case "$KIT_URL" in https://github.com/*) ;; *) echo "unexpected kit address in $CONF" >&2; exit 1 ;; esac
+  git clone --depth 1 "$KIT_URL" "$HOME/labspace/omarchy-kit"
+else
+  echo "   already there"
+fi
+
+echo "2/4 the theme and icons"
+if [[ -n $THEME ]] && omarchy theme list 2>/dev/null | grep -qix "$(printf '%s' "$THEME" | tr '-' ' ')"; then
+  omarchy theme set "$THEME" >/dev/null 2>&1 || true
+else
+  [[ -z $THEME ]] || echo "   theme $THEME is not installed here; keeping the current one"
+fi
+
+echo "3/4 pointer and window buttons"
+gsettings set org.gnome.desktop.interface cursor-theme macOS
+gsettings set org.gnome.desktop.wm.preferences button-layout 'close:'
+hyprctl setcursor macOS 24 >/dev/null 2>&1 || true
+
+echo "4/4 the kit's background portal (http://127.0.0.1:8787)"
+systemctl --user daemon-reload
+systemctl --user start omarchy-kit.service 2>/dev/null || echo "   not started (another account may be using its port while it is logged in); it starts at login"
+
+echo "done. Change your password with: passwd (it was set temporary)."
