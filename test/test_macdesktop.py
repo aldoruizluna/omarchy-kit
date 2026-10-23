@@ -12,6 +12,8 @@ What is covered:
   mission control         the overlay's binds, shortcuts and IPC agree, nothing is captured live, and its layout function (run in node)
                           keeps every window's proportions, fits the screen and never overlaps
   dock/hot-corners        choosing a corner's action: other keys kept, bad JSON untouched, bad arguments refused, nothing left behind
+  dock/Spotlight          the sum parser, name matching, file sorting and icon rules run in node; no search result can power the machine off;
+                          it takes the keyboard only while open; it is registered, installed and bound
   dock polish             the Dock's own functions run in node: which program name `ps` shows for an app, and the drag-to-reorder move
   contracts               every QML file the dock needs is installed; every item id in the menu widget has a Lua action; Lua and QML parse
 """
@@ -760,6 +762,110 @@ class HotCornersContracts(unittest.TestCase):
 
 
 # ======================================================================================================================
+# dock/Spotlight.qml
+# ======================================================================================================================
+class Spotlight(unittest.TestCase):
+    QML = (KIT / "dock" / "Spotlight.qml").read_text()
+    LUA = (KIT / "dock" / "macdock.lua").read_text()
+
+    def node(self, names, expr):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not installed")
+        code = "".join(js_function(self.QML, n) + "\n" for n in names) + f"process.stdout.write(JSON.stringify({expr}));"
+        r = run([node, "-e", code])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return json.loads(r.stdout)
+
+    def calc(self, *exprs):
+        return self.node(["calc"], "[" + ", ".join(json.dumps(e) for e in exprs) + "].map(calc)")
+
+    def test_a_sum_is_answered_with_the_usual_precedence(self):
+        got = self.calc("12*7", "2+3*4", "(2+3)*4", "2^3^2", "-2^2", "2^-1", "10%3", "sqrt(16)+1", " 2 + 3 ", "=5*5", "5×5", "8÷2", "2026-10-23", "1.5e3+1", "-(2+3)")
+        self.assertEqual(got, [84, 14, 20, 512, -4, 0.5, 1, 5, 5, 25, 25, 4, 1993, 1501, -5])
+
+    def test_constants_and_functions(self):
+        got = self.calc("pi*2", "e^1", "abs(-3)*2", "floor(2.7)+ceil(2.1)", "log(1000)+ln(1)")
+        self.assertAlmostEqual(got[0], 6.283185307179586)
+        self.assertAlmostEqual(got[1], 2.718281828459045)
+        self.assertEqual(got[2:], [6, 5, 3])
+
+    def test_anything_that_is_not_a_sum_is_not_answered(self):
+        for text in ("1password", "7zip", "12", "obs", "", "2+", "(2", "2)", "1/0", "9^9^9", "alert(1)+2", "constructor(1)+1", "__proto__+1", "sqrt16+1", "2 3", "a+b", "1;2", "2*"):
+            with self.subTest(text=text):
+                self.assertEqual(self.calc(text), [None])
+
+    def test_it_never_uses_eval(self):
+        self.assertNotRegex(self.QML, r"\beval\s*\(|new Function|Function\s*\(")
+
+    def test_names_are_matched_whole_then_by_start_then_by_word_then_anywhere(self):
+        got = self.node(["matchScore"], '[["Obsidian","obsidian"],["Obsidian","obs"],["Brave Web Browser","browser"],["Files","il"],["x",""],["abc","z"],["60-kit-mac.conf","kit"]].map(a => matchScore(a[0], a[1]))')
+        self.assertEqual(got, [100, 80, 60, 40, 1, 0, 60])
+
+    def test_files_sort_by_name_match_then_by_how_close_to_home_they_are(self):
+        got = self.node(["matchScore", "sortFiles"], 'sortFiles(["/h/a/x/notes.txt", "/h/a/notes/", "/h/a/deep/er/notes-old.md", "/h/a/old-notes.txt"], "notes").map(r => [r.path, r.dir])')
+        self.assertEqual(got, [["/h/a/notes", True], ["/h/a/x/notes.txt", False], ["/h/a/deep/er/notes-old.md", False], ["/h/a/old-notes.txt", False]])
+
+    def test_icons_follow_the_kind_of_file(self):
+        got = self.node(["iconFor"], '[["/a/b", true], ["/a/p.PNG", false], ["/a/d.pdf", false], ["/a/noext", false], ["/a/x.tar.gz", false], ["/a/s.flac", false], ["/a/m.mkv", false]].map(a => iconFor(a[0], a[1]))')
+        self.assertEqual(got, ["folder", "image-x-generic", "application-pdf", "text-x-generic", "package-x-generic", "audio-x-generic", "video-x-generic"])
+
+    # ---- contracts
+    def actions(self):
+        block = self.QML[self.QML.index("readonly property var actions: ["):self.QML.index("property var clipboard:")]
+        return re.findall(r"\{ title: \"([^\"]+)\"[^}]*?(?:cmd: (\[[^\]]*\])|ipc: (\[[^\]]*\])|view: \"(\w+)\")", block)
+
+    def test_every_action_is_a_command_an_ipc_call_or_a_view_and_none_powers_off_directly(self):
+        acts = self.actions()
+        self.assertGreaterEqual(len(acts), 20)
+        for title, cmd, ipc, view in acts:
+            self.assertTrue(cmd or ipc or view, title)
+            for word in ("shutdown", "poweroff", "reboot", "logout", "factory-reset", "suspend", "hibernate"):
+                self.assertNotIn(word, (cmd or "").lower().replace("omarchy-menu\", \"toggle\", \"system", ""), f"{title}: a search result must never power the machine off or lose the session without a menu in between")
+        self.assertIn("omarchy-menu", dict((t, c) for t, c, _, _ in acts)["Restart, Shut Down or Log Out…"])
+
+    def test_the_commands_exist_in_this_omarchy(self):
+        bin_dir = pathlib.Path("/usr/share/omarchy/bin")
+        if not bin_dir.is_dir():
+            self.skipTest("Omarchy is not installed here")
+        for title, cmd, _, _ in self.actions():
+            if not cmd:
+                continue
+            first = [w for w in re.findall(r'"([^"]+)"', cmd)][0]
+            if first.startswith("omarchy-"):
+                self.assertTrue((bin_dir / first).exists(), f"{title}: {first} is not an Omarchy command")
+
+    def test_the_ipc_targets_the_actions_call_exist(self):
+        for _, _, ipc, _ in self.actions():
+            if ipc:
+                target = re.findall(r'"([^"]+)"', ipc)[0]
+                self.assertTrue(any(f'target: "{target}"' in p.read_text() for p in (KIT / "dock").glob("*.qml")), target)
+
+    def test_it_takes_the_keyboard_only_while_open_and_is_not_mapped_while_closed(self):
+        self.assertIn("visible: shown", self.QML)
+        self.assertIn("keyboardFocus: shown ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None", self.QML)
+        self.assertIn('WlrLayershell.namespace: "macspotlight"', self.QML)
+
+    def test_the_files_view_only_searches_when_it_is_the_view_and_has_two_letters(self):
+        self.assertRegex(self.QML, r'win\.mode !== "files" \|\| q\.length < 2')
+        self.assertEqual(len(re.findall(r'finder\.running = true', self.QML)), 1)
+
+    def test_it_is_registered_installed_and_bound(self):
+        self.assertEqual((KIT / "dock" / "shell.qml").read_text().count("Spotlight {}"), 1)
+        self.assertIn("Spotlight.qml", (KIT / "dock" / "install-dock").read_text())
+        self.assertRegex((KIT / "dock" / "qmldir").read_text(), r"Spotlight 1\.0 Spotlight\.qml")
+        self.assertIn('hl.unbind("SUPER + ALT + SPACE")', self.LUA)
+        self.assertIn('o.bind("SUPER + ALT + SPACE", "Spotlight (⌘Space)", hl.dsp.global("macspotlight:toggle"))', self.LUA)
+        self.assertIn('appid: "macspotlight"; name: "toggle"', self.QML)
+        self.assertIn("macspotlight", self.LUA.split("hl.layer_rule", 1)[1].split("\n", 1)[0])
+
+    def test_the_clipboard_view_pastes_through_omarchys_own_helper_and_never_writes_the_history(self):
+        self.assertIn("omarchy-clipboard-paste-text", self.QML)
+        self.assertEqual(len(re.findall(r"setText\(", self.QML)), 1, "the only file it writes is its own usage count")
+        self.assertIn("usage.setText", self.QML)
+
+
+# ======================================================================================================================
 # contracts between the pieces
 # ======================================================================================================================
 class Contracts(unittest.TestCase):
@@ -794,7 +900,7 @@ class Contracts(unittest.TestCase):
         header = lua.split("\nlocal home", 1)[0]
         for chord in re.findall(r'o\.bind\("SUPER( \+ [A-Z+ ]+)"', lua):
             key = chord.split("+")[-1].strip().lower()
-            shown = {"tab": "Tab", "grave": "`", "right": "Right", "left": "Left", "escape": "Escape", "up": "Up", "down": "Down"}.get(key, key.upper())
+            shown = {"tab": "Tab", "grave": "`", "right": "Right", "left": "Left", "escape": "Escape", "up": "Up", "down": "Down", "space": "Space"}.get(key, key.upper())
             self.assertIn(shown, header, f"Super+{shown} is bound but not described in the header of macdock.lua")
 
     def test_lua_files_parse(self):

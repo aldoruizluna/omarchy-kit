@@ -58,7 +58,7 @@ These ⌘ chords are Mac *system* chords, so they go to Hyprland as **Super chor
 
 | You press | Hyprland receives | Today in Omarchy |
 |---|---|---|
-| ⌘Space | Super+Alt+Space | Apps menu (searchable) |
+| ⌘Space | Super+Alt+Space | Spotlight: Apps, Files, Actions and Clipboard (`dock/macdock.lua`; the Apps menu it replaced on this chord is on F4) |
 | ⌥⌘Space | Super+Space | Omarchy's menu: the way to everything with no Mac chord |
 | ⌘Tab / ⇧⌘Tab | Super+Tab / Super+Shift+Tab, with Super held until ⌘ is released | the app switcher (`dock/macdock.lua`) |
 | ⌘` and, while the switcher is up, ← → | Super+grave; Super+Shift+Tab, Super+Tab | the app switcher |

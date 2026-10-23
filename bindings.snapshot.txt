@@ -107,7 +107,7 @@ SUPER ALT + D                       → Hide or show the dock (⌥⌘D)
 SUPER ALT + ESCAPE                  → Cancel the app switcher
 SUPER ALT + Home                    → Save window width
 SUPER ALT + SLASH                   → Monitor scaling down
-SUPER ALT + SPACE                   → Apps menu
+SUPER ALT + SPACE                   → Spotlight (⌘Space)
 SUPER + A                           → Select all (⌘A)
 SUPER + B                           → Bold (⌘B)
 SUPER + BRACKETLEFT                 → Back (⌘[)

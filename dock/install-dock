@@ -15,7 +15,7 @@ CFG=${XDG_CONFIG_HOME:-$HOME/.config}
 SHARE=${XDG_DATA_HOME:-$HOME/.local/share}/macdock
 HYPR=$CFG/hypr
 LINE='require("hypr.macdock")'
-FILES=(shell.qml qmldir Theme.qml Config.qml Apps.qml IconIndex.qml AppIcon.qml DockIcon.qml ItemMenu.qml Dock.qml Switcher.qml MissionControl.qml HotCorners.qml)
+FILES=(shell.qml qmldir Theme.qml Config.qml Apps.qml IconIndex.qml AppIcon.qml DockIcon.qml ItemMenu.qml Dock.qml Switcher.qml MissionControl.qml HotCorners.qml Spotlight.qml)
 
 stop_dock() {   # stop only the Quickshell that runs this program (not Omarchy's own shell)
   local p a

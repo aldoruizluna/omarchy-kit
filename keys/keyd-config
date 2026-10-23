@@ -41,7 +41,7 @@ CMD_KEYS = [
     ("down", "C-end", "bottom of the document"),
     ("leftbrace", "A-left", "back (⌘[)"),
     ("rightbrace", "A-right", "forward (⌘])"),
-    ("space", "M-A-space", "⌘Space: Omarchy's searchable Apps menu (Super+Alt+Space)"),
+    ("space", "M-A-space", "⌘Space: Spotlight (Super+Alt+Space; dock/macdock.lua binds it)"),
     ("backspace", "macro(S-home backspace)", "⌘⌫: delete to the start of the line (a terminal gets Ctrl+U from keyd-appmap)"),
     ("tab", "swapm(cmd_switch, M-tab)", "⌘Tab: Super stays held while ⌘ is held, so the switcher sees ⌘ being released"),
     ("grave", "M-grave", "⌘`: next window of the same app"),
@@ -126,7 +126,7 @@ OVERLAYS = {
 # Super chords the layer sends: (what is pressed, what Hyprland receives, what it means today in Omarchy, who binds it).
 # keyd-config's `chords` prints this; test_keyd.py checks that every Super chord in the configuration is listed.
 SUPER_CHORDS = [
-    ("⌘Space", "Super+Alt+Space", "Apps menu (exists)", "Omarchy"),
+    ("⌘Space", "Super+Alt+Space", "Spotlight (replaces Omarchy's Apps menu on this chord)", "dock/macdock.lua"),
     ("⌘Tab", "Super+Tab", "next workspace today; Super stays held while ⌘ is held", "app switcher"),
     ("⇧⌘Tab", "Super+Shift+Tab", "previous workspace today", "app switcher"),
     ("⌘` and ⌘←/→ in the switcher", "Super+grave, Super+Shift+Tab, Super+Tab", "unbound (grave); see Tab", "app switcher"),

@@ -16,6 +16,8 @@
 --   Super+Ctrl+Up                 Mission Control (⌃↑ on a Mac; plain Ctrl+Up stays a text-editing key until the keyboard remap sends this chord for ⌃↑)
 --   Super+Ctrl+Down               App Exposé: only the windows of the focused app, from every space (⌃↓)
 --   Super+Ctrl+Shift+Left/Right   previous / next workspace
+--   Super+Alt+Space               Spotlight (⌘Space through the keyboard remap): Apps, Files, Actions and Clipboard in one search; the Apps menu it
+--                                 replaces on this chord is still on F4
 --
 -- What this replaces: Super+Tab and Super+Shift+Tab were "Next workspace" and "Previous workspace" in Omarchy; those moved to
 -- Super+Ctrl+Shift+Right and Left (three- and four-finger swipes and Super+1..9 still switch workspaces). Super+Q, Super+H, Super+M,
@@ -31,7 +33,7 @@
 local home = os.getenv("HOME") or ""
 local share = home .. "/.local/share/macdock"
 
-hl.layer_rule({ match = { namespace = "^(macdock|macswitcher|macmission|machotcorner)$" }, no_anim = true, animation = "none" })
+hl.layer_rule({ match = { namespace = "^(macdock|macswitcher|macmission|machotcorner|macspotlight)$" }, no_anim = true, animation = "none" })
 
 hl.on("hyprland.start", function()
   hl.exec_cmd(o.launch("quickshell -n -p " .. o.shell_quote(share)))
@@ -211,5 +213,8 @@ o.bind("SHIFT + Print", "Screenshot of the whole screen (⇧⌘3)", "omarchy-cap
 -- Mission Control and App Exposé (dock/MissionControl.qml). The four-finger swipe up in input.lua opens it too.
 o.bind("XF86LaunchA", "Mission Control (F3)", hl.dsp.global("macmission:toggle"))
 o.bind("XF86LaunchB", "Apps (F4)", "omarchy-menu toggle apps")
+-- Spotlight (⌘Space): Apps, Files, Actions and Clipboard in one search. This chord was Omarchy's Apps menu, which F4 still opens.
+hl.unbind("SUPER + ALT + SPACE")
+o.bind("SUPER + ALT + SPACE", "Spotlight (⌘Space)", hl.dsp.global("macspotlight:toggle"))
 o.bind("SUPER + CTRL + UP", "Mission Control (⌃↑)", hl.dsp.global("macmission:toggle"))
 o.bind("SUPER + CTRL + DOWN", "App Exposé (⌃↓)", hl.dsp.global("macmission:appwindows"))

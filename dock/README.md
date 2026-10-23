@@ -2,7 +2,7 @@
 
 > **TL;DR.** A Mac-style Dock at the bottom of the screen and a ⌘Tab app switcher, in one small Quickshell program started with your session. The Dock
 > has the magnification, the running dots (a lighter one for an app that runs with no window), drag to reorder, the bounce while an app launches, a right-click menu and the Downloads and Trash icons, and
-> **hot corners** (off until you choose). ⌘Tab (Super+Tab) cycles
+> **hot corners** (off until you choose). **Spotlight** (⌘Space, Super+Alt+Space) searches Apps, Files, Actions and the Clipboard in one field. ⌘Tab (Super+Tab) cycles
 > through running apps, most recently used first, and letting go of ⌘ switches. F3 (the Mission Control key), Super+Ctrl+Up or four fingers up open **Mission Control**: every
 > space across the top and the windows of the selected one, as real pictures of them, below. It follows the Omarchy theme's colours and the icon theme. No root; `install-dock --remove` undoes it.
 
@@ -30,6 +30,21 @@
 
 `~/.config/macdock/dock.json`: `pinned` (list), `iconSize` (32-96, default 52), `zoom` (1 = no magnification, default 1.6), `autohide` (default false),
 `showTrash` (default true), `hotCorners` (see below), `hotCornerDelay`. It is re-read when it changes. With `autohide` the Dock slides away and the windows get its space back (85 px at the default size).
+
+## Spotlight
+
+⌘Space (Super+Alt+Space; with the keyboard remap, ⌘Space itself) opens one search field with four views, as in macOS 26. Type to search, ↑ ↓ to move, Return to open, Esc to close, Tab for the next view,
+and ⌘1 to ⌘4 (Ctrl, Option or ⌘ with the digit) jump to a view.
+
+| View | What it searches | Return does |
+|---|---|---|
+| **Apps** (⌘1) | the launcher entries, by name (whole, start, a word's start, anywhere), then by generic name, keywords and comment. With nothing typed: the apps you start most. A sum such as `12*7+sqrt(16)` shows its answer first | starts the app; for a sum, copies the answer (never `eval`: a small parser, with `+ - * / % ^`, brackets, `pi`, `e`, `sqrt sin cos tan ln log abs round floor ceil exp`) |
+| **Files** (⌘2) | file and folder names under your home folder, by `fd` (hidden folders and `node_modules` left out), one search at a time, only in this view and only from two letters | opens it; Ctrl+Return opens the folder it is in |
+| **Actions** (⌘3) | 22 things the desktop can do: Lock Screen, Mission Control, the night-light, do-not-disturb and lock-on-idle switches, screenshot, screen recording, copy text from the screen, colour picker, emoji, calculator, notification history, theme, wallpaper, hardware, keyboard shortcuts, About This Mac, the Omarchy menu | runs it (after Spotlight has closed, so a screenshot sees your window). **Nothing here shuts the machine down or logs you out by itself**: "Restart, Shut Down or Log Out…" opens Omarchy's system menu |
+| **Clipboard** (⌘4) | the history Omarchy's clipboard overlay keeps (`~/.local/state/omarchy/clipboard-history.json`), newest first; Spotlight only reads it | pastes the entry into the window you came from (Omarchy's own `omarchy-clipboard-paste-text`); an image is copied |
+
+It is a separate surface in the Dock program, not in the Omarchy shell, and it is not mapped while closed. The only file it writes is `~/.local/state/macdock/spotlight.json`, a count of how often you start each app from here. It replaces Omarchy's **Apps menu on Super+Alt+Space** (F4 still opens that menu and Omarchy's own menu is
+Super+Space); `install-dock --remove` brings the old binding back. Files and Clipboard show whatever is there, on screen, like any launcher does; nothing is sent anywhere.
 
 ## Hot corners
 
@@ -82,7 +97,7 @@ windows on spaces you are not looking at.
 
 App Exposé (Super+Ctrl+Down) shows the focused app's windows only, from every space, with the space number after each title. Windows hidden with Super+H are not shown in either.
 
-Cost, measured on this laptop: nothing is mapped or captured while it is closed (the Dock program stays at 0.10 % of one core and about 255 MB); opening takes about a quarter of a
+Cost, measured on this laptop: nothing is mapped or captured while it is closed (the Dock program stayed at 0.10 % of one core and about 255 MB; with the process scan for the background dot, hot corners and Spotlight added it idles at about 0.2 % and 253 MB, measured over 20 s with nothing open); opening takes about a quarter of a
 second and one second of CPU time, adds about 75 MB while it is open, and the memory goes back when it closes. Held open it uses no CPU: there is no live capture. It is one surface
 on the primary screen; on several monitors it covers the one it opens on and lists the windows of all of them.
 
@@ -113,12 +128,13 @@ On the real desktop (screenshots of the real compositor, not a simulation):
   overlaps or leaves the screen, up to eleven windows).
 - Web apps: a real Omarchy Kit window lit the pinned icon.
 - The lighter dot: a stand-in process named like a pinned app's program made the Dock show it (`dock describe` over IPC said `obsidian:b`, a screenshot showed the dim dot next to the terminal's full one) and dropped it again within seconds of the process ending.
+- Spotlight, on the live desktop with real key events from `wtype` (Tab and Ctrl or Alt with a digit change view, typing filters, ↑ ↓ move, Return runs the "Mission Control" action, Esc closes), the global shortcut that the chord sends, screenshots of the Apps, Actions and Files views, a sum answered, a name found in the home folder. The tests run the sum parser, the name scoring, the file ordering and the icon rules in node.
 - Hot corners, with the real pointer (moved with Hyprland's own cursor dispatcher): nothing at 0.12 s, Mission Control open at 0.62 s; a 0.1 s brush did nothing; closing it with the pointer still parked did **not** reopen it (before the latch it did, which is how that bug was found); leaving, waiting and returning fired it again;
   Quick Note opened Omawrite on a new file, and closing it unwritten removed the file. The 3 px surface appears at the corner (`hyprctl layers`) only for a corner that has an action.
 - Drag to reorder: the move itself (before/after, no-op cases, one save) is run in node by the tests.
 - `test/test_macdesktop.py`: the installer in a sandbox (files, `dock.json` kept, one require line, clean removal), QML and Lua syntax, and that every QML file is installed.
 
-**Not verified, because it needs a real keyboard or pointer:** the drag gesture itself (holding an icon and moving the pointer: no button events can be injected here), a hand-made trip into a corner, pressing the actual F3, Super+Ctrl+Up, Super+Ctrl+Down and Super+Tab chords, the real four-finger swipe (the swipe handler runs the same
+**Not verified, because it needs a real keyboard or pointer:** the Super+Alt+Space chord itself (the shortcut it sends was triggered through `hyprctl`), Spotlight's mouse hover and clicks, Return on Apps (it would start an app), pasting from the Clipboard view into another window, the drag gesture itself (holding an icon and moving the pointer: no button events can be injected here), a hand-made trip into a corner, pressing the actual F3, Super+Ctrl+Up, Super+Ctrl+Down and Super+Tab chords, the real four-finger swipe (the swipe handler runs the same
 global shortcut as F3, which was tested; the gesture itself was not), hovering to show the close button and clicking cards (the same code runs through the tested IPC calls), Mission Control in a light theme
 (it uses the same theme colours as the Dock), pressing the actual Super+Tab chord (Hyprland ignores `wtype`'s virtual keyboard for key binds, and the
 release watcher uses `hl.is_key_down`, which does not see it either), mouse clicks and right-click menus (no pointer injection here), and starting at login
@@ -126,7 +142,7 @@ release watcher uses `hl.is_key_down`, which does not see it either), mouse clic
 
 ## Files
 
-`shell.qml` (entry), `Dock.qml`, `DockIcon.qml`, `ItemMenu.qml`, `Switcher.qml`, `MissionControl.qml`, `HotCorners.qml`, `hot-corners` (the command), `AppIcon.qml`, `Apps.qml` (what is running, pinned and hidden), `Config.qml`
+`shell.qml` (entry), `Dock.qml`, `DockIcon.qml`, `ItemMenu.qml`, `Switcher.qml`, `MissionControl.qml`, `HotCorners.qml`, `hot-corners` (the command), `Spotlight.qml`, `AppIcon.qml`, `Apps.qml` (what is running, pinned and hidden), `Config.qml`
 (`dock.json`), `Theme.qml` (colours from the Omarchy theme), `IconIndex.qml` (which icons the theme has), `macdock.lua` (the Hyprland side), `install-dock`.
 
 Undo: `dock/install-dock --remove`.

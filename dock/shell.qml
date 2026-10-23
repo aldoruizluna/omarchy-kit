@@ -6,4 +6,5 @@ ShellRoot {
   Switcher {}
   MissionControl {}
   HotCorners {}
+  Spotlight {}
 }
