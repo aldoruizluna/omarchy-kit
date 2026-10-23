@@ -9,8 +9,9 @@ import qs.Ui
 // The left side of the macOS menu bar: the system menu, the name of the focused app in bold, and the standard app menus.
 //
 // Almost no Wayland app publishes a real menu, so the menus are the standard Mac ones and each item does what its ⌘ shortcut
-// does in the focused app (see menubar/macmenu.lua, which sends the chord). Moving across the titles while a menu is open
-// switches menus, as on a Mac.
+// does in the focused app (see menubar/macmenu.lua, which sends the chord). For the apps listed in apps.json (Brave and web apps,
+// Files, terminals, Obsidian) the menus are that app's own, with its real item names and shortcuts; every other app gets the
+// generic ones. Moving across the titles while a menu is open switches menus, as on a Mac.
 BarWidget {
   id: root
   moduleName: "omarchykit.macmenu"
@@ -25,6 +26,56 @@ BarWidget {
   property Item openAnchor: null
   property var pendingAction: null
   property var titleItems: ({})
+
+  // ---- per-app menus: plugin/apps.json (the first profile whose "match" fits the focused app's id)
+  property var profiles: []
+  readonly property var builtinTitles: ({ file: "File", edit: "Edit", view: "View", window: "Window", help: "Help" })
+  readonly property var profile: findProfile(appId)
+  readonly property var menus: buildMenus(profile)
+
+  FileView {
+    path: Qt.resolvedUrl("apps.json")
+    printErrors: false
+    onLoaded: { try { root.profiles = JSON.parse(text()).profiles || [] } catch (e) { root.profiles = [] } }
+    onLoadFailed: root.profiles = []
+  }
+
+  function findProfile(id) {
+    for (var i = 0; i < profiles.length; i++) {
+      try { if (new RegExp(profiles[i].match, "i").test(id)) return profiles[i] } catch (e) { }
+    }
+    return null
+  }
+
+  function buildMenus(p) {
+    var spec = p && Array.isArray(p.menus) ? p.menus : ["file", "edit", "view", "window", "help"]
+    var out = []
+    for (var i = 0; i < spec.length; i++) {
+      var m = spec[i]
+      if (typeof m === "string") {
+        if (builtinTitles[m]) out.push({ name: m, title: builtinTitles[m] })
+      } else if (m && typeof m.title === "string" && Array.isArray(m.items)) {
+        out.push({ name: m.title.toLowerCase().replace(/[^a-z0-9]+/g, "-"), title: m.title, items: m.items })
+      }
+    }
+    return out
+  }
+
+  // The items of a profile menu, with anything that is not plain text dropped: a menu file can name a chord or an action, never a command.
+  function customItems(items) {
+    var out = []
+    for (var i = 0; i < items.length; i++) {
+      var it = items[i]
+      if (it && it.sep === true) { out.push({ sep: true }); continue }
+      if (!it || typeof it.label !== "string") continue
+      var item = { label: it.label, keys: typeof it.keys === "string" ? it.keys : "" }
+      if (typeof it.send === "string" && /^[A-Za-z0-9_+]+$/.test(it.send)) item.send = it.send
+      else if (typeof it.id === "string" && /^[a-z]+\.[a-z0-9]+$/.test(it.id)) item.id = it.id
+      else continue
+      out.push(item)
+    }
+    return out
+  }
 
   readonly property color ink: bar ? bar.barForeground : Color.foreground
   readonly property color selectText: Qt.rgba(Color.accent.r, Color.accent.g, Color.accent.b, 1).hslLightness > 0.55 ? "#101010" : "#ffffff"
@@ -44,6 +95,7 @@ BarWidget {
   function itemsFor(name) {
     var n = appName
     var sep = { sep: true }
+    for (var k = 0; k < menus.length; k++) if (menus[k].name === name && menus[k].items) return customItems(menus[k].items)
     if (name === "apple") return [
       { label: "About This Mac", id: "apple.about" }, sep,
       { label: "System Settings…", id: "apple.settings" },
@@ -124,6 +176,7 @@ BarWidget {
       root.pendingAction = null
       if (!it) return
       if (it.fn) it.fn()
+      else if (it.send) Quickshell.execDetached(["hyprctl", "eval", "o.mac_chord(\"" + it.send + "\")"])
       else if (it.id) Quickshell.execDetached(["hyprctl", "eval", "o.mac_menu(\"" + it.id + "\")"])
     }
   }
@@ -136,6 +189,7 @@ BarWidget {
     property string family: root.bar ? root.bar.fontFamily : Style.font.family
     readonly property bool lit: root.openMenu === name
     Component.onCompleted: root.titleItems[name] = title
+    Component.onDestruction: if (root.titleItems[name] === title) delete root.titleItems[name]
 
     implicitWidth: label.implicitWidth + Style.spaceReal(20)
     implicitHeight: root.barSize
@@ -188,11 +242,21 @@ BarWidget {
 
     Title { name: "apple"; text: ""; family: "omarchy" }
     Title { name: "app"; text: root.appName; bold: true }
-    Title { name: "file"; text: "File" }
-    Title { name: "edit"; text: "Edit" }
-    Title { name: "view"; text: "View" }
-    Title { name: "window"; text: "Window" }
-    Title { name: "help"; text: "Help" }
+    Repeater {
+      model: root.menus
+      delegate: Title {
+        required property var modelData
+        name: modelData.name
+        text: modelData.title
+      }
+    }
+  }
+
+  // The app changed and the open menu is not one it has: close it rather than leave a menu from another app on screen.
+  onMenusChanged: {
+    if (openMenu === "" || openMenu === "apple" || openMenu === "app") return
+    for (var i = 0; i < menus.length; i++) if (menus[i].name === openMenu) return
+    close()
   }
 
   PopupWindow {

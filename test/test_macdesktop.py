@@ -12,6 +12,8 @@ What is covered:
   mission control         the overlay's binds, shortcuts and IPC agree, nothing is captured live, and its layout function (run in node)
                           keeps every window's proportions, fits the screen and never overlaps
   dock/hot-corners        choosing a corner's action: other keys kept, bad JSON untouched, bad arguments refused, nothing left behind
+  menubar/plugin/apps.json  per-app menus: the file's shape, every shown shortcut checked against what the keyd tables really send, the widget's functions in node,
+                          the chord parser in real Lua
   dock/Spotlight          the sum parser, name matching, file sorting and icon rules run in node; no search result can power the machine off;
                           it takes the keyboard only while open; it is registered, installed and bound
   dock polish             the Dock's own functions run in node: which program name `ps` shows for an app, and the drag-to-reorder move
@@ -863,6 +865,208 @@ class Spotlight(unittest.TestCase):
         self.assertIn("omarchy-clipboard-paste-text", self.QML)
         self.assertEqual(len(re.findall(r"setText\(", self.QML)), 1, "the only file it writes is its own usage count")
         self.assertIn("usage.setText", self.QML)
+
+
+# ======================================================================================================================
+# menubar/plugin/apps.json: per-app menus
+# ======================================================================================================================
+def _load_keyd_config():
+    import importlib.machinery, importlib.util
+    loader = importlib.machinery.SourceFileLoader("keyd_config_for_menus", str(KIT / "keys" / "keyd-config"))
+    mod = importlib.util.module_from_spec(importlib.util.spec_from_loader(loader.name, loader))
+    loader.exec_module(mod)
+    return mod
+
+
+class AppMenus(unittest.TestCase):
+    DATA = json.loads((KIT / "menubar" / "plugin" / "apps.json").read_text())
+    WIDGET = (KIT / "menubar" / "plugin" / "BarWidget.qml").read_text()
+    LUA = (KIT / "menubar" / "macmenu.lua").read_text()
+
+    def items(self):
+        """(profile id, item) for every item of every custom menu."""
+        for p in self.DATA["profiles"]:
+            for m in p["menus"]:
+                if isinstance(m, dict):
+                    for it in m["items"]:
+                        yield p["id"], it
+
+    def test_the_file_is_well_formed(self):
+        self.assertEqual(self.DATA["version"], 1)
+        ids = [p["id"] for p in self.DATA["profiles"]]
+        self.assertEqual(len(ids), len(set(ids)), "profile ids are unique")
+        self.assertGreaterEqual(len(ids), 5)
+        for p in self.DATA["profiles"]:
+            re.compile(p["match"])
+            for m in p["menus"]:
+                if isinstance(m, str):
+                    self.assertIn(m, ("file", "edit", "view", "window", "help"), p["id"])
+                else:
+                    self.assertTrue(m["title"].strip() and m["items"], p["id"])
+            self.assertIn("window", p["menus"], f"{p['id']}: every app keeps the Window menu")
+            self.assertIn("help", p["menus"])
+
+    def test_every_item_is_a_separator_a_chord_or_a_known_action_and_never_a_command(self):
+        lua_ids = set(re.findall(r'\["([a-z]+\.[a-z0-9]+)"\]\s*=', self.LUA))
+        for pid, it in self.items():
+            with self.subTest(profile=pid, item=it.get("label", "separator")):
+                if it.get("sep"):
+                    self.assertEqual(set(it), {"sep"})
+                    continue
+                self.assertTrue(it["label"].strip())
+                self.assertEqual(sum(k in it for k in ("send", "id")), 1, "a chord or an action, not both and not neither")
+                if "send" in it:
+                    self.assertRegex(it["send"], r"^[A-Za-z0-9_]+(\+[A-Za-z0-9_]+)*$")
+                    mods = it["send"].split("+")[:-1]
+                    self.assertTrue(set(mods) <= {"ctrl", "shift", "alt"} and len(mods) == len(set(mods)), it["send"])
+                else:
+                    self.assertIn(it["id"], lua_ids, "macmenu.lua has no such action")
+                self.assertLessEqual(set(it) - {"label", "send", "id", "keys", "ctl"}, set())
+
+    def test_no_menu_has_two_items_with_the_same_label(self):
+        for p in self.DATA["profiles"]:
+            for m in p["menus"]:
+                if isinstance(m, dict):
+                    labels = [i["label"] for i in m["items"] if "label" in i]
+                    self.assertEqual(len(labels), len(set(labels)), f"{p['id']} / {m['title']}")
+
+    # ---- the displayed shortcut must be what pressing it does on this keyboard (with the keyd layer)
+    GLYPH_KEY = {"←": "left", "→": "right", "↑": "up", "↓": "down", "⇥": "tab", "⌦": "delete", "⌫": "backspace", "⇞": "pageup", "⇟": "pagedown",
+                 "+": "equal", "−": "minus", "[": "leftbrace", "]": "rightbrace", ".": "dot", ",": "comma", "`": "grave"}
+    XKB_KEY = {"left": "left", "right": "right", "up": "up", "down": "down", "tab": "tab", "delete": "delete", "page_up": "pageup", "page_down": "pagedown",
+               "home": "home", "equal": "equal", "minus": "minus", "bracketleft": "leftbrace", "bracketright": "rightbrace", "period": "dot", "comma": "comma"}
+
+    @staticmethod
+    def parse_action(action):
+        """keyd's 'C-S-tab' as (frozenset of modifiers, key); None for anything that is not a plain chord."""
+        m = re.fullmatch(r"((?:[CASM]-)*)([a-z0-9]+)", action)
+        return (frozenset(m.group(1).replace("-", "")), m.group(2)) if m else None
+
+    def pressed(self, glyphs, ctl, terminal):
+        """What the keyd layer sends when `glyphs` (for example ⇧⌘N) is pressed, as keyd-config's tables say."""
+        kc = _load_keyd_config()
+        mods = {g for g in glyphs if g in "⌃⌥⇧⌘"}
+        rest = "".join(g for g in glyphs if g not in "⌃⌥⇧⌘")
+        key = self.GLYPH_KEY.get(rest) or (rest.lower() if not re.fullmatch(r"F\d+", rest) else rest.lower())
+        if "⌃" in mods and not ctl:
+            self.fail(f"{glyphs}: a Control chord must be marked ctl")
+        tables = {frozenset("⌘"): kc.CMD_KEYS, frozenset("⌘⇧"): kc.SHIFT_CMD_KEYS, frozenset("⌘⌥"): kc.ALT_CMD_KEYS, frozenset("⌃"): kc.CONTROL_KEYS,
+                  frozenset("⌃⇧"): kc.CONTROL_SHIFT_KEYS, frozenset("⌥"): kc.OPTION_KEYS}
+        if mods == {"⌘"}:   # the focus-dependent overlay that keyd-appmap applies: terminal-safe keys in a terminal, plain Ctrl+C and Ctrl+V in an app
+            for b in kc.OVERLAYS["terminal" if terminal else "app"]:
+                m = re.fullmatch(r"cmd\.(\w+) = ([\w-]+)", b)
+                if m and m.group(1) == key:
+                    return self.parse_action(m.group(2))
+        for k, action, _ in tables.get(frozenset(mods), []):
+            if k == key:
+                return self.parse_action(action)
+        base = {"⌘": "C", "⌃": "C", "⌥": "A", "⇧": "S"}
+        # an unlisted key keeps its modifiers, with ⌘ becoming Ctrl
+        letters = set()
+        for g in mods:
+            letters.add(base[g])
+        return (frozenset(letters), key)
+
+    def sent(self, spec):
+        *mods, key = spec.split("+")
+        key = key.lower()
+        return (frozenset({"ctrl": "C", "alt": "A", "shift": "S"}[m] for m in mods), self.XKB_KEY.get(key, key))
+
+    def test_every_shortcut_shown_is_what_pressing_it_sends_on_this_keyboard(self):
+        checked = 0
+        for pid, it in self.items():
+            if it.get("sep") or "send" not in it or not it.get("keys"):
+                continue
+            with self.subTest(profile=pid, item=it["label"], keys=it["keys"]):
+                self.assertEqual(self.pressed(it["keys"], bool(it.get("ctl")), pid == "terminal"), self.sent(it["send"]),
+                                 f"pressing {it['keys']} does not send {it['send']} through the keyd layer")
+                checked += 1
+        self.assertGreater(checked, 60, "the check must really run over the shortcuts")
+
+    def test_the_chords_the_keyd_layer_cannot_press_have_no_shortcut_shown(self):
+        # Ctrl+Alt+arrows is the window-focus chord on this keyboard, and Ctrl+H, Ctrl+Shift+O and Alt+Home have no Mac key that sends them in these apps:
+        # no hint is better than one that does something else
+        unreachable = {("obsidian", "ctrl+alt+Left"), ("obsidian", "ctrl+alt+Right"), ("browser", "ctrl+h"), ("browser", "ctrl+shift+o"), ("files", "alt+Home")}
+        seen = set()
+        for pid, it in self.items():
+            if (pid, it.get("send")) in unreachable:
+                seen.add((pid, it["send"]))
+                self.assertFalse(it.get("keys"), f"{pid}: {it['label']}")
+        self.assertEqual(seen, unreachable)
+
+    # ---- which profile an app gets, and the widget's own functions, run in node
+    def node(self, body):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("node is not installed")
+        titles = re.search(r"readonly property var builtinTitles: (\(\{.*?\}\))", self.WIDGET, re.S).group(1)
+        code = (f"const profiles = {json.dumps(self.DATA['profiles'])}; const builtinTitles = {titles};\n" +
+                "".join(js_function(self.WIDGET, n) + "\n" for n in ("findProfile", "buildMenus", "customItems")) +
+                f"process.stdout.write(JSON.stringify({body}));")
+        r = run([node, "-e", code])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return json.loads(r.stdout)
+
+    def test_each_app_gets_its_own_profile_and_others_get_none(self):
+        ids = ["brave-browser", "brave-web.whatsapp.com__-Default", "brave-app.hey.com__-Default", "org.gnome.Nautilus", "foot", "obsidian",
+               "org.telegram.desktop", "signal", "Alacritty", "", "organization.gnome.nautilus", "brave-extra"]
+        got = self.node(f"{json.dumps(ids)}.map(i => {{ const p = findProfile(i); return p ? p.id : null }})")
+        self.assertEqual(got, ["browser", "webapp", "webapp", "files", "terminal", "obsidian", None, None, "terminal", None, None, None])
+
+    def test_the_menu_titles_follow_the_profile_and_default_to_the_generic_five(self):
+        titles = self.node('[null, ...profiles.map(p => p)].map(p => buildMenus(p).map(m => m.title))')
+        self.assertEqual(titles[0], ["File", "Edit", "View", "Window", "Help"])
+        by = {p["id"]: t for p, t in zip(self.DATA["profiles"], titles[1:])}
+        self.assertEqual(by["browser"], ["File", "Edit", "View", "History", "Bookmarks", "Tab", "Window", "Help"])
+        self.assertEqual(by["files"], ["File", "Edit", "View", "Go", "Window", "Help"])
+        self.assertEqual(by["terminal"], ["Shell", "Edit", "View", "Window", "Help"])
+
+    def test_names_are_unique_within_a_bar(self):
+        names = self.node("profiles.map(p => buildMenus(p).map(m => m.name))")
+        for n in names:
+            self.assertEqual(len(n), len(set(n)))
+
+    def test_a_menu_file_can_name_a_chord_or_an_action_never_a_command(self):
+        items = [{"label": "A", "send": "ctrl+n", "keys": "⌘N"}, {"label": "B", "send": "a;b"}, {"label": "C", "id": "file.close"}, {"label": "D", "id": "File.close"},
+                 {"sep": True}, {"label": 5, "send": "ctrl+n"}, None, {"label": "E", "send": "ctrl+n\"); os.execute(\"x"}, {"label": "F"}, {"label": "G", "id": "a.b; rm"}]
+        got = self.node(f"customItems({json.dumps(items)})")
+        self.assertEqual([i.get("label", "-") for i in got], ["A", "C", "-"])
+        self.assertEqual(got[0], {"label": "A", "keys": "⌘N", "send": "ctrl+n"})
+
+    def test_the_widget_has_no_fixed_titles_left_and_closes_a_menu_the_app_no_longer_has(self):
+        self.assertNotRegex(self.WIDGET, r'Title \{ name: "(file|edit|view|window|help)"')
+        self.assertIn("model: root.menus", self.WIDGET)
+        self.assertIn("onMenusChanged", self.WIDGET)
+        self.assertIn('o.mac_chord(', self.WIDGET)
+
+    def test_the_installer_ships_the_file_next_to_the_widget(self):
+        self.assertIn("plugin/apps.json", (KIT / "menubar" / "install-menubar").read_text())
+
+
+class ChordParser(unittest.TestCase):
+    """macmenu.lua's parse_chord, run for real in Lua with stand-ins for Hyprland's functions."""
+    def parse(self, specs):
+        lua = shutil.which("lua5.4") or shutil.which("lua")
+        if not lua:
+            self.skipTest("lua is not installed")
+        driver = ("o = { launch_webapp = function(u) return u end }\nhl = {}\n"
+                  f"dofile({json.dumps(str(KIT / 'menubar' / 'macmenu.lua'))})\n"
+                  "local out = {}\n"
+                  f"for _, s in ipairs({{ {', '.join(json.dumps(s) for s in specs)} }}) do\n"
+                  "  local mods, key = o.mac_parse_chord(s)\n"
+                  "  out[#out + 1] = mods and (mods .. '|' .. key) or 'nil'\n"
+                  "end\nprint(table.concat(out, ';'))\n")
+        r = run([lua, "-e", driver])
+        self.assertEqual(r.returncode, 0, r.stderr)
+        return r.stdout.strip().split(";")
+
+    def test_good_chords(self):
+        self.assertEqual(self.parse(["ctrl+n", "ctrl+shift+n", "alt+Left", "F11", "ctrl+alt+Left", "shift+Page_Up", "ctrl+equal", "ctrl+0", "Delete"]),
+                         ["CTRL|N", "CTRL SHIFT|N", "ALT|Left", "|F11", "CTRL ALT|Left", "SHIFT|Page_Up", "CTRL|equal", "CTRL|0", "|Delete"])
+
+    def test_anything_odd_is_refused(self):
+        bad = ["", "+", "ctrl+", "+n", "ctrl++n", "super+q", "ctrl+ctrl+n", "meta+n", "ctrl+n;rm", "ctrl+n\"", "ctrl n", "ctrl+n)", "alt+shift+"]
+        self.assertEqual(self.parse(bad), ["nil"] * len(bad))
 
 
 # ======================================================================================================================

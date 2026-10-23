@@ -101,7 +101,7 @@ python3 -I -c 'import json,sys; json.load(open(sys.argv[1]))' "$SHELLJSON" || { 
 [[ -f $SHELLJSON.bak-menubar ]] || cp "$SHELLJSON" "$SHELLJSON.bak-menubar"
 rm -rf -- "${PLUGIN_DIR:?}"
 mkdir -p "$PLUGIN_DIR"
-install -m644 plugin/manifest.json plugin/BarWidget.qml "$PLUGIN_DIR/"
+install -m644 plugin/manifest.json plugin/BarWidget.qml plugin/apps.json "$PLUGIN_DIR/"
 omarchy plugin validate "$PLUGIN_DIR" >/dev/null
 rescan
 

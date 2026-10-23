@@ -1,0 +1,203 @@
+{
+  "version": 1,
+  "about": "Per-app menus for the Mac menu bar. The first profile whose \"match\" (a regular expression, case-insensitive) fits the focused window's app id is used; an app with no profile gets the generic File, Edit, View, Window and Help menus. A menu is a built-in name (\"edit\", \"window\", \"help\") or {title, items}. An item is {label, send, keys} (send = modifiers and a key, for example ctrl+shift+n, sent to the focused window; keys = the chord to press on this keyboard once the keyd layer of keys/install-keyd is installed (left out when there is none); ctl = true when the Ctrl is a real Control key, as in Ctrl+Tab), {label, id} (an action from macmenu.lua) or {sep: true}. These are the apps' documented shortcuts: a menu cannot ask the app whether an item is available right now.",
+  "profiles": [
+    {
+      "id": "webapp",
+      "name": "web app",
+      "match": "^(brave|chromium|chrome|google-chrome)-.+-(default|profile [0-9]+)$",
+      "menus": [
+        { "title": "File", "items": [
+          { "label": "Close Window", "send": "ctrl+shift+w", "keys": "⇧⌘W" },
+          { "label": "Print…", "send": "ctrl+p", "keys": "⌘P" }
+        ] },
+        "edit",
+        { "title": "View", "items": [
+          { "label": "Reload This Page", "send": "ctrl+r", "keys": "⌘R" },
+          { "label": "Hard Reload", "send": "ctrl+shift+r", "keys": "⇧⌘R" },
+          { "sep": true },
+          { "label": "Actual Size", "send": "ctrl+0", "keys": "⌘0" },
+          { "label": "Zoom In", "send": "ctrl+equal", "keys": "⌘+" },
+          { "label": "Zoom Out", "send": "ctrl+minus", "keys": "⌘−" },
+          { "sep": true },
+          { "label": "Enter Full Screen", "send": "F11", "keys": "F11" },
+          { "label": "Developer Tools", "send": "ctrl+shift+i", "keys": "⌥⌘I" }
+        ] },
+        { "title": "History", "items": [
+          { "label": "Back", "send": "alt+Left", "keys": "⌘[" },
+          { "label": "Forward", "send": "alt+Right", "keys": "⌘]" }
+        ] },
+        "window",
+        "help"
+      ]
+    },
+    {
+      "id": "browser",
+      "name": "Brave",
+      "match": "^(brave-browser|brave|chromium|google-chrome|chrome)$",
+      "menus": [
+        { "title": "File", "items": [
+          { "label": "New Tab", "send": "ctrl+t", "keys": "⌘T" },
+          { "label": "New Window", "send": "ctrl+n", "keys": "⌘N" },
+          { "label": "New Private Window", "send": "ctrl+shift+n", "keys": "⇧⌘N" },
+          { "label": "Reopen Closed Tab", "send": "ctrl+shift+t", "keys": "⇧⌘T" },
+          { "label": "Open Location…", "send": "ctrl+l", "keys": "⌘L" },
+          { "sep": true },
+          { "label": "Close Tab", "send": "ctrl+w", "keys": "⌘W" },
+          { "label": "Close Window", "send": "ctrl+shift+w", "keys": "⇧⌘W" },
+          { "label": "Save Page As…", "send": "ctrl+s", "keys": "⌘S" },
+          { "sep": true },
+          { "label": "Print…", "send": "ctrl+p", "keys": "⌘P" }
+        ] },
+        "edit",
+        { "title": "View", "items": [
+          { "label": "Always Show Bookmarks Bar", "send": "ctrl+shift+b", "keys": "⇧⌘B" },
+          { "sep": true },
+          { "label": "Reload This Page", "send": "ctrl+r", "keys": "⌘R" },
+          { "label": "Hard Reload", "send": "ctrl+shift+r", "keys": "⇧⌘R" },
+          { "sep": true },
+          { "label": "Actual Size", "send": "ctrl+0", "keys": "⌘0" },
+          { "label": "Zoom In", "send": "ctrl+equal", "keys": "⌘+" },
+          { "label": "Zoom Out", "send": "ctrl+minus", "keys": "⌘−" },
+          { "sep": true },
+          { "label": "Enter Full Screen", "send": "F11", "keys": "F11" },
+          { "sep": true },
+          { "label": "View Source", "send": "ctrl+u", "keys": "⌥⌘U" },
+          { "label": "Developer Tools", "send": "ctrl+shift+i", "keys": "⌥⌘I" },
+          { "label": "JavaScript Console", "send": "ctrl+shift+j", "keys": "⌥⌘J" }
+        ] },
+        { "title": "History", "items": [
+          { "label": "Back", "send": "alt+Left", "keys": "⌘[" },
+          { "label": "Forward", "send": "alt+Right", "keys": "⌘]" },
+          { "sep": true },
+          { "label": "Show Full History", "send": "ctrl+h" },
+          { "label": "Clear Browsing Data…", "send": "ctrl+shift+Delete", "keys": "⇧⌘⌦" }
+        ] },
+        { "title": "Bookmarks", "items": [
+          { "label": "Bookmark This Tab…", "send": "ctrl+d", "keys": "⌘D" },
+          { "label": "Bookmark All Tabs…", "send": "ctrl+shift+d", "keys": "⇧⌘D" },
+          { "label": "Bookmark Manager", "send": "ctrl+shift+o" }
+        ] },
+        { "title": "Tab", "items": [
+          { "label": "Select Next Tab", "send": "ctrl+Tab", "keys": "⌃⇥", "ctl": true },
+          { "label": "Select Previous Tab", "send": "ctrl+shift+Tab", "keys": "⌃⇧⇥", "ctl": true },
+          { "label": "Search Tabs…", "send": "ctrl+shift+a", "keys": "⇧⌘A" },
+          { "sep": true },
+          { "label": "Tab 1", "send": "ctrl+1", "keys": "⌘1" },
+          { "label": "Tab 2", "send": "ctrl+2", "keys": "⌘2" },
+          { "label": "Tab 3", "send": "ctrl+3", "keys": "⌘3" },
+          { "label": "Last Tab", "send": "ctrl+9", "keys": "⌘9" }
+        ] },
+        "window",
+        "help"
+      ]
+    },
+    {
+      "id": "files",
+      "name": "Files",
+      "match": "^org\\.gnome\\.nautilus$",
+      "menus": [
+        { "title": "File", "items": [
+          { "label": "New Window", "send": "ctrl+n", "keys": "⌘N" },
+          { "label": "New Tab", "send": "ctrl+t", "keys": "⌘T" },
+          { "label": "New Folder", "send": "ctrl+shift+n", "keys": "⇧⌘N" },
+          { "sep": true },
+          { "label": "Rename…", "send": "F2", "keys": "F2" },
+          { "label": "Move to Trash", "send": "Delete", "keys": "⌦" },
+          { "label": "Properties", "send": "ctrl+i", "keys": "⌘I" },
+          { "sep": true },
+          { "label": "Close Window", "send": "ctrl+w", "keys": "⌘W" }
+        ] },
+        { "title": "Edit", "items": [
+          { "label": "Cut", "send": "ctrl+x", "keys": "⌘X" },
+          { "label": "Copy", "send": "ctrl+c", "keys": "⌘C" },
+          { "label": "Paste", "send": "ctrl+v", "keys": "⌘V" },
+          { "sep": true },
+          { "label": "Select All", "send": "ctrl+a", "keys": "⌘A" },
+          { "label": "Invert Selection", "send": "ctrl+shift+a", "keys": "⇧⌘A" },
+          { "label": "Select Items Matching…", "send": "ctrl+s", "keys": "⌘S" },
+          { "sep": true },
+          { "label": "Search…", "send": "ctrl+f", "keys": "⌘F" }
+        ] },
+        { "title": "View", "items": [
+          { "label": "Reload", "send": "F5", "keys": "F5" },
+          { "label": "Show Hidden Files", "send": "ctrl+h", "keys": "⇧⌘." },
+          { "sep": true },
+          { "label": "Actual Size", "send": "ctrl+0", "keys": "⌘0" },
+          { "label": "Zoom In", "send": "ctrl+equal", "keys": "⌘+" },
+          { "label": "Zoom Out", "send": "ctrl+minus", "keys": "⌘−" }
+        ] },
+        { "title": "Go", "items": [
+          { "label": "Back", "send": "alt+Left", "keys": "⌘[" },
+          { "label": "Forward", "send": "alt+Right", "keys": "⌘]" },
+          { "label": "Enclosing Folder", "send": "alt+Up", "keys": "⌥↑" },
+          { "label": "Home", "send": "alt+Home" },
+          { "sep": true },
+          { "label": "Go to Location…", "send": "ctrl+l", "keys": "⌘L" }
+        ] },
+        "window",
+        "help"
+      ]
+    },
+    {
+      "id": "terminal",
+      "name": "Terminal",
+      "match": "^(foot|footclient|alacritty|kitty|com\\.mitchellh\\.ghostty|org\\.wezfurlong\\.wezterm)$",
+      "menus": [
+        { "title": "Shell", "items": [
+          { "label": "New Window", "id": "term.new", "keys": "⌘N" },
+          { "label": "Close Window", "id": "file.close", "keys": "⌘W" },
+          { "sep": true },
+          { "label": "Clear Screen", "send": "ctrl+l", "keys": "⌘K" },
+          { "label": "Interrupt", "send": "ctrl+c", "keys": "⌃C", "ctl": true },
+          { "label": "End of Input", "send": "ctrl+d", "keys": "⌃D", "ctl": true },
+          { "label": "Suspend", "send": "ctrl+z", "keys": "⌃Z", "ctl": true }
+        ] },
+        { "title": "Edit", "items": [
+          { "label": "Copy", "id": "edit.copy", "keys": "⌘C" },
+          { "label": "Paste", "id": "edit.paste", "keys": "⌘V" }
+        ] },
+        { "title": "View", "items": [
+          { "label": "Bigger", "send": "ctrl+equal", "keys": "⌘+" },
+          { "label": "Smaller", "send": "ctrl+minus", "keys": "⌘−" },
+          { "label": "Actual Size", "send": "ctrl+0", "keys": "⌘0" },
+          { "sep": true },
+          { "label": "Scroll Page Up", "send": "shift+Page_Up", "keys": "⇧⇞" },
+          { "label": "Scroll Page Down", "send": "shift+Page_Down", "keys": "⇧⇟" },
+          { "sep": true },
+          { "label": "Enter Full Screen", "id": "view.fullscreen", "keys": "⌃⌘F" }
+        ] },
+        "window",
+        "help"
+      ]
+    },
+    {
+      "id": "obsidian",
+      "name": "Obsidian",
+      "match": "^obsidian$",
+      "menus": [
+        { "title": "File", "items": [
+          { "label": "New Note", "send": "ctrl+n", "keys": "⌘N" },
+          { "label": "New Tab", "send": "ctrl+t", "keys": "⌘T" },
+          { "label": "Open Quick Switcher…", "send": "ctrl+o", "keys": "⌘O" },
+          { "sep": true },
+          { "label": "Close Tab", "send": "ctrl+w", "keys": "⌘W" }
+        ] },
+        "edit",
+        { "title": "View", "items": [
+          { "label": "Command Palette…", "send": "ctrl+p", "keys": "⌘P" },
+          { "label": "Search in All Files", "send": "ctrl+shift+f", "keys": "⇧⌘F" },
+          { "label": "Graph View", "send": "ctrl+g", "keys": "⌘G" },
+          { "label": "Toggle Reading View", "send": "ctrl+e", "keys": "⌘E" }
+        ] },
+        { "title": "Go", "items": [
+          { "label": "Back", "send": "ctrl+alt+Left" },
+          { "label": "Forward", "send": "ctrl+alt+Right" },
+          { "label": "Next Tab", "send": "ctrl+Tab", "keys": "⌃⇥", "ctl": true }
+        ] },
+        "window",
+        "help"
+      ]
+    }
+  ]
+}

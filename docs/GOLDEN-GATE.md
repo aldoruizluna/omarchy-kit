@@ -35,7 +35,7 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 | Redesigned pointer, the pointing hand returns | an open-source macOS-style cursor set; not the new design | partial |
 | San Francisco font | Adwaita Sans (derived from Inter) for the bar, menus, panels and the Dock; GTK apps already used it. SF is not redistributable | partial |
 | Menu bar with no background, text white or black to suit the wallpaper | transparent bar (Omarchy's own setting); the text follows the theme | done |
-| Menu bar: Apple menu, the app name in bold, the app's menus | the Omarchy glyph as the system menu, the focused app's name in bold, File, Edit, View, Window, Help; the menus send the ⌘ shortcut because almost no Wayland app publishes a real menu | partial |
+| Menu bar: Apple menu, the app name in bold, the app's menus | the Omarchy glyph as the system menu, the focused app's name in bold, and menus that are **the app's own for Brave and its web apps, Files, terminals and Obsidian** (real item names and shortcuts, sent as chords) and the generic File, Edit, View, Window, Help for the rest. The app is never asked, so an unavailable item is not greyed out; real published menus are not possible on this desktop (see menubar/README) | partial |
 | Menus lost most of their icons in 27 | the menus have none | done |
 | Status items, the clock on the right | network, sound, battery, display, tray and the clock, in the Mac order | done |
 | Overflow arrow at the notch, the bar as one window | not needed (no notch) | n/a |

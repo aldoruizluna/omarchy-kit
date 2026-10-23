@@ -42,7 +42,50 @@ local function run(command)
   return function() hl.exec_cmd(command) end
 end
 
+-- A chord given as text by a per-app menu (plugin/apps.json): modifiers joined by +, then the key, for example "ctrl+shift+n". Only these
+-- modifiers and a key name made of letters, digits and underscores are accepted, so a menu file cannot make this run anything else.
+local MODIFIERS = { ctrl = "CTRL", shift = "SHIFT", alt = "ALT" }
+
+local function parse_chord(spec)
+  if type(spec) ~= "string" or not spec:match("^[%w_]+[%w_+]*$") or spec:find("++", 1, true) then
+    return nil
+  end
+  local parts = {}
+  for part in spec:gmatch("[^+]+") do
+    parts[#parts + 1] = part
+  end
+  local key = table.remove(parts)
+  if not key or key == "" or spec:sub(-1) == "+" then
+    return nil
+  end
+  local mods, seen = {}, {}
+  for _, m in ipairs(parts) do
+    local mod = MODIFIERS[m:lower()]
+    if not mod or seen[mod] then
+      return nil
+    end
+    seen[mod] = true
+    mods[#mods + 1] = mod
+  end
+  if #key == 1 then
+    key = key:upper()   -- letters are sent as capitals, as the fixed chords above do
+  end
+  return table.concat(mods, " "), key
+end
+
+o.mac_parse_chord = parse_chord
+
+function o.mac_chord(spec)
+  local mods, key = parse_chord(spec)
+  if mods then
+    send(mods, key)
+  end
+end
+
 local ACTIONS = {
+  -- Terminal profile of the per-app menus
+  ["term.new"]       = run("xdg-terminal-exec"),
+
   -- Apple menu
   ["apple.about"]    = run(o.launch_webapp("http://127.0.0.1:8787/macbook")),
   ["apple.settings"] = run("omarchy-menu toggle setup"),
