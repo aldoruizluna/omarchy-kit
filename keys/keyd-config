@@ -1,0 +1,267 @@
+#!/usr/bin/env python3
+"""keyd-config: write the Mac ⌘ layer for keyd, and the per-app overlays that go with it. Standard library only; reads nothing
+on the system except what `detect` is told to read, and changes nothing: it only prints.
+
+  keyd-config conf [--ids ID[,ID...]] [--caps-delay MS]   the keyd configuration (default ids: none, so give some)
+  keyd-config overlays                                     the overlays for keyd-appmap, as JSON
+  keyd-config chords                                       the Super chords the layer sends (the Hyprland side must bind these)
+  keyd-config detect [FILE]                                Apple keyboards in /proc/bus/input/devices, as keyd ids, one per line
+
+What the layer does (the installer is keys/install-keyd, the explanation is in keys/README.md):
+  * Left ⌘ acts as Ctrl for every key it does not list, so every shortcut, ⌘-click and ⌘-scroll work in every app.
+    Left Ctrl, Option and Right ⌘ (Super: all of Omarchy's own shortcuts) are untouched.
+  * A few ⌘ chords are Mac *system* chords; they are turned into Super chords that Hyprland binds (see `chords`).
+  * ⌘←/→ Home/End, ⌘↑/↓ top/bottom, ⌥←/→ word jumps, ⌥⌫ delete word, ⌘[ and ⌘] back/forward, ⇧⌘[ and ⇧⌘] tabs.
+  * Copy and paste are written terminal-safe (Ctrl+Insert, Shift+Insert: a terminal reads Ctrl+C as "interrupt");
+    keyd-appmap switches them to plain Ctrl+C / Ctrl+V while an app (not a terminal) has the focus.
+  * Caps Lock needs a short deliberate press, like on a Mac (default 150 ms; 0 turns this off).
+"""
+import json
+import re
+import sys
+
+CAPS_DELAY_DEFAULT = 150
+APPLE_VENDORS = ("05ac", "004c")  # Apple's USB and Bluetooth vendor ids
+
+# The terminal chords that must never reach a shell as Ctrl+letter. ⌘ is Ctrl, and in a terminal Ctrl+D ends the shell,
+# Ctrl+Z stops the program, Ctrl+S freezes the output. Physical Ctrl still sends all of these, the way a Mac's Control does.
+TERMINAL_NOOP = "a b d e f g i j o p r s t u x y z".split()
+
+# Layer sections of the static configuration: (header, [(key, action, why)]).
+# Comments go on their own lines because keyd does not accept a trailing comment after a binding.
+CMD_KEYS = [
+    ("c", "C-insert", "copy, in the form a terminal also accepts (keyd-appmap makes it plain Ctrl+C in apps)"),
+    ("v", "S-insert", "paste, same reason (plain Ctrl+V in apps)"),
+    ("left", "home", "start of line"),
+    ("right", "end", "end of line"),
+    ("up", "C-home", "top of the document"),
+    ("down", "C-end", "bottom of the document"),
+    ("leftbrace", "A-left", "back (⌘[)"),
+    ("rightbrace", "A-right", "forward (⌘])"),
+    ("space", "M-A-space", "⌘Space: Omarchy's searchable Apps menu (Super+Alt+Space)"),
+    ("tab", "swapm(cmd_switch, M-tab)", "⌘Tab: Super stays held while ⌘ is held, so the switcher sees ⌘ being released"),
+    ("grave", "M-grave", "⌘`: next window of the same app"),
+    ("q", "M-q", "⌘Q: quit the app"),
+    ("h", "M-h", "⌘H: hide the app"),
+    ("m", "M-m", "⌘M: minimise the window"),
+]
+SWITCH_KEYS = [
+    ("tab", "M-tab", "next app"),
+    ("right", "M-tab", "next app"),
+    ("left", "M-S-tab", "previous app"),
+    ("grave", "M-S-tab", "previous app"),
+    ("q", "M-q", "quit the highlighted app"),
+    ("h", "M-h", "hide the highlighted app"),
+    ("escape", "M-A-escape", "cancel the switcher (never Super+Esc, which opens Omarchy's system menu)"),
+]
+SHIFT_CMD_KEYS = [
+    ("3", "S-print", "⇧⌘3: screenshot of the whole screen (Shift+Print)"),
+    ("4", "print", "⇧⌘4: pick an area or a window (Omarchy's Print)"),
+    ("5", "M-C-c", "⇧⌘5: Omarchy's capture menu (Super+Ctrl+C)"),
+    ("leftbrace", "C-S-tab", "⇧⌘[: previous tab"),
+    ("rightbrace", "C-tab", "⇧⌘]: next tab"),
+    ("dot", "C-h", "⇧⌘.: show hidden files in Files"),
+]
+ALT_CMD_KEYS = [
+    ("i", "C-S-i", "⌥⌘I: developer tools"),
+    ("j", "C-S-j", "⌥⌘J: console"),
+    ("c", "C-S-c", "⌥⌘C: inspect element"),
+    ("u", "C-u", "⌥⌘U: view source"),
+    ("left", "C-pageup", "⌥⌘←: previous tab"),
+    ("right", "C-pagedown", "⌥⌘→: next tab"),
+    ("delete", "noop", "never Ctrl+Alt+Delete: Omarchy closes every window on it"),
+]
+CTRL_CMD_KEYS = [
+    ("q", "M-C-l", "⌃⌘Q: lock the screen (Super+Ctrl+L)"),
+    ("space", "M-C-e", "⌃⌘Space: emoji picker (Super+Ctrl+E)"),
+    ("f", "M-f", "⌃⌘F: full screen (Super+F)"),
+]
+OPTION_KEYS = [
+    ("left", "C-left", "word left"),
+    ("right", "C-right", "word right"),
+    ("backspace", "C-backspace", "delete the word before the cursor"),
+    ("delete", "C-delete", "delete the word after the cursor"),
+]
+
+# Overlays applied at run time with `keyd bind` by keyd-appmap, chosen by what has the focus.
+OVERLAYS = {
+    # an app: ⌘C and ⌘V are plain Ctrl+C and Ctrl+V (file managers do not take Ctrl+Insert)
+    "app": ["cmd.c = C-c", "cmd.v = C-v"],
+    # a terminal: nothing a Mac user presses with ⌘ may reach the shell as Ctrl+letter
+    "terminal": (
+        ["cmd.c = C-insert", "cmd.v = S-insert",
+         "cmd.k = C-l",        # ⌘K: clear the screen
+         "cmd.w = M-w",        # ⌘W: close the window (Super+W)
+         "cmd.n = M-enter",    # ⌘N: new terminal (Super+Return)
+         "cmd.dot = C-c",      # ⌘. cancels, as in Terminal and iTerm
+         "cmd+shift.c = C-S-c",   # ⇧⌘C and ⇧⌘V: the Ctrl+Shift forms every Omarchy terminal takes
+         "cmd+shift.v = C-S-v",
+         "alt.backspace = A-backspace",   # a shell deletes a word on Alt+Backspace; Ctrl+Backspace is one character
+         "altgr.backspace = A-backspace"]
+        + [f"cmd.{k} = noop" for k in TERMINAL_NOOP]
+    ),
+}
+# keyd-appmap treats "no window" (a launcher or menu has the focus) and "no answer from the compositor" as an app.
+
+# Super chords the layer sends: (what is pressed, what Hyprland receives, what it means today in Omarchy, who binds it).
+# keyd-config's `chords` prints this; test_keyd.py checks that every Super chord in the configuration is listed.
+SUPER_CHORDS = [
+    ("⌘Space", "Super+Alt+Space", "Apps menu (exists)", "Omarchy"),
+    ("⌘Tab", "Super+Tab", "next workspace today; Super stays held while ⌘ is held", "app switcher"),
+    ("⇧⌘Tab", "Super+Shift+Tab", "previous workspace today", "app switcher"),
+    ("⌘` and ⌘←/→ in the switcher", "Super+grave, Super+Shift+Tab, Super+Tab", "unbound (grave); see Tab", "app switcher"),
+    ("⌘Q", "Super+Q", "unbound", "to bind: quit the app"),
+    ("⌘H", "Super+H", "unbound", "to bind: hide the app"),
+    ("⌘M", "Super+M", "unbound", "to bind: minimise the window"),
+    ("Esc in the switcher", "Super+Alt+Escape", "unbound", "app switcher: cancel"),
+    ("⇧⌘3", "Shift+Print", "unbound", "to bind: omarchy-capture-screenshot fullscreen"),
+    ("⇧⌘4", "Print", "Screenshot (exists)", "Omarchy"),
+    ("⇧⌘5", "Super+Ctrl+C", "Capture menu (exists)", "Omarchy"),
+    ("⌃⌘Q", "Super+Ctrl+L", "Lock system (exists)", "Omarchy"),
+    ("⌃⌘Space", "Super+Ctrl+E", "Emojis (exists)", "Omarchy"),
+    ("⌃⌘F", "Super+F", "Full screen (exists)", "Omarchy"),
+    ("⌘W in a terminal", "Super+W", "Close window (exists)", "Omarchy"),
+    ("⌘N in a terminal", "Super+Return", "Terminal (exists)", "Omarchy"),
+]
+
+_MOD_WORD = {"M": "Super", "C": "Ctrl", "A": "Alt", "S": "Shift", "G": "AltGr"}
+
+
+def section(header, rows):
+    out = [f"[{header}]", ""]
+    for key, action, why in rows:
+        out.append(f"# {why}")
+        out.append(f"{key} = {action}")
+    out.append("")
+    return out
+
+
+def conf(ids, caps_delay=CAPS_DELAY_DEFAULT):
+    if not ids:
+        raise ValueError("at least one keyboard id is needed (keyd-config detect)")
+    for i in ids:
+        if not re.fullmatch(r"k:[0-9a-f]{4}:[0-9a-f]{4}", i):
+            raise ValueError(f"not a keyboard id of the form k:vvvv:pppp: {i!r}")
+    if not (0 <= caps_delay <= 1000):
+        raise ValueError("caps delay must be 0 to 1000 ms")
+    out = [
+        "# Omarchy Kit: the Mac command layer for keyd. Written by keys/keyd-config; do not edit, re-run keys/install-keyd.",
+        "#",
+        "# IF THE KEYBOARD EVER MISBEHAVES: press Backspace + Escape + Enter together. keyd quits at once and the",
+        "# keyboard is back to normal. Undo for good: sudo keys/install-keyd --remove",
+        "#",
+        "# Only the Apple keyboards below are changed (k: means keyboards only: the trackpad has the same id and is left alone).",
+        "# A keyboard plugged in later keeps its normal keys, and Right Command stays Super for all of Omarchy's own shortcuts.",
+        "",
+        "[ids]",
+        "",
+        *ids,
+        "",
+        "[main]",
+        "",
+        "# Left Command becomes the layer below; it acts as Ctrl for every key that layer does not list.",
+        "leftmeta = layer(cmd)",
+    ]
+    if caps_delay:
+        out += [
+            f"# Caps Lock needs a deliberate press of {caps_delay} ms, as on a Mac (a quick brush does nothing).",
+            f"capslock = timeout(noop, {caps_delay}, capslock)",
+        ]
+    out.append("")
+    out += section("cmd:C", CMD_KEYS)
+    out += ["# Active while Command is held after the first Tab: Super stays down until Command is released.", ""]
+    out += section("cmd_switch:M", SWITCH_KEYS)
+    out += ["# Composite layers (two modifiers at once) must come after the layers they combine.", ""]
+    out += section("cmd+shift", SHIFT_CMD_KEYS)
+    out += section("cmd+alt", ALT_CMD_KEYS)
+    out += section("control+cmd", CTRL_CMD_KEYS)
+    out += ["# Option (left and right): word movement as on a Mac. Terminals get Alt+Backspace back from keyd-appmap.", ""]
+    out += section("alt", OPTION_KEYS)
+    out += section("altgr", OPTION_KEYS)
+    return "\n".join(out).rstrip() + "\n"
+
+
+def overlays_json():
+    return json.dumps({"version": 1, "overlays": OVERLAYS}, indent=2, ensure_ascii=False) + "\n"
+
+
+def config_super_chords():
+    """Every Super (M) chord the static configuration sends, as 'Super+Alt+space'-style words (for the consistency test)."""
+    found = set()
+    for rows in (CMD_KEYS, SWITCH_KEYS, SHIFT_CMD_KEYS, ALT_CMD_KEYS, CTRL_CMD_KEYS):
+        for _, action, _ in rows:
+            m = re.search(r"(?:^|\()((?:[MCASG]-)+)([^\s,)]+)\)?$", action)
+            if m and "M" in m.group(1).replace("-", ""):
+                found.add((tuple(sorted(_MOD_WORD[c] for c in m.group(1) if c in _MOD_WORD)), m.group(2)))
+    return found
+
+
+def chords_text():
+    w0 = max(len(r[0]) for r in SUPER_CHORDS)
+    w1 = max(len(r[1]) for r in SUPER_CHORDS)
+    lines = [f"{'pressed':<{w0}}  {'Hyprland receives':<{w1}}  today in Omarchy / who binds it"]
+    for pressed, sends, today, who in SUPER_CHORDS:
+        lines.append(f"{pressed:<{w0}}  {sends:<{w1}}  {today} / {who}")
+    return "\n".join(lines) + "\n"
+
+
+def detect(text):
+    """keyd ids (k:vvvv:pppp) of the Apple keyboards in the text of /proc/bus/input/devices."""
+    ids = []
+    for block in re.split(r"\n\s*\n", text):
+        m = re.search(r"Vendor=([0-9a-fA-F]{4}) Product=([0-9a-fA-F]{4})", block)
+        name = re.search(r'^N: Name="(.*)"', block, re.M)
+        handlers = re.search(r"^H: Handlers=(.*)", block, re.M)
+        if not (m and name and handlers):
+            continue
+        if m.group(1).lower() in APPLE_VENDORS and "kbd" in handlers.group(1).split() and "keyboard" in name.group(1).lower():
+            kid = f"k:{m.group(1).lower()}:{m.group(2).lower()}"
+            if kid not in ids:
+                ids.append(kid)
+    return ids
+
+
+def usage(code):
+    print(__doc__.split("What the layer does")[0].strip(), file=sys.stderr if code else sys.stdout)
+    sys.exit(code)
+
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help"):
+        usage(0 if argv else 2)
+    cmd, rest = argv[0], argv[1:]
+    if cmd == "conf":
+        ids, delay, i = [], CAPS_DELAY_DEFAULT, 0
+        while i < len(rest):
+            if rest[i] == "--ids" and i + 1 < len(rest):
+                ids += [x for x in rest[i + 1].split(",") if x]
+                i += 2
+            elif rest[i] == "--caps-delay" and i + 1 < len(rest) and rest[i + 1].isdigit():
+                delay = int(rest[i + 1])
+                i += 2
+            else:
+                usage(2)
+        try:
+            sys.stdout.write(conf(ids, delay))
+        except ValueError as e:
+            print(f"keyd-config: {e}", file=sys.stderr)
+            sys.exit(1)
+    elif cmd == "overlays" and not rest:
+        sys.stdout.write(overlays_json())
+    elif cmd == "chords" and not rest:
+        sys.stdout.write(chords_text())
+    elif cmd == "detect" and len(rest) <= 1:
+        try:
+            text = open(rest[0] if rest else "/proc/bus/input/devices", encoding="utf-8", errors="replace").read()
+        except OSError as e:
+            print(f"keyd-config: {e}", file=sys.stderr)
+            sys.exit(1)
+        ids = detect(text)
+        print("\n".join(ids))
+        sys.exit(0 if ids else 1)
+    else:
+        usage(2)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

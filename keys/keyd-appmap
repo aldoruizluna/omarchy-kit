@@ -1,0 +1,276 @@
+#!/usr/bin/env python3
+"""keyd-appmap: switch the Mac ⌘ layer between "app" and "terminal" behaviour as the focus moves (Omarchy Kit). Standard library only.
+
+  keyd-appmap --uid UID [--overlays FILE] [--keyd PATH] [--runtime-dir DIR] [--poll SECONDS]
+  keyd-appmap --uid UID --print-state [--runtime-dir DIR]      print "terminal" or "app" for the focused window and exit
+  keyd-appmap --uid UID --once [...]                           apply the overlay for the focused window once and exit
+
+keyd's own keyd-application-mapper does not work on Hyprland (it speaks X, Sway and GNOME), so this does the same job: it
+listens on the compositor's event socket, asks it what has the focus, and applies the matching overlay with `keyd bind`.
+A window is a terminal when Hyprland tagged it "terminal" (Omarchy's own rule, so a terminal you add to that rule works here
+too); a launcher, a menu or no window at all counts as an app.
+
+It runs as a root system service (keys/install-keyd), because `keyd bind` needs the keyd socket and giving a user session
+access to that socket would be a root-equivalent hole (keyd can run commands). The only input it trusts is "terminal or not",
+and the bindings it applies come from a root-owned file, never from a window title. If it stops, keyd falls back to its static
+configuration, which is the terminal-safe one (⌘C is Ctrl+Insert, not Ctrl+C). On exit it always resets the overlay.
+"""
+import json
+import os
+import re
+import selectors
+import signal
+import socket
+import stat
+import subprocess
+import sys
+import time
+
+DEFAULT_OVERLAYS = "/etc/omarchy-kit/keyd-overlays.json"
+DEFAULT_KEYD = "/usr/bin/keyd"
+# Omarchy's own terminal rule (default/hypr/apps/terminals.lua), the fallback when the compositor cannot be asked for tags
+TERMINAL_CLASS = re.compile(r"(Alacritty|kitty|com\.mitchellh\.ghostty|foot|org\.codeberg\.dnkl\.foot|wezterm|org\.omarchy\..*|TUI\..*)")
+BINDING = re.compile(r"^[a-z0-9_+]+\.[^\s]+ = \S.*$")
+
+
+def log(msg):
+    print(f"keyd-appmap: {msg}", file=sys.stderr, flush=True)
+
+
+def load_overlays(path):
+    """{'overlays': {'app': [binding, ...], 'terminal': [...]}}; raises ValueError if the file is not exactly that shape."""
+    with open(path, encoding="utf-8") as f:
+        data = json.load(f)
+    overlays = data.get("overlays") if isinstance(data, dict) else None
+    if not isinstance(overlays, dict) or "app" not in overlays or "terminal" not in overlays:
+        raise ValueError("overlays file needs an 'overlays' object with 'app' and 'terminal'")
+    for name, binds in overlays.items():
+        if not isinstance(binds, list) or not all(isinstance(b, str) and BINDING.match(b) for b in binds):
+            raise ValueError(f"overlay {name!r}: every binding must look like 'layer.key = action'")
+    return {"overlays": overlays}
+
+
+def classify(window_json, class_hint=""):
+    """'terminal' or 'app' from the JSON of `j/activewindow` (tags first), or from the class if the JSON is unusable."""
+    try:
+        data = json.loads(window_json)
+        if isinstance(data, dict):
+            tags = data.get("tags")
+            if isinstance(tags, list) and any(isinstance(t, str) and t.rstrip("*") == "terminal" for t in tags):
+                return "terminal"
+            if "tags" in data or not data:   # a real answer: no terminal tag, or no window at all
+                return "app"
+            class_hint = class_hint or str(data.get("class", ""))
+    except ValueError:
+        pass
+    return "terminal" if class_hint and TERMINAL_CLASS.fullmatch(class_hint) else "app"
+
+
+def active_class(line):
+    """The window class in an 'activewindow>>class,title' event line (titles may contain commas, classes do not)."""
+    return line.split(">>", 1)[1].split(",", 1)[0] if line.startswith("activewindow>>") and ">>" in line else ""
+
+
+def owned_by(path, uid, kind):
+    try:
+        st = os.lstat(path)   # lstat: a symlink is refused, so a user cannot point a root process at another socket
+    except OSError:
+        return False
+    return st.st_uid == uid and (stat.S_ISSOCK(st.st_mode) if kind == "socket" else stat.S_ISDIR(st.st_mode))
+
+
+def find_instance(runtime_dir, uid):
+    """(command socket, event socket) of the newest Hyprland session of uid, or None."""
+    base = os.path.join(runtime_dir, "hypr")
+    try:
+        names = os.listdir(base)
+    except OSError:
+        return None
+    best = None
+    for name in names:
+        d = os.path.join(base, name)
+        s1, s2 = os.path.join(d, ".socket.sock"), os.path.join(d, ".socket2.sock")
+        if owned_by(d, uid, "dir") and owned_by(s1, uid, "socket") and owned_by(s2, uid, "socket"):
+            mtime = os.lstat(s2).st_mtime
+            if best is None or mtime > best[0]:
+                best = (mtime, s1, s2)
+    return best[1:] if best else None
+
+
+def query_active(sock1, timeout=1.0):
+    """The JSON text of `hyprctl activewindow -j`, asked over the command socket; '' if it cannot be had."""
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(timeout)
+            s.connect(sock1)
+            s.sendall(b"j/activewindow")
+            chunks = []
+            while True:
+                part = s.recv(65536)
+                if not part:
+                    break
+                chunks.append(part)
+            return b"".join(chunks).decode("utf-8", "replace")
+    except OSError:
+        return ""
+
+
+class Applier:
+    """Applies an overlay with `keyd bind reset <bindings>`, only when it changes, and forgets the state if keyd refuses."""
+
+    def __init__(self, keyd, overlays):
+        self.keyd, self.overlays, self.current, self.failing = keyd, overlays["overlays"], None, False
+
+    def _run(self, args):
+        try:
+            r = subprocess.run([self.keyd, "bind", *args], capture_output=True, text=True, timeout=5)
+        except (OSError, subprocess.TimeoutExpired) as e:
+            return False, str(e)
+        return r.returncode == 0, (r.stderr or r.stdout).strip()
+
+    def apply(self, state):
+        if state == self.current:
+            return True
+        ok, why = self._run(["reset", *self.overlays[state]])
+        self.current = state if ok else None
+        if not ok and not self.failing:
+            log(f"keyd refused the {state} overlay ({why or 'no message'}); the static configuration stays in force")
+        self.failing = not ok
+        return ok
+
+    def reset(self):
+        self._run(["reset"])
+        self.current = None
+
+
+class Stop(Exception):
+    pass
+
+
+def watch(sock2, handle, stopped, tick=1.0):
+    """Call handle(lines) with each batch of complete event lines until the socket closes or stopped() is true."""
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+        s.connect(sock2)
+        sel = selectors.DefaultSelector()
+        sel.register(s, selectors.EVENT_READ)
+        buf = b""
+        while not stopped():
+            if not sel.select(tick):
+                continue
+            chunk = s.recv(65536)
+            if not chunk:
+                return
+            buf += chunk
+            *lines, buf = buf.split(b"\n")
+            if lines:
+                handle([l.decode("utf-8", "replace") for l in lines])
+            if len(buf) > 1 << 20:   # a line this long is not Hyprland talking
+                return
+
+
+def serve(args, overlays):
+    applier = Applier(args["keyd"], overlays)
+    stop = {"now": False}
+
+    def on_signal(*_):
+        stop["now"] = True
+
+    signal.signal(signal.SIGTERM, on_signal)
+    signal.signal(signal.SIGINT, on_signal)
+    last_wait_log = 0.0
+    try:
+        while not stop["now"]:
+            inst = find_instance(args["runtime_dir"], args["uid"])
+            if not inst:
+                if time.monotonic() - last_wait_log > 600:
+                    log("waiting for a Hyprland session")
+                    last_wait_log = time.monotonic()
+                for _ in range(int(args["poll"] * 10)):
+                    if stop["now"]:
+                        break
+                    time.sleep(0.1)
+                continue
+            sock1, sock2 = inst
+            applier.current = None   # a new session, or keyd was restarted: do not trust what was applied before
+
+            def decide(hint=""):
+                return classify(query_active(sock1), hint)
+
+            applier.apply(decide())
+
+            def handle(lines):
+                hint = ""
+                seen = False
+                for l in lines:
+                    if l.startswith("activewindow>>"):
+                        seen, hint = True, active_class(l)
+                if seen:
+                    applier.apply(decide(hint))
+
+            try:
+                watch(sock2, handle, lambda: stop["now"])
+            except OSError as e:
+                log(f"lost the Hyprland event socket ({e})")
+            applier.reset()   # the session ended (or this service is stopping): back to the static, terminal-safe keys
+            if not stop["now"]:
+                time.sleep(args["poll"])
+    finally:
+        applier.reset()
+    return 0
+
+
+def parse_args(argv):
+    args = {"uid": None, "overlays": DEFAULT_OVERLAYS, "keyd": DEFAULT_KEYD, "runtime_dir": None, "poll": 2.0,
+            "mode": "serve"}
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a in ("-h", "--help"):
+            print(__doc__.strip())
+            sys.exit(0)
+        if a in ("--print-state", "--once"):
+            args["mode"] = a[2:]
+            i += 1
+            continue
+        if a in ("--uid", "--overlays", "--keyd", "--runtime-dir", "--poll") and i + 1 < len(argv):
+            key = a[2:].replace("-", "_")
+            try:
+                args[key] = int(argv[i + 1]) if key == "uid" else float(argv[i + 1]) if key == "poll" else argv[i + 1]
+            except ValueError:
+                sys.exit(f"keyd-appmap: bad value for {a}")
+            i += 2
+            continue
+        print(f"usage: keyd-appmap --uid UID [--overlays FILE] [--keyd PATH] [--runtime-dir DIR] [--poll SECONDS] [--once | --print-state]",
+              file=sys.stderr)
+        sys.exit(2)
+    if args["uid"] is None:
+        print("keyd-appmap: --uid is required", file=sys.stderr)
+        sys.exit(2)
+    args["runtime_dir"] = args["runtime_dir"] or f"/run/user/{args['uid']}"
+    return args
+
+
+def main(argv):
+    args = parse_args(argv)
+    if args["mode"] == "print-state":
+        inst = find_instance(args["runtime_dir"], args["uid"])
+        print(classify(query_active(inst[0])) if inst else "app")
+        return 0
+    try:
+        overlays = load_overlays(args["overlays"])
+    except (OSError, ValueError) as e:
+        log(f"cannot use {args['overlays']}: {e}")
+        return 1
+    if args["mode"] == "once":
+        inst = find_instance(args["runtime_dir"], args["uid"])
+        if not inst:
+            log("no Hyprland session found")
+            return 1
+        state = classify(query_active(inst[0]))
+        print(state)
+        return 0 if Applier(args["keyd"], overlays).apply(state) else 1
+    return serve(args, overlays)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

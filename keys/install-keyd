@@ -1,0 +1,152 @@
+#!/bin/bash
+# install-keyd: the Mac command layer for the keyboard, built on keyd. Needs root, so run it yourself:
+#
+#     sudo ~/labspace/omarchy-kit/keys/install-keyd [--caps-delay MS]     install (MS = how long Caps Lock must be pressed, default 150; 0 = no delay)
+#     ~/labspace/omarchy-kit/keys/install-keyd --dry-run                  preview every step and the configuration, no sudo needed
+#     sudo ~/labspace/omarchy-kit/keys/install-keyd --remove              undo
+#
+# What changes: the LEFT Command key acts as Ctrl for every shortcut in every app (so Cmd+C, Cmd+T, Cmd+click, Cmd+scroll all work), a few
+# Mac system chords (Cmd+Space, Cmd+Tab, Cmd+Q ...) become Super chords for Hyprland, Option+arrows move by words, and Caps Lock needs a
+# deliberate press like on a Mac. What does NOT change: Ctrl, Option, the RIGHT Command key (still Super: every Omarchy shortcut keeps
+# working on it), keyboards that are not Apple's, and the trackpad. A terminal never receives Cmd as Ctrl+letter (Cmd+C copies, it does not
+# interrupt): keyd-appmap, a small root service, watches which window has the focus and switches the overlay.
+#
+# IF THE KEYBOARD EVER MISBEHAVES: press Backspace + Escape + Enter together. keyd quits at once and the keyboard is back to normal.
+#
+# It installs the keyd package (pacman), checks the configuration with keyd's own checker before activating anything, refuses if another
+# keyd configuration exists, then writes root-owned files: /etc/keyd/omarchy-kit-mac.conf, /etc/omarchy-kit/keyd-overlays.json,
+# /usr/local/libexec/omarchy-kit/keyd-appmap and the unit omarchy-kit-keyd-appmap.service. Undo removes all of them and stops keyd
+# (the keyd package stays: sudo pacman -Rns keyd removes it).
+set -euo pipefail
+usage() { echo "usage: $(basename "$0") [--dry-run] [--remove] [--caps-delay MS]   (--help for details)" >&2; }
+DRY=0; MODE=install; CAPS=150
+while (($#)); do
+  case $1 in
+    --dry-run) DRY=1 ;;
+    --remove) MODE=remove ;;
+    --caps-delay) shift; [[ ${1:-} =~ ^[0-9]+$ ]] && ((10#$1 <= 1000)) || { echo "--caps-delay takes a number of milliseconds, 0 to 1000" >&2; usage; exit 2; }; CAPS=$((10#$1)) ;;
+    -h | --help) sed -n '2,/^[^#]/{/^#/s/^# \{0,1\}//p}' "$0"; exit 0 ;;
+    *) usage; exit 2 ;;
+  esac
+  shift
+done
+
+HERE=$(dirname "$(readlink -f "$0")")
+CONF=/etc/keyd/omarchy-kit-mac.conf
+OVERLAYS=/etc/omarchy-kit/keyd-overlays.json
+HELPER=/usr/local/libexec/omarchy-kit/keyd-appmap
+SERVICE=omarchy-kit-keyd-appmap.service
+UNIT=/etc/systemd/system/$SERVICE
+DEVICES=${KEYD_KIT_DEVICES:-/proc/bus/input/devices}   # test hook: a stand-in for the kernel's device list
+
+run() { if ((DRY)); then echo "+ $*"; else "$@"; fi; }
+((DRY)) || [[ $EUID -eq 0 ]] || { echo "needs root: sudo $0 $*   (or --dry-run to preview)" >&2; exit 1; }
+
+if [[ $MODE == remove ]]; then
+  run systemctl disable --now "$SERVICE" 2>/dev/null || true
+  run rm -f "$UNIT" "$HELPER" "$OVERLAYS" "$CONF"
+  run rmdir /usr/local/libexec/omarchy-kit /etc/omarchy-kit 2>/dev/null || true
+  run systemctl daemon-reload
+  # keyd goes too unless someone else keeps a configuration in /etc/keyd
+  others=$(find /etc/keyd -maxdepth 1 -name '*.conf' 2>/dev/null | grep -vxF "$CONF" || true)
+  if [[ -z $others ]]; then run systemctl disable --now keyd.service 2>/dev/null || true
+  else run keyd reload || true; fi
+  ((DRY)) && { echo "(dry run: nothing was changed)"; exit 0; }
+  echo "removed: left Command is Super again. The keyd package stays installed (sudo pacman -Rns keyd removes it)."
+  exit 0
+fi
+
+# ---- who owns the session (keyd-appmap reads this user's Hyprland sockets)
+if [[ -n ${SUDO_UID:-} ]]; then OWNER=$SUDO_UID; elif ((DRY)); then OWNER=$(id -u); else OWNER=""; fi
+[[ $OWNER =~ ^[0-9]+$ ]] && ((OWNER > 0)) || { echo "run it with sudo from your own account (SUDO_UID is missing), not from a root shell" >&2; exit 1; }
+
+# ---- which keyboards
+IDS=$(python3 -I "$HERE/keyd-config" detect "$DEVICES" || true)
+[[ -n $IDS ]] || { echo "no Apple keyboard found in $DEVICES: nothing to remap, nothing changed" >&2; exit 1; }
+IDS_CSV=$(tr '\n' ',' <<<"$IDS"); IDS_CSV=${IDS_CSV%,}
+echo "keyboards to remap: $(tr '\n' ' ' <<<"$IDS")"
+
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+python3 -I "$HERE/keyd-config" conf --ids "$IDS_CSV" --caps-delay "$CAPS" >"$TMP/mac.conf"
+python3 -I "$HERE/keyd-config" overlays >"$TMP/overlays.json"
+
+# ---- refuse before changing anything if another keyd configuration could claim the same keyboard
+others=$(find /etc/keyd -maxdepth 1 -name '*.conf' 2>/dev/null | grep -vxF "$CONF" || true)
+[[ -z $others ]] || { echo "another keyd configuration exists, and a keyboard can be in only one file: $(tr '\n' ' ' <<<"$others")" >&2
+                      echo "merge or move it, then run this again. Nothing was changed." >&2; exit 1; }
+
+# ---- keyd itself, then keyd's own checker, before anything is activated
+command -v keyd >/dev/null 2>&1 || run pacman -S --needed --noconfirm keyd
+if command -v keyd >/dev/null 2>&1; then
+  keyd check "$TMP/mac.conf" >/dev/null || { echo "keyd rejected the configuration (keyd check); nothing was activated" >&2; keyd check "$TMP/mac.conf" >&2 || true; exit 1; }
+  echo "keyd check: the configuration is valid"
+else
+  echo "(keyd is not installed yet, so its own check runs after pacman installs it)"
+fi
+
+# ---- the files (root-owned: the helper runs as root, so the copy that runs must not be one the user can edit)
+run install -Dm644 "$TMP/mac.conf" "$CONF"
+run install -Dm644 "$TMP/overlays.json" "$OVERLAYS"
+run install -Dm755 "$HERE/keyd-appmap" "$HELPER"
+if ((DRY)); then
+  echo "+ write $UNIT (ExecStart=/usr/bin/python3 -I $HELPER --uid $OWNER)"
+else
+  cat >"$UNIT" <<UNITFILE
+[Unit]
+Description=Omarchy Kit: Mac command-key overlays for keyd (terminals versus apps)
+After=keyd.service
+Requires=keyd.service
+PartOf=keyd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 -I $HELPER --uid $OWNER
+ExecStopPost=-/usr/bin/keyd bind reset
+Restart=always
+RestartSec=2
+# It runs as root only to reach keyd's socket and the session's Hyprland sockets, so it keeps just the two capabilities that needs
+# (reading a 0700 runtime directory) and a closed-in sandbox: no network, no home directories, nothing writable.
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_DAC_READ_SEARCH
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
+UNITFILE
+  chmod 644 "$UNIT"
+fi
+
+# ---- start: keyd first (it reads the new file), then the helper
+run systemctl daemon-reload
+run systemctl enable keyd.service "$SERVICE"
+if ((DRY)); then echo "+ systemctl start keyd (or: keyd reload, if it is already running)"
+elif systemctl is-active --quiet keyd.service; then keyd reload
+else systemctl start keyd.service; fi
+run systemctl restart "$SERVICE"
+echo
+if ((DRY)); then
+  echo "(dry run: nothing was changed. The configuration that would be written to $CONF:)"
+  echo
+  cat "$TMP/mac.conf"
+  exit 0
+fi
+systemctl is-active --quiet keyd.service || { echo "keyd did not start: see  journalctl -u keyd -e   (your keyboard keeps working as before)" >&2; exit 1; }
+echo "Done. Left Command is now Ctrl in apps; the right Command key is still Super."
+echo "If the keyboard ever misbehaves: Backspace + Escape + Enter together stops keyd."
+echo "Check:  systemctl status keyd $SERVICE   ·   undo: sudo $0 --remove"
