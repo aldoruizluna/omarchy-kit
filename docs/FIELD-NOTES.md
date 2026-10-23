@@ -23,6 +23,11 @@ recorded. If you are a person or an assistant about to change something on this 
 * **Do not remove or rescan PCI devices** (`/sys/bus/pci/.../remove`, `/sys/bus/pci/rescan`): the rescan crashed the kernel. Docs: SLEEP.md.
 * **Do not unload the `thunderbolt` driver while its idle controller may runtime-sleep.** It could not be woken again and vanished from
   the PCI bus until reboot.
+* **Do not run `keyd reload` (keyd 2.6.0).** `reload()` frees every keyboard but the daemon keeps a pointer to one, and keyd dies with a SIGSEGV a second or two later,
+  leaving the keyboard stock. Restart it instead (`sudo systemctl restart keyd`); `keys/install-keyd` does, and a test guards it.
+* **Do not "disable" an SDDM setting by renaming its file inside `/etc/sddm.conf.d`.** SDDM reads every file in that folder whatever its name, so
+  `autologin.conf.disabled` kept auto-login on for two boots. Move the file out of the folder (`login/install-login` does) and read the effective
+  setting back with `login/sddm_conf.py get Autologin User`.
 * **Do not trust timestamps that span a sleep** (kernel, monotonic and journald clocks disagree).
 * **Do not use `journalctl -k` for history**: it implies the current boot. Match `_TRANSPORT=kernel`.
 
@@ -81,6 +86,10 @@ recorded. If you are a person or an assistant about to change something on this 
 ## The keyboard
 
 * **keyd 2.6.0 matched and grabbed the trackpad although the config used the keyboard-only id (`k:05ac:0262`).** The Apple keyboard and the `bcm5974` trackpad share one vendor and product id; the journal said "appears to be a trackpad ... Mouse movement is likely to break" and `DEVICE: match ... (bcm5974)`. Tested only with fakes before the install, this was found by reading `journalctl -u keyd` right after. List the keyboard by its full three-part id (`keys/keyd-config detect` computes it: keyd's hash is djb2 over the key count, the first byte of the ABS and REL masks and the name, and matches the journal for seven devices here), and read the journal first: `install-keyd` now does, and undoes itself if keyd grabbed anything else. keyd also logs the trackpad warning for an *unmatched* trackpad, so test for `DEVICE: match` lines, not for the warning.
+* **`ProtectHome=yes` also hides `/run/user`.** A root helper that must reach the session's sockets (Hyprland's, under `/run/user/UID/hypr`) cannot use it: `keyd-appmap` sat
+  "waiting for a Hyprland session" for hours and no terminal rule ever ran. Use `InaccessiblePaths=/home /root`. To see whether a root helper is really attached,
+  count the clients of Hyprland's event socket: `ss -xapn | grep socket2.sock | grep -c ESTAB` (a root client shows no name). To try a unit's filesystem rules
+  without root: `systemd-run --user --wait --pipe -p ProtectHome=yes /usr/bin/ls /run/user/$UID`.
 * **The two ⌘ keys must behave alike.** A layer where the left ⌘ is Ctrl and the right ⌘ is Super was installed and rejected by the owner within minutes. Symmetry first; an asymmetric key is not a trade-off to propose.
 * **keyd's panic keys (Backspace + Escape + Enter) stop it until the next boot**: the unit has no restart policy. `install-keyd --remove` is the permanent undo and disables the service; the package stays.
 

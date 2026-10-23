@@ -84,11 +84,11 @@ recomputed in Python from `/proc/bus/input/devices` and checked against the ids 
 Omarchy's Super shortcuts, which are reached through Mac chords instead (⌃←/→ and ⌃1…0 for Spaces, ⌃↑/↓ for Mission Control and App Exposé, ⌃⌥ with the arrows to focus a window, ⌥⌘Space for Omarchy's menu, ⇧⌘Q for the system menu, ⌥⌘W to close a window); [keys/README](../keys/README.md) lists what that costs.
 
 `keys/install-keyd` (one sudo command; `--dry-run` previews it) makes **both ⌘ keys act as Ctrl for every key in every app**, so every shortcut, ⌘-click and ⌘-scroll work, which the Hyprland
-binds above cannot do. Mac system chords (⌘Space, ⌘Tab, ⌘`, ⌘Q, ⌘H, ⌘M, ⇧⌘3/4/5, ⌃⌘Q, ⌃⌘Space, ⌃⌘F) reach Hyprland as Super chords; ⌘←/→ are Home/End, ⌘⌫ deletes to the start of the line and ⌥←/→ move by words; Caps Lock needs a
-deliberate 150 ms press. A terminal never receives ⌘ as Ctrl+letter: a small root service, `keyd-appmap`, reads Hyprland's terminal tag and switches the overlay (⌘C copies, ⌘D and ⌘Z do nothing).
+binds above cannot do. Mac system chords (⌘Space, ⌘Tab, ⌘`, ⌘Q, ⌘H, ⌘M, ⌘Enter, ⇧⌘3/4/5, ⌃⌘Q, ⌃⌘Space, ⌃⌘F) reach Hyprland as Super chords; ⌘←/→ are Home/End, ⌘⌫ deletes to the start of the line and ⌥←/→ move by words; Caps Lock needs a
+deliberate 150 ms press. A terminal never receives ⌘ as Ctrl+letter: a small root service, `keyd-appmap`, reads Hyprland's terminal tag and switches the overlay (⌘C copies, ⌘D and ⌘Z do nothing, ⌘W closes the window, ⌘N and ⌘T open a terminal).
 Option, other keyboards and the trackpad are untouched, and so is Ctrl except for the arrow and digit chords above.
 
-- **The price.** Neither ⌘ key starts Omarchy's Super+Return or Super+Shift+letter launchers any more; use the Dock, ⌘Space, ⌥⌘Space (Omarchy's menu) or the Mac chords; the full list is in [keys/README](../keys/README.md).
+- **The price.** Neither ⌘ key starts Omarchy's Super+Shift+letter launchers any more; use the Dock, ⌘Space, ⌥⌘Space (Omarchy's menu) or the Mac chords. The one Super+Return that stays is on ⌘Enter, which opens a terminal in any app (physical Ctrl+Enter still reaches the app, so "send" in mail and chat is unaffected); the full list is in [keys/README](../keys/README.md).
 - **Safety.** If the keyboard ever misbehaves, Backspace + Escape + Enter together make keyd quit. The installer runs keyd's own checker before activating anything, refuses if another keyd configuration exists,
   and is undone by `sudo keys/install-keyd --remove`. If the service is down, ⌘C and ⌘V fall back to Ctrl+Insert and Shift+Insert, which terminals accept.
 - **Why not the keyd group.** It would make every process in your session root-equivalent; the service runs as root instead, sandboxed.
