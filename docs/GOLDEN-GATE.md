@@ -1,7 +1,7 @@
 # Golden Gate on this MacBook Pro: what matches, what does not
 
 > **TL;DR.** A row-by-row comparison of macOS 27 "Golden Gate" with this desktop, and of how a MacBook Pro behaves with how this one (a 15" Mid 2014, MacBookPro11,3) now does. Each row says **done**, **partial**, **not done** or
-> **impossible** and why, so nothing is claimed that was not measured. The look is a matter of two themes (Golden Gate and Golden Gate Night), the Dock, the menu bar and Mission Control; the keyboard layer is prepared and waits for a password. Be clear
+> **impossible** and why, so nothing is claimed that was not measured. The look is a matter of two themes (Golden Gate and Golden Gate Night), the Dock, the menu bar and Mission Control; the keyboard layer that makes ⌘ act as Ctrl everywhere was tried and removed (see below). Be clear
 > about one thing first: Apple's own list ends at macOS Big Sur for this model, so this is an imitation of Golden Gate, never the real thing.
 
 Related: [MAC-FEEL](MAC-FEEL.md) · [THEMES](THEMES.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [look/README](../look/README.md) · [keys/README](../keys/README.md) · [INDEX](INDEX.md)
@@ -66,10 +66,10 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 | F1 and F2 brightness, F5 and F6 keyboard backlight, F7 to F9 media, F10 to F12 mute and volume | bound by Omarchy; brightness and backlight move in 5 % and 10 % steps, not the 16 steps of a Mac | done |
 | F3 Mission Control, F4 Launchpad | F3 opens Mission Control, F4 the Apps menu (both did nothing before; checked as bound, not with a real press) | done |
 | Eject key | this model most likely has none (Apple's spec lists 78 keys and names no Eject); Omarchy binds `XF86Eject` anyway | n/a |
-| Command is the shortcut key; Option and Control as on a Mac | ⌘ shortcuts through Hyprland binds today; the keyd layer that makes left ⌘ act as Ctrl in every app is built and tested but **not installed** (it needs your password) | partial |
-| Command and Option arrows move to line start, word | in the keyd layer (not installed) | partial |
+| Command is the shortcut key; Option and Control as on a Mac | ⌘ shortcuts through Hyprland binds, the same on both ⌘ keys. A keyd layer that makes ⌘ act as Ctrl in every app was **tried on 2026-10-23 and removed**: it made the left and right ⌘ differ and grabbed the trackpad | partial |
+| Command and Option arrows move to line start, word | not built (it was part of the removed keyd layer) | not done |
 | Control-A, E, K, F, B, P, N as text-editing keys in every field | not built | not done |
-| Caps Lock needs a deliberate press and lights up after | a real Caps Lock now (Compose removed); the press delay arrives with the keyd layer | partial |
+| Caps Lock needs a deliberate press and lights up after | a real Caps Lock now (Compose removed); no press delay (that came with the removed keyd layer) | partial |
 | Fn+Return is Enter, Fn+Delete forward delete, Fn+arrows Home, End, Page Up and Down | the kernel table maps Fn+Return to Insert; the others are expected from `hid_apple` and not checked | not done |
 | Holding a letter opens the accent picker | no general equivalent; right Option types accents instead | impossible |
 | Key repeat | Omarchy's fast repeat (40 per second after 250 ms) is kept; a Mac's slower default is a taste, not a fix | not done |
@@ -89,7 +89,7 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 
 ## Do next, in the order that matters
 
-1. **Run the keyboard layer** (`sudo keys/install-keyd`, preview with `--dry-run`): it turns the ⌘ rows above from partial to done.
+1. **Decide about a Ctrl-like ⌘** (⌘-click, ⌘-scroll, every shortcut): it needs the keyd layer redone with both ⌘ keys identical and the trackpad excluded; it is not installed.
 2. **Press the real keys once** (⌘Tab, F3, F4, Super+Q in the switcher, a log out and in): the tests could send neither the chords nor mouse clicks.
 3. **Decide on blur** (`look/mac-glass on`): the real Liquid Glass look costs the GPU time measured above.
 4. Pick a theme: `omarchy theme set "Golden Gate"` or `"Golden Gate Night"`; `omarchy theme set "Mecha Unit"` returns.

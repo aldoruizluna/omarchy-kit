@@ -1,6 +1,6 @@
 # Making Omarchy feel like a Mac
 
-> **TL;DR.** Everything the kit changes so a macOS user feels at home: right-Option accents, a real Caps Lock, ⌘ shortcuts in apps (and, prepared, ⌘ as Ctrl everywhere), the macOS icons and pointer, a Dock, a ⌘Tab app switcher, Mission Control, a Mac menu bar, the Golden Gate themes, three-finger behaviour, the power profile following the charger, a menu-bar clock with the date, Auto appearance, working sleep and hibernate, Wi-Fi saving and six themes. Each row says where it lives, how it was verified and how to undo it; the decisions that still wait for a person follow.
+> **TL;DR.** Everything the kit changes so a macOS user feels at home: right-Option accents, a real Caps Lock, ⌘ shortcuts in apps (⌘ as Ctrl everywhere was tried and removed), the macOS icons and pointer, a Dock, a ⌘Tab app switcher, Mission Control, a Mac menu bar, the Golden Gate themes, three-finger behaviour, the power profile following the charger, a menu-bar clock with the date, Auto appearance, working sleep and hibernate, Wi-Fi saving and six themes. Each row says where it lives, how it was verified and how to undo it; the decisions that still wait for a person follow.
 
 Related: [GOLDEN-GATE](GOLDEN-GATE.md) · [look/README](../look/README.md) · [keys/README](../keys/README.md) · [icons/README](../icons/README.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)
 
@@ -49,7 +49,7 @@ Everything is reversible and logged, with its undo command, on the Setup log pag
   snapshots and installs Pika Backup. Snapshots on the same disk undo mistakes, not a dead disk, so also point Pika
   Backup at an external drive.
 - **Try the real keys** for the Dock and switcher (a real keyboard is needed; the tests could only send virtual keys): hold ⌘ and press Tab a few times, then let go; Super+Q with the switcher open; F3, F4, Super+Ctrl+Up and Down and a four-finger swipe up; log out and in to see the Dock start by itself; click, right-click and drag over the Dock and the menu bar titles. What to expect is in [dock/README](../dock/README.md) and [menubar/README](../menubar/README.md).
-- **Decide whether ⌘ should be Ctrl everywhere** (needs a password; prepared and tested, not installed): `sudo keys/install-keyd`, preview with `--dry-run`. See the section below.
+- **Decide whether you still want ⌘ as Ctrl everywhere** (tried and removed on 2026-10-23; see the section below). Today both ⌘ keys are Super.
 - **A decision about ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P**, below (not needed if you install the keyd layer: they are plain Ctrl in apps then).
 - Optional: turn on Auto appearance (`auto-appearance on`).
 
@@ -73,7 +73,12 @@ keeps its Omarchy meaning; and the Omarchy action stays reachable in every windo
 less (a four-finger swipe down still toggles the scratchpad). L, G and P are rarer on both sides, so leave them until
 they are missed.
 
-## Prepared: the ⌘ key as Ctrl everywhere (keyd)
+## Tried and removed: the ⌘ key as Ctrl everywhere (keyd)
+
+**Outcome (2026-10-23).** `keys/install-keyd` was installed and removed the same day. The left ⌘ became Ctrl while the right ⌘ stayed Super, and the owner wanted both ⌘ keys to behave alike, as the two Ctrl keys do. And keyd's own log showed that it
+had **matched and grabbed the Apple trackpad** (`bcm5974`) although the config used the keyboard-only `k:` id; keyd warned that mouse movement was likely to break, and pointer behaviour was not tested before the removal. Both ⌘ keys are Super again and nothing of the layer remains
+(the `keyd` package is still installed, disabled, with no configuration). Lesson: the daemon's device matching could only be tested with fakes before the install; any redo must exclude the trackpad by its full id, make both ⌘ keys identical and be checked in `journalctl -u keyd`.
+What follows describes the design as it was prepared.
 
 `keys/install-keyd` (one sudo command; `--dry-run` previews it) makes the **left ⌘ key act as Ctrl for every key in every app**, so every shortcut, ⌘-click and ⌘-scroll work, which the Hyprland
 binds above cannot do. Mac system chords (⌘Space, ⌘Tab, ⌘`, ⌘Q, ⌘H, ⌘M, ⇧⌘3/4/5, ⌃⌘Q, ⌃⌘Space, ⌃⌘F) reach Hyprland as Super chords; ⌘←/→ are Home/End and ⌥←/→ move by words; Caps Lock needs a

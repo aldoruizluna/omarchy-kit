@@ -78,6 +78,12 @@ recorded. If you are a person or an assistant about to change something on this 
 * **A theme can override one section of the shell's settings** by shipping `shell.<section>.toml` (a whole section replaces the generated one, missing keys fall back to defaults), and its `hyprland.lua` sets `decoration.rounding`, which the shell mirrors for every popup, menu and notification.
 * **Measure blur on the GPU clock, not the CPU.** `/sys/class/drm/card1/gt_act_freq_mhz` is readable without root; the package energy counter is not.
 
+## The keyboard
+
+* **keyd 2.6.0 matched and grabbed the trackpad although the config used the keyboard-only id (`k:05ac:0262`).** The Apple keyboard and the `bcm5974` trackpad share one vendor and product id; the journal said "appears to be a trackpad ... Mouse movement is likely to break" and `DEVICE: match ... (bcm5974)`. Tested only with fakes before the install, this was found by reading `journalctl -u keyd` right after. Exclude a device by its full three-part id and read the journal first.
+* **The two ⌘ keys must behave alike.** A layer where the left ⌘ is Ctrl and the right ⌘ is Super was installed and rejected by the owner within minutes. Symmetry first; an asymmetric key is not a trade-off to propose.
+* **keyd's panic keys (Backspace + Escape + Enter) stop it until the next boot**: the unit has no restart policy. `install-keyd --remove` is the permanent undo and disables the service; the package stays.
+
 ## Working in the `!` prompt
 
 * **Only the first `sudo` in a `&&` chain runs.** Use one `sudo bash -c '...'` per step batch, or a script run with `sudo`.

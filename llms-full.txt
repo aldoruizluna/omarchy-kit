@@ -147,7 +147,7 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
   dark at night, switching only when the period changes so a hand-picked theme sticks.
 - **Opt-in ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P** (`keys/mac-key-extras`): Omarchy already uses those Super keys, so you choose key by key;
   terminals always keep the Omarchy meaning.
-- **The ⌘ key as Ctrl everywhere** (`keys/install-keyd`, needs sudo, off until you install it): the left ⌘ key acts as Ctrl
+- **The ⌘ key as Ctrl everywhere** (`keys/install-keyd`; **tried on 2026-10-23 and removed**: it made the left and right ⌘ differ and keyd grabbed the trackpad, see [keys/README](keys/README.md); not installed): the left ⌘ key acts as Ctrl
   for every shortcut in every app (so ⌘C, ⌘T, ⌘-click and ⌘-scroll just work), ⌘Space, ⌘Tab, ⌘Q, ⌘H, ⌘M, ⇧⌘3/4/5 become Super
   chords for Hyprland, ⌘←/→ are Home/End and ⌥←/→ move by words. A terminal never gets ⌘ as Ctrl+letter (⌘C copies, it does not
   interrupt). The right ⌘ key stays Super for Omarchy's own shortcuts. Preview with `--dry-run`; if the keyboard misbehaves,
@@ -944,6 +944,12 @@ recorded. If you are a person or an assistant about to change something on this 
 * **A theme can override one section of the shell's settings** by shipping `shell.<section>.toml` (a whole section replaces the generated one, missing keys fall back to defaults), and its `hyprland.lua` sets `decoration.rounding`, which the shell mirrors for every popup, menu and notification.
 * **Measure blur on the GPU clock, not the CPU.** `/sys/class/drm/card1/gt_act_freq_mhz` is readable without root; the package energy counter is not.
 
+## The keyboard
+
+* **keyd 2.6.0 matched and grabbed the trackpad although the config used the keyboard-only id (`k:05ac:0262`).** The Apple keyboard and the `bcm5974` trackpad share one vendor and product id; the journal said "appears to be a trackpad ... Mouse movement is likely to break" and `DEVICE: match ... (bcm5974)`. Tested only with fakes before the install, this was found by reading `journalctl -u keyd` right after. Exclude a device by its full three-part id and read the journal first.
+* **The two ⌘ keys must behave alike.** A layer where the left ⌘ is Ctrl and the right ⌘ is Super was installed and rejected by the owner within minutes. Symmetry first; an asymmetric key is not a trade-off to propose.
+* **keyd's panic keys (Backspace + Escape + Enter) stop it until the next boot**: the unit has no restart policy. `install-keyd --remove` is the permanent undo and disables the service; the package stays.
+
 ## Working in the `!` prompt
 
 * **Only the first `sudo` in a `&&` chain runs.** Use one `sudo bash -c '...'` per step batch, or a script run with `sudo`.
@@ -1398,7 +1404,7 @@ FILE: docs/MAC-FEEL.md  (Mac feel)
 
 # Making Omarchy feel like a Mac
 
-> **TL;DR.** Everything the kit changes so a macOS user feels at home: right-Option accents, a real Caps Lock, ⌘ shortcuts in apps (and, prepared, ⌘ as Ctrl everywhere), the macOS icons and pointer, a Dock, a ⌘Tab app switcher, Mission Control, a Mac menu bar, the Golden Gate themes, three-finger behaviour, the power profile following the charger, a menu-bar clock with the date, Auto appearance, working sleep and hibernate, Wi-Fi saving and six themes. Each row says where it lives, how it was verified and how to undo it; the decisions that still wait for a person follow.
+> **TL;DR.** Everything the kit changes so a macOS user feels at home: right-Option accents, a real Caps Lock, ⌘ shortcuts in apps (⌘ as Ctrl everywhere was tried and removed), the macOS icons and pointer, a Dock, a ⌘Tab app switcher, Mission Control, a Mac menu bar, the Golden Gate themes, three-finger behaviour, the power profile following the charger, a menu-bar clock with the date, Auto appearance, working sleep and hibernate, Wi-Fi saving and six themes. Each row says where it lives, how it was verified and how to undo it; the decisions that still wait for a person follow.
 
 Related: [GOLDEN-GATE](GOLDEN-GATE.md) · [look/README](../look/README.md) · [keys/README](../keys/README.md) · [icons/README](../icons/README.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [trackpad/README](../trackpad/README.md) · [appearance/README](../appearance/README.md) · [SLEEP](SLEEP.md) · [THEMES](THEMES.md) · [INDEX](INDEX.md)
 
@@ -1447,7 +1453,7 @@ Everything is reversible and logged, with its undo command, on the Setup log pag
   snapshots and installs Pika Backup. Snapshots on the same disk undo mistakes, not a dead disk, so also point Pika
   Backup at an external drive.
 - **Try the real keys** for the Dock and switcher (a real keyboard is needed; the tests could only send virtual keys): hold ⌘ and press Tab a few times, then let go; Super+Q with the switcher open; F3, F4, Super+Ctrl+Up and Down and a four-finger swipe up; log out and in to see the Dock start by itself; click, right-click and drag over the Dock and the menu bar titles. What to expect is in [dock/README](../dock/README.md) and [menubar/README](../menubar/README.md).
-- **Decide whether ⌘ should be Ctrl everywhere** (needs a password; prepared and tested, not installed): `sudo keys/install-keyd`, preview with `--dry-run`. See the section below.
+- **Decide whether you still want ⌘ as Ctrl everywhere** (tried and removed on 2026-10-23; see the section below). Today both ⌘ keys are Super.
 - **A decision about ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P**, below (not needed if you install the keyd layer: they are plain Ctrl in apps then).
 - Optional: turn on Auto appearance (`auto-appearance on`).
 
@@ -1471,7 +1477,12 @@ keeps its Omarchy meaning; and the Omarchy action stays reachable in every windo
 less (a four-finger swipe down still toggles the scratchpad). L, G and P are rarer on both sides, so leave them until
 they are missed.
 
-## Prepared: the ⌘ key as Ctrl everywhere (keyd)
+## Tried and removed: the ⌘ key as Ctrl everywhere (keyd)
+
+**Outcome (2026-10-23).** `keys/install-keyd` was installed and removed the same day. The left ⌘ became Ctrl while the right ⌘ stayed Super, and the owner wanted both ⌘ keys to behave alike, as the two Ctrl keys do. And keyd's own log showed that it
+had **matched and grabbed the Apple trackpad** (`bcm5974`) although the config used the keyboard-only `k:` id; keyd warned that mouse movement was likely to break, and pointer behaviour was not tested before the removal. Both ⌘ keys are Super again and nothing of the layer remains
+(the `keyd` package is still installed, disabled, with no configuration). Lesson: the daemon's device matching could only be tested with fakes before the install; any redo must exclude the trackpad by its full id, make both ⌘ keys identical and be checked in `journalctl -u keyd`.
+What follows describes the design as it was prepared.
 
 `keys/install-keyd` (one sudo command; `--dry-run` previews it) makes the **left ⌘ key act as Ctrl for every key in every app**, so every shortcut, ⌘-click and ⌘-scroll work, which the Hyprland
 binds above cannot do. Mac system chords (⌘Space, ⌘Tab, ⌘`, ⌘Q, ⌘H, ⌘M, ⇧⌘3/4/5, ⌃⌘Q, ⌃⌘Space, ⌃⌘F) reach Hyprland as Super chords; ⌘←/→ are Home/End and ⌥←/→ move by words; Caps Lock needs a
@@ -1546,6 +1557,10 @@ FILE: keys/README.md  (keys/ scripts)
 > (needs sudo) goes all the way: the left ⌘ key acts as Ctrl for every key in every app, ⌘Tab, ⌘Space and ⌘Q reach Hyprland as Super chords, a terminal never receives ⌘ as
 > Ctrl+letter, and the right ⌘ key stays Super for Omarchy's own shortcuts. `caps-lock` makes Caps Lock a real Caps Lock. If the keyboard ever misbehaves under keyd,
 > press **Backspace + Escape + Enter** together and keyd quits.
+
+> **Status (2026-10-23): `install-keyd` was tried and removed; do not install it as it is.** On the real laptop it made the left ⌘ act as Ctrl while the right ⌘ stayed Super, which the owner rejected (both ⌘ keys must behave alike,
+> as the two Ctrl keys do), and keyd's log showed it had matched and **grabbed the Apple trackpad** (`bcm5974`) despite the keyboard-only `k:` id. A redo needs both ⌘ keys identical and the trackpad excluded by its full id, and must be checked
+> in `journalctl -u keyd` before it is called done. `caps-lock` and `mackeys.lua` are unaffected and in use.
 
 | Script | What | Undo |
 |---|---|---|
@@ -1959,7 +1974,7 @@ FILE: docs/GOLDEN-GATE.md  (Golden Gate parity)
 # Golden Gate on this MacBook Pro: what matches, what does not
 
 > **TL;DR.** A row-by-row comparison of macOS 27 "Golden Gate" with this desktop, and of how a MacBook Pro behaves with how this one (a 15" Mid 2014, MacBookPro11,3) now does. Each row says **done**, **partial**, **not done** or
-> **impossible** and why, so nothing is claimed that was not measured. The look is a matter of two themes (Golden Gate and Golden Gate Night), the Dock, the menu bar and Mission Control; the keyboard layer is prepared and waits for a password. Be clear
+> **impossible** and why, so nothing is claimed that was not measured. The look is a matter of two themes (Golden Gate and Golden Gate Night), the Dock, the menu bar and Mission Control; the keyboard layer that makes ⌘ act as Ctrl everywhere was tried and removed (see below). Be clear
 > about one thing first: Apple's own list ends at macOS Big Sur for this model, so this is an imitation of Golden Gate, never the real thing.
 
 Related: [MAC-FEEL](MAC-FEEL.md) · [THEMES](THEMES.md) · [dock/README](../dock/README.md) · [menubar/README](../menubar/README.md) · [look/README](../look/README.md) · [keys/README](../keys/README.md) · [INDEX](INDEX.md)
@@ -2024,10 +2039,10 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 | F1 and F2 brightness, F5 and F6 keyboard backlight, F7 to F9 media, F10 to F12 mute and volume | bound by Omarchy; brightness and backlight move in 5 % and 10 % steps, not the 16 steps of a Mac | done |
 | F3 Mission Control, F4 Launchpad | F3 opens Mission Control, F4 the Apps menu (both did nothing before; checked as bound, not with a real press) | done |
 | Eject key | this model most likely has none (Apple's spec lists 78 keys and names no Eject); Omarchy binds `XF86Eject` anyway | n/a |
-| Command is the shortcut key; Option and Control as on a Mac | ⌘ shortcuts through Hyprland binds today; the keyd layer that makes left ⌘ act as Ctrl in every app is built and tested but **not installed** (it needs your password) | partial |
-| Command and Option arrows move to line start, word | in the keyd layer (not installed) | partial |
+| Command is the shortcut key; Option and Control as on a Mac | ⌘ shortcuts through Hyprland binds, the same on both ⌘ keys. A keyd layer that makes ⌘ act as Ctrl in every app was **tried on 2026-10-23 and removed**: it made the left and right ⌘ differ and grabbed the trackpad | partial |
+| Command and Option arrows move to line start, word | not built (it was part of the removed keyd layer) | not done |
 | Control-A, E, K, F, B, P, N as text-editing keys in every field | not built | not done |
-| Caps Lock needs a deliberate press and lights up after | a real Caps Lock now (Compose removed); the press delay arrives with the keyd layer | partial |
+| Caps Lock needs a deliberate press and lights up after | a real Caps Lock now (Compose removed); no press delay (that came with the removed keyd layer) | partial |
 | Fn+Return is Enter, Fn+Delete forward delete, Fn+arrows Home, End, Page Up and Down | the kernel table maps Fn+Return to Insert; the others are expected from `hid_apple` and not checked | not done |
 | Holding a letter opens the accent picker | no general equivalent; right Option types accents instead | impossible |
 | Key repeat | Omarchy's fast repeat (40 per second after 250 ms) is kept; a Mac's slower default is a taste, not a fix | not done |
@@ -2047,7 +2062,7 @@ Legend: **done** = built and checked on this desktop (how is in [MAC-FEEL](MAC-F
 
 ## Do next, in the order that matters
 
-1. **Run the keyboard layer** (`sudo keys/install-keyd`, preview with `--dry-run`): it turns the ⌘ rows above from partial to done.
+1. **Decide about a Ctrl-like ⌘** (⌘-click, ⌘-scroll, every shortcut): it needs the keyd layer redone with both ⌘ keys identical and the trackpad excluded; it is not installed.
 2. **Press the real keys once** (⌘Tab, F3, F4, Super+Q in the switcher, a log out and in): the tests could send neither the chords nor mouse clicks.
 3. **Decide on blur** (`look/mac-glass on`): the real Liquid Glass look costs the GPU time measured above.
 4. Pick a theme: `omarchy theme set "Golden Gate"` or `"Golden Gate Night"`; `omarchy theme set "Mecha Unit"` returns.

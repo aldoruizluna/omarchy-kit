@@ -5,6 +5,10 @@
 > Ctrl+letter, and the right ⌘ key stays Super for Omarchy's own shortcuts. `caps-lock` makes Caps Lock a real Caps Lock. If the keyboard ever misbehaves under keyd,
 > press **Backspace + Escape + Enter** together and keyd quits.
 
+> **Status (2026-10-23): `install-keyd` was tried and removed; do not install it as it is.** On the real laptop it made the left ⌘ act as Ctrl while the right ⌘ stayed Super, which the owner rejected (both ⌘ keys must behave alike,
+> as the two Ctrl keys do), and keyd's log showed it had matched and **grabbed the Apple trackpad** (`bcm5974`) despite the keyboard-only `k:` id. A redo needs both ⌘ keys identical and the trackpad excluded by its full id, and must be checked
+> in `journalctl -u keyd` before it is called done. `caps-lock` and `mackeys.lua` are unaffected and in use.
+
 | Script | What | Undo |
 |---|---|---|
 | `install-mackeys` | no root: installs `mackeys.lua` into the Hyprland config | `--remove` |

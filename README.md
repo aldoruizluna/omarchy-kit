@@ -132,7 +132,7 @@ For someone coming from macOS, on top of the gestures and top row the kit sets u
   dark at night, switching only when the period changes so a hand-picked theme sticks.
 - **Opt-in ⌘W ⌘T ⌘F ⌘S ⌘L ⌘G ⌘P** (`keys/mac-key-extras`): Omarchy already uses those Super keys, so you choose key by key;
   terminals always keep the Omarchy meaning.
-- **The ⌘ key as Ctrl everywhere** (`keys/install-keyd`, needs sudo, off until you install it): the left ⌘ key acts as Ctrl
+- **The ⌘ key as Ctrl everywhere** (`keys/install-keyd`; **tried on 2026-10-23 and removed**: it made the left and right ⌘ differ and keyd grabbed the trackpad, see [keys/README](keys/README.md); not installed): the left ⌘ key acts as Ctrl
   for every shortcut in every app (so ⌘C, ⌘T, ⌘-click and ⌘-scroll just work), ⌘Space, ⌘Tab, ⌘Q, ⌘H, ⌘M, ⇧⌘3/4/5 become Super
   chords for Hyprland, ⌘←/→ are Home/End and ⌥←/→ move by words. A terminal never gets ⌘ as Ctrl+letter (⌘C copies, it does not
   interrupt). The right ⌘ key stays Super for Omarchy's own shortcuts. Preview with `--dry-run`; if the keyboard misbehaves,

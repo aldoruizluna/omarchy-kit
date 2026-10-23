@@ -18,7 +18,7 @@ Two groups need things that are not in this repository and are skipped without t
   KEYD_SRC=/path/to/keyd/source     the real keyd engine: every Mac chord, the app switcher, the overlays and the Caps Lock delay are
                                     fed to the engine through test/keyd-trace.c and the keys that come out are compared (needs gcc)
 """
-import contextlib, getpass, importlib.machinery, io, importlib.util, json, os, pathlib, re, shutil, signal, socket, subprocess, sys, tempfile, threading, time, unittest
+import atexit, contextlib, getpass, importlib.machinery, io, importlib.util, json, os, pathlib, re, shutil, signal, socket, subprocess, sys, tempfile, threading, time, unittest
 from collections import Counter
 
 sys.dont_write_bytecode = True
@@ -28,6 +28,24 @@ KIT = HERE.parent
 KEYS = KIT / "keys"
 sys.path.insert(0, str(HERE))
 from test_sleep_power_themes import Sandbox, USERNS, calls, fake_bin, in_userns, run, tree, write_exec, SAFE_PATH  # noqa: E402
+
+
+_NO_KEYD = []
+
+
+def path_without_keyd():
+    """A PATH made of the system's own tools minus keyd, so these tests give the same answer whether or not the keyd package is installed on the
+    machine (it was not when they were written, and then it was: they must not depend on it)."""
+    if not _NO_KEYD:
+        d = tempfile.mkdtemp(prefix="kit-nokeyd-")
+        atexit.register(shutil.rmtree, d, True)
+        for src in ("/usr/bin", "/bin"):
+            for name in os.listdir(src):
+                dst = os.path.join(d, name)
+                if not name.startswith("keyd") and not os.path.lexists(dst):
+                    os.symlink(os.path.join(src, name), dst)
+        _NO_KEYD.append(d)
+    return _NO_KEYD[0]
 
 
 def load(path, name):
@@ -736,7 +754,7 @@ class InstallerArguments(Sandbox):
         fb = fake_bin(self.tmp / "fb", pacman="exit 0", systemctl="exit 0", keyd="exit 0")
         devices = self.devices()
         before = tree(self.tmp)
-        r = run(["bash", str(INSTALLER), "--dry-run"], env={"PATH": f"{fb}:{SAFE_PATH}", "HOME": str(self.tmp), "KEYD_KIT_DEVICES": devices})
+        r = run(["bash", str(INSTALLER), "--dry-run"], env={"PATH": f"{fb}:{path_without_keyd()}", "HOME": str(self.tmp), "KEYD_KIT_DEVICES": devices})
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("keyboards to remap: k:05ac:0262 k:004c:0267", r.stdout)
         for step in ("+ install -Dm644", "/etc/keyd/omarchy-kit-mac.conf", "keyd-appmap", "+ systemctl daemon-reload", "+ systemctl enable keyd.service",
@@ -750,7 +768,7 @@ class InstallerArguments(Sandbox):
     @unittest.skipIf(os.geteuid() == 0, "would touch the real system when run as root")
     def test_dry_run_honours_the_caps_delay_and_remove_prints_its_steps(self):
         fb = fake_bin(self.tmp / "fb", keyd="exit 0")
-        env = {"PATH": f"{fb}:{SAFE_PATH}", "HOME": str(self.tmp), "KEYD_KIT_DEVICES": self.devices()}
+        env = {"PATH": f"{fb}:{path_without_keyd()}", "HOME": str(self.tmp), "KEYD_KIT_DEVICES": self.devices()}
         r = run(["bash", str(INSTALLER), "--dry-run", "--caps-delay", "0"], env=env)
         self.assertEqual(r.returncode, 0)
         self.assertNotIn("capslock = timeout", r.stdout)
@@ -806,7 +824,7 @@ class InstallerInNamespace(Sandbox):
         return fb
 
     def env(self, fb, **extra):
-        return {"PATH": f"{fb}:{SAFE_PATH}", "HOME": str(self.tmp), "SUDO_UID": "1234", "KEYD_KIT_DEVICES": self.write_devices(),
+        return {"PATH": f"{fb}:{path_without_keyd()}", "HOME": str(self.tmp), "SUDO_UID": "1234", "KEYD_KIT_DEVICES": self.write_devices(),
                 "UNIT_COPY": str(self.tmp / "unit.service"), **extra}
 
     def write_devices(self):
